@@ -1,0 +1,83 @@
+services:
+  crm:
+    build:
+      context: .
+      args:
+        INSTALL_DEV: "false"
+        VITE_APP_NAME: "${VITE_APP_NAME:-Gravity AI CRM}"
+    image: gravity-ai-crm:prod
+    container_name: gravity-ai-crm-prod
+    env_file:
+      - .env.production
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: "${APP_URL:-https://zoortech.tj}"
+      DB_CONNECTION: mysql
+      DB_HOST: crm-mysql
+      DB_PORT: 3306
+      DB_DATABASE: "${DB_DATABASE:-ai_crm}"
+      DB_USERNAME: "${DB_USERNAME:-crm}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      CHATWOOT_URL: "${CHATWOOT_URL:-https://chatwoot.zoortech.tj}"
+      DIFY_API_URL: "${DIFY_API_URL:-https://dify.zoortech.tj/v1}"
+      WAIT_FOR_DB: "true"
+      RUN_MIGRATIONS: "${RUN_MIGRATIONS:-true}"
+      RUN_SEEDERS: "${RUN_SEEDERS:-false}"
+      CACHE_CONFIG: "true"
+      TRUSTED_PROXIES: "*"
+    depends_on:
+      crm-mysql:
+        condition: service_healthy
+    networks:
+      - zoortech
+    volumes:
+      - crm-storage:/var/www/html/storage
+    restart: unless-stopped
+
+  crm-mysql:
+    image: mysql:8.4
+    container_name: gravity-ai-crm-mysql-prod
+    environment:
+      MYSQL_DATABASE: "${DB_DATABASE:-ai_crm}"
+      MYSQL_USER: "${DB_USERNAME:-crm}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - zoortech
+    volumes:
+      - crm-mysql:/var/lib/mysql
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2-alpine
+    container_name: zoortech-proxy
+    env_file:
+      - .env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - zoortech
+    volumes:
+      - ./docker/prod/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+networks:
+  zoortech:
+    name: zoortech
+
+volumes:
+  crm-mysql:
+  crm-storage:
+  caddy-data:
+  caddy-config:

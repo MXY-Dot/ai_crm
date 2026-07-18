@@ -1,0 +1,12 @@
+.codebase-memory
+.env
+.git
+.phpunit.result.cache
+.scratch
+node_modules
+public/build
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+vendor
