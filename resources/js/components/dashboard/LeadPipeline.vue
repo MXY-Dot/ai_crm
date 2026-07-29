@@ -8,23 +8,31 @@ import { Badge } from '../ui/badge';
 import { Card } from '../ui/card';
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
 
-defineProps<{ selectedId?: number | null }>();
-defineEmits<{ select: [lead: Lead] }>();
+const props = withDefaults(defineProps<{ selectedId?: number | null; leads?: Lead[]; showFilters?: boolean }>(), {
+    showFilters: true,
+});
+const emit = defineEmits<{ select: [lead: Lead]; addLead: [] }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { filteredLeads, leadStatus, busy } = storeToRefs(store);
 const statuses = computed(() => ['all', 'new', 'qualified', 'won', 'lost'].map((status) => ({ value: status, label: locale.t(`leads.statuses.${status}`) })));
+const displayedLeads = computed(() => props.leads ?? filteredLeads.value);
+
+function selectLead(lead: Lead): void {
+    emit('select', lead);
+    store.openLead(lead.id);
+}
 </script>
 
 <template>
     <Card :title="locale.t('leads.title')" :subtitle="locale.t('leads.subtitle')">
-        <template #actions>
+        <template v-if="props.showFilters" #actions>
             <ToggleGroup v-model="leadStatus" type="single" variant="outline" size="sm" class="flex-wrap">
                 <ToggleGroupItem v-for="status in statuses" :key="status.value" :value="status.value">{{ status.label }}</ToggleGroupItem>
             </ToggleGroup>
         </template>
-        <div class="divide-y divide-white/10">
-            <button v-for="lead in filteredLeads" :key="lead.id" class="block w-full py-4 text-left first:pt-0 last:pb-0" @click="store.openLead(lead.id)">
+        <div v-if="displayedLeads.length" class="divide-y divide-white/10">
+            <button v-for="lead in displayedLeads" :key="lead.id" class="block w-full py-4 text-left first:pt-0 last:pb-0" @click="selectLead(lead)">
                 <div :class="['grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_auto] sm:items-center', selectedId === lead.id ? 'border-emerald-300/40 bg-emerald-300/10' : 'border-transparent hover:bg-white/[0.04]']">
                     <div>
                         <p class="font-medium text-white">{{ lead.title }}</p>
@@ -38,6 +46,10 @@ const statuses = computed(() => ['all', 'new', 'qualified', 'won', 'lost'].map((
                     </div>
                 </div>
             </button>
+        </div>
+        <div v-else class="rounded-md border border-dashed p-6 text-center">
+            <p class="text-sm text-zinc-400">No leads found.</p>
+            <button class="mt-3 rounded-md border px-3 py-2 text-sm text-zinc-200 hover:bg-white/10" type="button" @click="emit('addLead')">+ Add lead</button>
         </div>
     </Card>
 </template>

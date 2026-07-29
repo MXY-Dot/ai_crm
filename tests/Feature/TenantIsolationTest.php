@@ -48,6 +48,38 @@ class TenantIsolationTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_owner_created_lead_is_visible_only_to_its_tenant(): void
+    {
+        [$tenant, $user] = $this->tenantUser('owner');
+        [$otherTenant, $otherUser] = $this->tenantUser('owner');
+        $company = Company::query()->create(['tenant_id' => $tenant->id, 'name' => 'Visible Company']);
+
+        $this->actingAs($user)
+            ->withHeader('X-Tenant-Id', (string) $tenant->id)
+            ->postJson('/api/leads', [
+                'company_id' => $company->id,
+                'title' => 'Website consultation',
+                'source' => 'manual',
+                'score' => 50,
+                'customer_id' => null,
+                'status' => 'new',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('title', 'Website consultation')
+            ->assertJsonPath('status', 'new');
+
+        $this->actingAs($user)
+            ->withHeader('X-Tenant-Id', (string) $tenant->id)
+            ->getJson('/api/leads')
+            ->assertOk()
+            ->assertJsonPath('data.0.title', 'Website consultation');
+
+        $this->actingAs($otherUser)
+            ->withHeader('X-Tenant-Id', (string) $otherTenant->id)
+            ->getJson('/api/leads')
+            ->assertOk()
+            ->assertJsonMissing(['title' => 'Website consultation']);
+    }
     private function tenantUser(string $role): array
     {
         $tenant = Tenant::query()->create(['name' => fake()->company(), 'slug' => fake()->unique()->slug()]);
