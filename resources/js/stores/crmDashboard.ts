@@ -1,6 +1,8 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
+import { router } from '@inertiajs/vue3';
 import { apiRequest } from '../lib/apiClient';
+import { pathForRecord } from '../lib/pages';
 
 export type Toast = { id: number; tone: 'success' | 'error'; message: string };
 
@@ -315,6 +317,21 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         selectedConversationId.value = id;
     }
 
+    function openLead(id: number): void {
+        selectedLeadId.value = id;
+        router.visit(pathForRecord('lead'), { preserveState: true });
+    }
+
+    function openCustomer(id: number): void {
+        selectedCustomerId.value = id;
+        router.visit(pathForRecord('customer'), { preserveState: true });
+    }
+
+    function openConversation(id: number): void {
+        selectedConversationId.value = id;
+        router.visit(pathForRecord('conversation'), { preserveState: true });
+    }
+
     async function refreshDashboard(): Promise<void> {
         const data = await apiRequest<Bootstrap>('/api/dashboard');
         user.value = data.user ?? null;
@@ -528,6 +545,8 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         toasts,
         leadStatus,
         selectedConversationId,
+        selectedCustomerId,
+        selectedLeadId,
         busy,
         error,
         openTasks,
@@ -541,6 +560,9 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         notify,
         dismissToast,
         selectConversation,
+        openLead,
+        openCustomer,
+        openConversation,
         refreshDashboard,
         createCustomer,
         createLead,

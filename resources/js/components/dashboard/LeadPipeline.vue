@@ -24,7 +24,7 @@ const statuses = computed(() => ['all', 'new', 'qualified', 'won', 'lost'].map((
             </ToggleGroup>
         </template>
         <div class="divide-y divide-white/10">
-            <button v-for="lead in filteredLeads" :key="lead.id" class="block w-full py-4 text-left first:pt-0 last:pb-0" @click="$emit('select', lead)">
+            <button v-for="lead in filteredLeads" :key="lead.id" class="block w-full py-4 text-left first:pt-0 last:pb-0" @click="store.openLead(lead.id)">
                 <div :class="['grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_auto] sm:items-center', selectedId === lead.id ? 'border-emerald-300/40 bg-emerald-300/10' : 'border-transparent hover:bg-white/[0.04]']">
                     <div>
                         <p class="font-medium text-white">{{ lead.title }}</p>

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { Mail, Phone } from '@lucide/vue';
 import type { Customer } from '../../stores/crmDashboard';
+import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
 import { Badge } from '../ui/badge';
 import { Card } from '../ui/card';
 
 defineProps<{ customers: Customer[]; selectedId: number | null }>();
 defineEmits<{ select: [id: number] }>();
+const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 </script>
 
@@ -17,7 +19,7 @@ const locale = useLocaleStore();
                 v-for="customer in customers"
                 :key="customer.id"
                 class="block w-full py-3 text-left first:pt-0 last:pb-0"
-                @click="$emit('select', customer.id)"
+                @click="store.openCustomer(customer.id)"
             >
                 <div :class="['rounded-md border p-3 transition', selectedId === customer.id ? 'border-emerald-300/40 bg-emerald-300/10' : 'border-transparent hover:bg-white/[0.04]']">
                     <div class="flex items-start justify-between gap-3">

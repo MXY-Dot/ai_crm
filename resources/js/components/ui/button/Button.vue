@@ -10,6 +10,7 @@ interface Props extends /* @vue-ignore */ PrimitiveProps {
   variant?: ButtonVariants['variant']
   size?: ButtonVariants['size']
   class?: HTMLAttributes['class']
+  type?: HTMLButtonElement['type']
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
     :data-size="size"
     :as="as"
     :as-child="asChild"
+    :type="as === 'button' && !asChild ? type ?? 'button' : undefined"
     :class="cn(buttonVariants({ variant, size }), props.class)"
   >
     <slot />
