@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { LockKeyhole, Mail, Sparkles, UserRound } from '@lucide/vue';
 import { authPost, type AuthErrors } from '../../lib/authClient';
 import LanguageSwitcher from '../dashboard/LanguageSwitcher.vue';
@@ -55,7 +55,7 @@ async function submit(): Promise<void> {
             remember: form.remember,
         });
 
-        window.location.assign('/app');
+        router.visit('/app');
     } catch (caught) {
         errors.value = caught instanceof Error && 'errors' in caught ? (caught.errors as AuthErrors) : { email: 'Не удалось войти. Проверьте данные.' };
     } finally {
@@ -127,7 +127,7 @@ async function submit(): Promise<void> {
                         <input v-model="form.remember" class="h-4 w-4 rounded border-white/10 bg-white/5" type="checkbox">
                         Запомнить меня
                     </label>
-                    <Button class="w-full" variant="primary" type="button" :disabled="processing" @click="submit">{{ processing ? 'Подождите...' : (isRegister ? 'Создать workspace' : 'Войти') }}</Button>
+                    <Button class="w-full" variant="primary" type="submit" :disabled="processing">{{ processing ? 'Подождите...' : (isRegister ? 'Создать workspace' : 'Войти') }}</Button>
                 </form>
                 <p class="mt-4 text-center text-sm text-zinc-400">
                     <Link class="text-emerald-200 hover:underline" :href="isRegister ? '/login' : `/register?plan=${plan}`">{{ isRegister ? 'У меня уже есть аккаунт' : 'Создать аккаунт' }}</Link>
