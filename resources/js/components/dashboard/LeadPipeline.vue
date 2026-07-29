@@ -20,7 +20,6 @@ const displayedLeads = computed(() => props.leads ?? filteredLeads.value);
 
 function selectLead(lead: Lead): void {
     emit('select', lead);
-    store.openLead(lead.id);
 }
 </script>
 
@@ -32,20 +31,20 @@ function selectLead(lead: Lead): void {
             </ToggleGroup>
         </template>
         <div v-if="displayedLeads.length" class="divide-y divide-white/10">
-            <button v-for="lead in displayedLeads" :key="lead.id" class="block w-full py-4 text-left first:pt-0 last:pb-0" @click="selectLead(lead)">
-                <div :class="['grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_auto] sm:items-center', selectedId === lead.id ? 'border-emerald-300/40 bg-emerald-300/10' : 'border-transparent hover:bg-white/[0.04]']">
+            <article v-for="lead in displayedLeads" :key="lead.id" :class="['rounded-md border p-3', selectedId === lead.id ? 'border-emerald-300/40 bg-emerald-300/10' : 'border-transparent hover:bg-white/[0.04]']">
+                <button class="block w-full text-left focus:outline-none focus:ring-2 focus:ring-emerald-300/50" type="button" :aria-label="`Select ${lead.title}`" @click="selectLead(lead)">
                     <div>
                         <p class="font-medium text-white">{{ lead.title }}</p>
                         <p class="mt-1 text-sm text-zinc-400">{{ lead.source ?? locale.t('common.manual') }} - {{ locale.t('common.aiScore') }} {{ lead.score }}</p>
                         <p v-if="lead.ai_summary" class="mt-2 max-w-2xl text-sm text-zinc-500">{{ lead.ai_summary }}</p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Badge :tone="lead.status === 'qualified' ? 'green' : 'blue'">{{ locale.t(`leads.statuses.${lead.status}`) }}</Badge>
-                        <button class="rounded-sm border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50" :disabled="busy" @click.stop="store.updateLeadStatus(lead.id, 'qualified')">{{ locale.t('crm.qualify') }}</button>
-                        <button class="rounded-sm border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50" :disabled="busy" @click.stop="store.updateLeadStatus(lead.id, 'won')">{{ locale.t('crm.win') }}</button>
-                    </div>
+                </button>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <Badge :tone="lead.status === 'qualified' ? 'green' : 'blue'">{{ locale.t(`leads.statuses.${lead.status}`) }}</Badge>
+                    <button class="rounded-sm border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50" :disabled="busy" @click="store.updateLeadStatus(lead.id, 'qualified')">{{ locale.t('crm.qualify') }}</button>
+                    <button class="rounded-sm border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50" :disabled="busy" @click="store.updateLeadStatus(lead.id, 'won')">{{ locale.t('crm.win') }}</button>
                 </div>
-            </button>
+            </article>
         </div>
         <div v-else class="rounded-md border border-dashed p-6 text-center">
             <p class="text-sm text-zinc-400">No leads found.</p>

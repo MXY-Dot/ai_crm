@@ -69,3 +69,15 @@ test('logs out through an Inertia visit', () => {
     assert.match(layout, /router\.post\('\/logout', \{\}, \{\s*onFinish:/)
     assert.doesNotMatch(layout, /window\.location\.assign\(/)
 })
+
+test('keeps pipeline selection consumer-owned with separate lead actions', () => {
+    const pipeline = readFileSync(new URL('../../resources/js/components/dashboard/LeadPipeline.vue', import.meta.url), 'utf8')
+    const leadsPage = readFileSync(new URL('../../resources/js/pages/LeadsPage.vue', import.meta.url), 'utf8')
+    const crmPage = readFileSync(new URL('../../resources/js/pages/CrmPage.vue', import.meta.url), 'utf8')
+
+    assert.doesNotMatch(pipeline, /store\.openLead\(/)
+    assert.doesNotMatch(pipeline, /<button v-for=/)
+    assert.match(pipeline, /<article v-for="lead in displayedLeads"/)
+    assert.match(leadsPage, /@select="store\.openLead\(\$event\.id\)"/)
+    assert.match(crmPage, /@select="selectLead"/)
+})

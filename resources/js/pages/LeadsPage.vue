@@ -51,6 +51,6 @@ defineOptions({ layout: AppLayout });
             </label>
         </div>
         <CrmQuickForms v-if="showLeadForm" lead-only @lead-created="showLeadForm = false" />
-        <LeadPipeline :leads="filteredLeads" :selected-id="selectedLeadId" :show-filters="false" @add-lead="showLeadForm = true" />
+        <LeadPipeline :leads="filteredLeads" :selected-id="selectedLeadId" :show-filters="false" @select="store.openLead($event.id)" @add-lead="showLeadForm = true" />
     </section>
 </template>
