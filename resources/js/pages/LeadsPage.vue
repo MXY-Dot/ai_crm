@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue';
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Plus, SlidersHorizontal } from '@lucide/vue';
@@ -12,6 +13,8 @@ const columns = computed(() => ['new', 'contacted', 'qualified', 'won'].map((sta
     title: status === 'new' ? 'New' : status[0].toUpperCase() + status.slice(1),
     items: leads.value.filter((lead) => status === 'contacted' ? lead.status === 'open' : lead.status === status),
 })));
+
+defineOptions({ layout: AppLayout });
 </script>
 
 <template>

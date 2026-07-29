@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Bot, CheckCircle2, Globe2, MessageCircle, Send } from '@lucide/vue';
@@ -36,6 +37,8 @@ const connectedCount = computed(() => cards.value.filter((card) => card.configur
 onMounted(async () => {
     if (! integrationSettings.value) await store.loadIntegrationSettings();
 });
+
+defineOptions({ layout: AppLayout });
 </script>
 
 <template>

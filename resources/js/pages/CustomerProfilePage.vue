@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue';
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Mail, Phone, Star } from '@lucide/vue';
@@ -8,6 +9,8 @@ import { useCrmDashboardStore } from '../stores/crmDashboard';
 
 const { customers, conversations, leads } = storeToRefs(useCrmDashboardStore());
 const customer = computed(() => customers.value[0] ?? null);
+
+defineOptions({ layout: AppLayout });
 </script>
 
 <template>

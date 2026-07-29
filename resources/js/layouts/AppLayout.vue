@@ -1,43 +1,33 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import { storeToRefs } from 'pinia';
 import { LogOut, Smartphone } from '@lucide/vue';
-import LandingScreen from '../components/auth/LandingScreen.vue';
-import LoginScreen from '../components/auth/LoginScreen.vue';
-import AiWorkspace from '../components/dashboard/AiWorkspace.vue';
-import AppSidebar from '../components/dashboard/AppSidebar.vue';
-import EmptyState from '../components/dashboard/EmptyState.vue';
-import InboxWorkspace from '../components/dashboard/InboxWorkspace.vue';
-import LanguageSwitcher from '../components/dashboard/LanguageSwitcher.vue';
-import ThemeSwitcher from '../components/dashboard/ThemeSwitcher.vue';
-import MobileNav from '../components/dashboard/MobileNav.vue';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import AnalyticsPage from './AnalyticsPage.vue';
-import CrmPage from './CrmPage.vue';
-import CustomerProfilePage from './CustomerProfilePage.vue';
-import IntegrationsPage from './IntegrationsPage.vue';
-import KnowledgePage from './KnowledgePage.vue';
-import LeadsPage from './LeadsPage.vue';
-import OverviewPage from './OverviewPage.vue';
-import SettingsPage from './SettingsPage.vue';
-import { authPost } from '../lib/authClient';
-import { type Bootstrap, useCrmDashboardStore } from '../stores/crmDashboard';
-import { type DashboardPage } from '../lib/pages';
-import { useLocaleStore } from '../stores/locale';
-import { useThemeStore } from '../stores/theme';
+import AppSidebar from '@/components/dashboard/AppSidebar.vue';
+import EmptyState from '@/components/dashboard/EmptyState.vue';
+import LanguageSwitcher from '@/components/dashboard/LanguageSwitcher.vue';
+import MobileNav from '@/components/dashboard/MobileNav.vue';
+import ThemeSwitcher from '@/components/dashboard/ThemeSwitcher.vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { authPost } from '@/lib/authClient';
+import { pageFromPath } from '@/lib/pages';
+import { type Bootstrap, useCrmDashboardStore } from '@/stores/crmDashboard';
+import { useLocaleStore } from '@/stores/locale';
+import { useThemeStore } from '@/stores/theme';
 
-const props = defineProps<{ bootstrap: Bootstrap; page: DashboardPage }>();
+const page = usePage<{ bootstrap: Bootstrap }>();
 const store = useCrmDashboardStore();
-watch(
-    () => [props.bootstrap, props.page] as const,
-    ([bootstrap, page]) => store.hydrateBootstrap(bootstrap, page),
-    { immediate: true },
-);
 const locale = useLocaleStore();
 useThemeStore();
-const { tenant, company, activeView, apiHeader, hasData, user, toasts } = storeToRefs(store);
-const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+const { tenant, company, apiHeader, hasData, user, toasts } = storeToRefs(store);
+const activePage = computed(() => pageFromPath(new URL(page.url, window.location.origin).pathname));
+
+watch(
+    () => page.props.bootstrap,
+    (bootstrap) => bootstrap && store.hydrateBootstrap(bootstrap),
+    { immediate: true },
+);
 
 let dashboardRefreshTimer: number | null = null;
 let dashboardRefreshInFlight = false;
@@ -60,6 +50,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     if (dashboardRefreshTimer !== null) window.clearInterval(dashboardRefreshTimer);
 });
+
 const logoutProcessing = ref(false);
 
 async function logout(): Promise<void> {
@@ -73,33 +64,14 @@ async function logout(): Promise<void> {
         logoutProcessing.value = false;
     }
 }
+
 const tenantStatusLabel = computed(() => tenant.value?.status ? locale.t('status.' + tenant.value.status) : locale.t('common.setup'));
-
-const currentPage = computed(() => {
-    if (activeView.value === 'inbox') return InboxWorkspace;
-    if (activeView.value === 'leads') return LeadsPage;
-    if (activeView.value === 'customers') return CustomerProfilePage;
-    if (activeView.value === 'crm') return CrmPage;
-    if (activeView.value === 'ai') return AiWorkspace;
-    if (activeView.value === 'knowledge') return KnowledgePage;
-    if (activeView.value === 'analytics') return AnalyticsPage;
-    if (activeView.value === 'integrations') return IntegrationsPage;
-    if (activeView.value === 'settings') return SettingsPage;
-
-    return OverviewPage;
-});
-
 </script>
 
 <template>
-    <LandingScreen v-if="store.authMode === 'landing'" />
-    <LoginScreen v-else-if="store.authMode === 'login' || store.authMode === 'register'" />
-    <div v-else class="min-h-screen antialiased" style="background: var(--background); color: var(--foreground)">
+    <div class="min-h-screen antialiased" style="background: var(--background); color: var(--foreground)">
         <div class="flex min-h-screen">
-            <AppSidebar
-                :active="activeView"
-                :tenant-name="tenant?.name ?? locale.t('common.noTenant')"
-            />
+            <AppSidebar :active="activePage" :tenant-name="tenant?.name ?? locale.t('common.noTenant')" />
 
             <main class="min-w-0 flex-1 pb-20 lg:pb-0">
                 <header class="sticky top-0 z-10 border-b px-4 py-4 backdrop-blur sm:px-6 lg:px-8" style="border-color: var(--border); background: color-mix(in srgb, var(--background) 92%, transparent)">
@@ -134,19 +106,13 @@ const currentPage = computed(() => {
 
                 <div class="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
                     <EmptyState v-if="!hasData" />
-                    <component :is="currentPage" v-else />
+                    <slot v-else />
                 </div>
             </main>
         </div>
-
-        <MobileNav :active="activeView" />
+        <MobileNav :active="activePage" />
         <div class="fixed right-4 top-4 z-50 flex w-[min(360px,calc(100vw-32px))] flex-col gap-2">
-            <div
-                v-for="toast in toasts"
-                :key="toast.id"
-                class="rounded-md border px-4 py-3 text-sm shadow-xl backdrop-blur"
-                :class="toast.tone === 'error' ? 'border-red-400/40 bg-red-950/90 text-red-50' : 'border-emerald-400/40 bg-zinc-950/95 text-emerald-50'"
-            >
+            <div v-for="toast in toasts" :key="toast.id" class="rounded-md border px-4 py-3 text-sm shadow-xl backdrop-blur" :class="toast.tone === 'error' ? 'border-red-400/40 bg-red-950/90 text-red-50' : 'border-emerald-400/40 bg-zinc-950/95 text-emerald-50'">
                 <div class="flex items-start justify-between gap-3">
                     <span>{{ toast.message }}</span>
                     <button class="text-lg leading-none text-zinc-400 hover:text-white" type="button" @click="store.dismissToast(toast.id)">x</button>

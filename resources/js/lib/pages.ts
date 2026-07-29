@@ -12,3 +12,7 @@ export const pagePaths: Record<DashboardPage, string> = {
     integrations: '/integrations',
     settings: '/settings',
 };
+export function pageFromPath(pathname: string): DashboardPage {
+    return (Object.entries(pagePaths).find(([, path]) => path === pathname)?.[0]
+        ?? 'overview') as DashboardPage
+}

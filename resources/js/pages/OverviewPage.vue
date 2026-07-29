@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue';
 import { storeToRefs } from 'pinia';
 import { Bot, CheckSquare, MessageSquare, Target, Users } from '@lucide/vue';
 import VisualStatCard from '../components/dashboard/visual/VisualStatCard.vue';
@@ -8,6 +9,8 @@ import { useCrmDashboardStore } from '../stores/crmDashboard';
 
 const store = useCrmDashboardStore();
 const { customers, leads, conversations, openTasks, aiRuns } = storeToRefs(store);
+
+defineOptions({ layout: AppLayout });
 </script>
 
 <template>

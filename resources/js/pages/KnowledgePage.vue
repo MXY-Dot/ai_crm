@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue';
 import { onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { BookOpen, CheckCircle2 } from '@lucide/vue';
@@ -13,6 +14,8 @@ const { knowledgeDocuments } = storeToRefs(store);
 onMounted(() => {
     void store.refreshDashboard();
 });
+
+defineOptions({ layout: AppLayout });
 </script>
 
 <template>

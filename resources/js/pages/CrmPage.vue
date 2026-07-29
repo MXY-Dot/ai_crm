@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import CrmQuickForms from '../components/dashboard/CrmQuickForms.vue';
@@ -26,6 +27,8 @@ function selectLead(lead: Lead): void {
     selectedLeadId.value = lead.id;
     if (lead.customer_id) selectedCustomerId.value = lead.customer_id;
 }
+
+defineOptions({ layout: AppLayout });
 </script>
 
 <template>

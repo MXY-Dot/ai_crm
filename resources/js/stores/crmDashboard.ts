@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { apiRequest } from '../lib/apiClient';
-import { type DashboardPage } from '../lib/pages';
 
 export type Toast = { id: number; tone: 'success' | 'error'; message: string };
 
@@ -205,9 +204,6 @@ export type CompanyProfile = {
 export type CompanyPayload = Partial<Omit<CompanyProfile, 'id'>>;
 
 export type Bootstrap = {
-    authMode?: 'landing' | 'login' | 'register' | 'dashboard';
-    login?: { email: string; password: string };
-    plan?: string;
     user?: { id: number; name: string; email: string; role: string } | null;
     tenant: { id: number; name: string; slug: string; status: string } | null;
     company: CompanyProfile | null;
@@ -226,9 +222,6 @@ export type Bootstrap = {
 };
 
 const fallback: Bootstrap = {
-    authMode: 'dashboard',
-    plan: 'starter',
-    login: { email: 'owner@gravity.test', password: 'password' },
     user: null,
     tenant: null,
     company: null,
@@ -248,9 +241,6 @@ const fallback: Bootstrap = {
 
 export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const boot = fallback;
-    const authMode = ref(boot.authMode ?? 'dashboard');
-    const login = ref(boot.login ?? fallback.login);
-    const plan = ref(boot.plan ?? 'starter');
     const user = ref(boot.user ?? null);
     const tenant = ref(boot.tenant);
     const company = ref(boot.company);
@@ -268,7 +258,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const tenantUsers = ref(boot.tenantUsers ?? []);
     const integrationSettings = ref<IntegrationSettings | null>(null);
     const toasts = ref<Toast[]>([]);
-    const activeView = ref<DashboardPage>('overview');
     const leadStatus = ref('all');
     const selectedConversationId = ref<number | null>(conversations.value[0]?.id ?? null);
     const selectedCustomerId = ref<number | null>(customers.value[0]?.id ?? null);
@@ -289,7 +278,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const aiHandoffs = computed(() => aiRuns.value.filter((run) => run.confidence < (aiAgents.value[0]?.handoff_threshold ?? 70)));
     const apiHeader = computed(() => `X-Tenant-Id: ${tenant.value?.slug ?? 'demo'}`);
     const hasData = computed(() => tenant.value !== null);
-    const isLogin = computed(() => authMode.value === 'login');
     const tenantSlug = computed(() => tenant.value?.slug ?? null);
     const companyId = computed(() => company.value?.id ?? null);
 
@@ -303,10 +291,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         toasts.value = toasts.value.filter((toast) => toast.id !== id);
     }
 
-    function hydrateBootstrap(data: Bootstrap, page: DashboardPage = 'overview'): void {
-        authMode.value = data.authMode ?? 'dashboard';
-        login.value = data.login ?? fallback.login;
-        plan.value = data.plan ?? 'starter';
+    function hydrateBootstrap(data: Bootstrap): void {
         user.value = data.user ?? null;
         tenant.value = data.tenant ?? null;
         company.value = data.company ?? null;
@@ -322,7 +307,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         knowledgeDocuments.value = data.knowledgeDocuments ?? [];
         auditLogs.value = data.auditLogs ?? [];
         tenantUsers.value = data.tenantUsers ?? [];
-        activeView.value = page;
         selectedConversationId.value = conversations.value[0]?.id ?? null;
         selectedCustomerId.value = customers.value[0]?.id ?? null;
         selectedLeadId.value = leads.value[0]?.id ?? null;
@@ -525,9 +509,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     }
 
     return {
-        authMode,
-        login,
-        plan,
         user,
         tenant,
         company,
@@ -545,7 +526,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         tenantUsers,
         integrationSettings,
         toasts,
-        activeView,
         leadStatus,
         selectedConversationId,
         busy,
@@ -557,7 +537,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         aiHandoffs,
         apiHeader,
         hasData,
-        isLogin,
         hydrateBootstrap,
         notify,
         dismissToast,
