@@ -241,6 +241,10 @@ const fallback: Bootstrap = {
     tenantUsers: [],
 };
 
+function selectedRecordId<T extends { id: number }>(currentId: number | null, records: T[]): number | null {
+    return currentId !== null && records.some((record) => record.id === currentId) ? currentId : records[0]?.id ?? null;
+}
+
 export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const boot = fallback;
     const user = ref(boot.user ?? null);
@@ -309,9 +313,9 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         knowledgeDocuments.value = data.knowledgeDocuments ?? [];
         auditLogs.value = data.auditLogs ?? [];
         tenantUsers.value = data.tenantUsers ?? [];
-        selectedConversationId.value = conversations.value[0]?.id ?? null;
-        selectedCustomerId.value = customers.value[0]?.id ?? null;
-        selectedLeadId.value = leads.value[0]?.id ?? null;
+        selectedConversationId.value = selectedRecordId(selectedConversationId.value, conversations.value);
+        selectedCustomerId.value = selectedRecordId(selectedCustomerId.value, customers.value);
+        selectedLeadId.value = selectedRecordId(selectedLeadId.value, leads.value);
     }
     function selectConversation(id: number): void {
         selectedConversationId.value = id;
@@ -349,9 +353,9 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         knowledgeDocuments.value = data.knowledgeDocuments ?? [];
         auditLogs.value = data.auditLogs ?? [];
         tenantUsers.value = data.tenantUsers ?? [];
-        selectedConversationId.value ??= conversations.value[0]?.id ?? null;
-        selectedCustomerId.value ??= customers.value[0]?.id ?? null;
-        selectedLeadId.value ??= leads.value[0]?.id ?? null;
+        selectedConversationId.value = selectedRecordId(selectedConversationId.value, conversations.value);
+        selectedCustomerId.value = selectedRecordId(selectedCustomerId.value, customers.value);
+        selectedLeadId.value = selectedRecordId(selectedLeadId.value, leads.value);
     }
 
     async function mutate(action: () => Promise<unknown>): Promise<void> {
