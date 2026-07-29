@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { storeToRefs } from 'pinia';
 import { LogOut, Smartphone } from '@lucide/vue';
 import AppSidebar from '@/components/dashboard/AppSidebar.vue';
@@ -10,7 +10,6 @@ import MobileNav from '@/components/dashboard/MobileNav.vue';
 import ThemeSwitcher from '@/components/dashboard/ThemeSwitcher.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { authPost } from '@/lib/authClient';
 import { pageFromPath } from '@/lib/pages';
 import { type Bootstrap, useCrmDashboardStore } from '@/stores/crmDashboard';
 import { useLocaleStore } from '@/stores/locale';
@@ -53,16 +52,13 @@ onBeforeUnmount(() => {
 
 const logoutProcessing = ref(false);
 
-async function logout(): Promise<void> {
+function logout(): void {
     if (logoutProcessing.value) return;
 
     logoutProcessing.value = true;
-    try {
-        await authPost('/logout');
-        window.location.assign('/login');
-    } finally {
-        logoutProcessing.value = false;
-    }
+    router.post('/logout', {
+        onFinish: () => { logoutProcessing.value = false; },
+    });
 }
 
 const tenantStatusLabel = computed(() => tenant.value?.status ? locale.t('status.' + tenant.value.status) : locale.t('common.setup'));
