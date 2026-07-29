@@ -56,7 +56,7 @@ function logout(): void {
     if (logoutProcessing.value) return;
 
     logoutProcessing.value = true;
-    router.post('/logout', {
+    router.post('/logout', {}, {
         onFinish: () => { logoutProcessing.value = false; },
     });
 }

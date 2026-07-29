@@ -12,6 +12,6 @@ test('maps routed URLs to dashboard page ids', () => {
 test('logs out through an Inertia visit', () => {
     const layout = readFileSync(new URL('../../resources/js/layouts/AppLayout.vue', import.meta.url), 'utf8')
 
-    assert.match(layout, /router\.post\('\/logout'/)
+    assert.match(layout, /router\.post\('\/logout', \{\}, \{\s*onFinish:/)
     assert.doesNotMatch(layout, /window\.location\.assign\(/)
 })
