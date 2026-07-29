@@ -23,13 +23,9 @@ class SessionController extends Controller
             return redirect()->route('dashboard');
         }
 
-        return Inertia::render('Dashboard', [
-            'bootstrap' => [
-                'authMode' => 'login',
-                'login' => ['email' => 'owner@gravity.test', 'password' => 'password'],
-                'plan' => request('plan', 'starter'),
-            ],
-            'page' => 'overview',
+        return Inertia::render('LoginPage', [
+            'login' => ['email' => 'owner@gravity.test', 'password' => 'password'],
+            'plan' => request('plan', 'starter'),
         ]);
     }
 
@@ -39,13 +35,8 @@ class SessionController extends Controller
             return redirect()->route('dashboard');
         }
 
-        return Inertia::render('Dashboard', [
-            'bootstrap' => [
-                'authMode' => 'register',
-                'login' => ['email' => '', 'password' => ''],
-                'plan' => request('plan', 'starter'),
-            ],
-            'page' => 'overview',
+        return Inertia::render('RegisterPage', [
+            'plan' => request('plan', 'starter'),
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AuthFlowTest extends TestCase
@@ -18,9 +19,18 @@ class AuthFlowTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
-                ->where('page', 'overview')
-                ->where('bootstrap.authMode', 'landing'));
+                ->component('HomePage'));
+    }
+
+    public function test_guests_see_dedicated_auth_pages(): void
+    {
+        $this->get('/login')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('LoginPage'));
+
+        $this->get('/register')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('RegisterPage'));
     }
 
     public function test_guest_is_redirected_to_login_from_dashboard(): void
@@ -72,19 +82,35 @@ class AuthFlowTest extends TestCase
         $this->get('/auth/google')->assertRedirect('/login');
     }
 
-    public function test_authenticated_user_can_open_dashboard_pages_directly(): void
+    public static function dashboardPages(): array
     {
-        $tenant = Tenant::query()->create(['name' => 'Demo', 'slug' => 'demo']);
-        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => 'owner']);
+        return [
+            ['/app', 'OverviewPage'],
+            ['/inbox', 'InboxPage'],
+            ['/leads', 'LeadsPage'],
+            ['/customers', 'CustomerProfilePage'],
+            ['/crm', 'CrmPage'],
+            ['/ai', 'AiPage'],
+            ['/knowledge', 'KnowledgePage'],
+            ['/analytics', 'AnalyticsPage'],
+            ['/integrations', 'IntegrationsPage'],
+            ['/settings', 'SettingsPage'],
+        ];
+    }
 
-        foreach (['/inbox' => 'inbox', '/crm' => 'crm', '/ai' => 'ai', '/settings' => 'settings'] as $path => $page) {
-            $this->actingAs($user)
-                ->get($path)
-                ->assertOk()
-                ->assertInertia(fn (Assert $inertia) => $inertia
-                    ->component('Dashboard')
-                    ->where('page', $page));
-        }
+    #[DataProvider('dashboardPages')]
+    public function test_authenticated_user_can_open_each_concrete_inertia_page(
+        string $uri,
+        string $component,
+    ): void {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get($uri)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component($component)
+                ->has('bootstrap'));
     }
 
     public function test_unknown_dashboard_page_is_not_captured_by_spa_route(): void

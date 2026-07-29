@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Support\Dashboard\DashboardData;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -20,10 +21,7 @@ Route::get('/chatwoot-vite/assets/{asset}', function (string $asset) {
         ->header('Cache-Control', 'no-store');
 })->where('asset', '[A-Za-z0-9_.\/-]+');
 
-Route::get('/', fn () => Inertia::render('Dashboard', [
-    'bootstrap' => ['authMode' => 'landing'],
-    'page' => 'overview',
-]))->name('home');
+Route::get('/', fn () => Inertia::render('HomePage'))->name('home');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
@@ -36,13 +34,33 @@ Route::middleware('guest')->group(function (): void {
 
 Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth')->name('logout');
 
-$dashboardView = fn (DashboardData $dashboard, string $page = 'overview') => Inertia::render('Dashboard', [
-    'bootstrap' => $dashboard->forUser(request()->user()) + ['authMode' => 'dashboard'],
-    'page' => $page,
+$dashboardPage = static fn (
+    Request $request,
+    DashboardData $dashboard,
+    string $component,
+) => Inertia::render($component, [
+    'bootstrap' => $dashboard->forUser($request->user()),
 ]);
 
-Route::get('/app', fn (DashboardData $dashboard) => $dashboardView($dashboard))->middleware('auth')->name('dashboard');
-Route::get('/{page}', fn (string $page, DashboardData $dashboard) => $dashboardView($dashboard, $page))
-    ->whereIn('page', ['inbox', 'leads', 'customers', 'crm', 'ai', 'knowledge', 'analytics', 'integrations', 'settings'])
-    ->middleware('auth')
-    ->name('dashboard.page');
+Route::middleware('auth')->group(function () use ($dashboardPage): void {
+    Route::get('/app', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'OverviewPage'))->name('dashboard');
+    Route::get('/inbox', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'InboxPage'))->name('inbox');
+    Route::get('/leads', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'LeadsPage'))->name('leads');
+    Route::get('/customers', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'CustomerProfilePage'))->name('customers');
+    Route::get('/crm', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'CrmPage'))->name('crm');
+    Route::get('/ai', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'AiPage'))->name('ai');
+    Route::get('/knowledge', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'KnowledgePage'))->name('knowledge');
+    Route::get('/analytics', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'AnalyticsPage'))->name('analytics');
+    Route::get('/integrations', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'IntegrationsPage'))->name('integrations');
+    Route::get('/settings', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'SettingsPage'))->name('settings');
+});

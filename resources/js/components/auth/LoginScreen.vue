@@ -3,29 +3,35 @@ import { computed, reactive, ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { LockKeyhole, Mail, Sparkles, UserRound } from '@lucide/vue';
 import { authPost, type AuthErrors } from '../../lib/authClient';
-import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import LanguageSwitcher from '../dashboard/LanguageSwitcher.vue';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 
-const store = useCrmDashboardStore();
-const isRegister = computed(() => store.authMode === 'register');
-const plan = computed(() => new URLSearchParams(window.location.search).get('plan') ?? store.plan ?? 'starter');
+const props = withDefaults(defineProps<{
+    mode: 'login' | 'register';
+    login?: { email: string; password: string };
+    plan?: string;
+}>(), {
+    login: () => ({ email: '', password: '' }),
+    plan: 'starter',
+});
+const isRegister = computed(() => props.mode === 'register');
+const plan = computed(() => props.plan);
 const processing = ref(false);
 const errors = ref<AuthErrors>({});
 const form = reactive({
     name: '',
     workspace: '',
-    email: store.login?.email ?? '',
-    password: store.login?.password ?? '',
+    email: props.login.email,
+    password: props.login.password,
     password_confirmation: '',
     remember: false,
 });
 
-watch(() => store.login, (login) => {
+watch(() => props.login, (login) => {
     if (!isRegister.value) {
-        form.email = login?.email ?? '';
-        form.password = login?.password ?? '';
+        form.email = login.email;
+        form.password = login.password;
     }
 }, { immediate: true });
 
