@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 import { buttonVariants } from '.'
 
 interface Props extends /* @vue-ignore */ PrimitiveProps {
+  as?: PrimitiveProps['as']
+  asChild?: PrimitiveProps['asChild']
   variant?: ButtonVariants['variant']
   size?: ButtonVariants['size']
   class?: HTMLAttributes['class']
@@ -23,9 +25,9 @@ const props = withDefaults(defineProps<Props>(), {
     data-slot="button"
     :data-variant="variant"
     :data-size="size"
-    :as="as"
-    :as-child="asChild"
-    :type="as === 'button' && !asChild ? type ?? 'button' : undefined"
+    :as="props.as"
+    :as-child="props.asChild"
+    :type="props.as === 'button' && !props.asChild ? props.type ?? 'button' : undefined"
     :class="cn(buttonVariants({ variant, size }), props.class)"
   >
     <slot />
