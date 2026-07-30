@@ -36,6 +36,7 @@ class IntegrationSettingsTest extends TestCase
                     'account_id' => 7,
                     'api_token' => 'chatwoot-api-token',
                     'webhook_secret' => 'chatwoot-secret',
+                    'auto_reply_enabled' => true,
                 ],
             ])
             ->assertOk()
@@ -49,7 +50,8 @@ class IntegrationSettingsTest extends TestCase
             ->assertJsonPath('chatwoot.api_token_configured', true)
             ->assertJsonPath('chatwoot.api_token_mask', '**************oken')
             ->assertJsonPath('chatwoot.webhook_secret_configured', true)
-            ->assertJsonPath('chatwoot.webhook_secret_mask', '***********cret');
+            ->assertJsonPath('chatwoot.webhook_secret_mask', '***********cret')
+            ->assertJsonPath('chatwoot.auto_reply_enabled', true);
 
         $tenant->refresh();
         $agent->refresh();
@@ -65,6 +67,7 @@ class IntegrationSettingsTest extends TestCase
         $this->assertNotSame('chatwoot-secret', data_get($tenant->settings, 'integrations.chatwoot.webhook_secret'));
         $this->assertStringStartsWith('enc:v1:', data_get($tenant->settings, 'integrations.chatwoot.webhook_secret'));
         $this->assertSame('chatwoot-secret', app(TenantIntegrationSettings::class)->chatwootWebhookSecret($tenant, false));
+        $this->assertTrue(data_get($tenant->settings, 'integrations.chatwoot.auto_reply_enabled'));
         $this->assertSame(72, $agent->handoff_threshold);
         $this->assertDatabaseHas(AuditLog::class, [
             'tenant_id' => $tenant->id,
@@ -137,6 +140,19 @@ class IntegrationSettingsTest extends TestCase
         $this->assertSame('plain-chatwoot-token', $settings->chatwootApiToken($tenant, false));
         $this->assertSame('plain-chatwoot-secret', $settings->chatwootWebhookSecret($tenant, false));
     }
+    public function test_unset_dify_url_is_returned_as_null(): void
+    {
+        config(['services.dify.url' => null]);
+        [, , $user] = $this->tenantSetup('owner');
+
+        $this->actingAs($user)
+            ->withHeader('X-Tenant-Id', 'demo')
+            ->getJson('/api/integration-settings')
+            ->assertOk()
+            ->assertJsonPath('dify.url', null);
+    }
+
+
     public function test_operator_cannot_update_integration_settings(): void
     {
         [, , $user] = $this->tenantSetup('operator');

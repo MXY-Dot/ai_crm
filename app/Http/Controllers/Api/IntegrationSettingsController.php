@@ -277,7 +277,7 @@ class IntegrationSettingsController extends Controller
 
         return [
             'dify' => [
-                'url' => $this->secrets->difyUrl($tenant),
+                'url' => $this->secrets->difyUrl($tenant) ?: null,
                 'api_key_configured' => $difyKey !== '',
                 'api_key_mask' => $this->secrets->mask($difyKey),
                 'timeout' => Arr::get($settings, 'integrations.dify.timeout', config('services.dify.timeout', 12)),

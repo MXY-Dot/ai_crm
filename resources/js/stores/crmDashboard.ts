@@ -177,6 +177,40 @@ export type IntegrationSettingsPayload = {
     };
 };
 
+export type IntegrationSettingsForm = {
+    difyApiKey: string;
+    difyTimeout: number;
+    handoffThreshold: number;
+    chatwootAccountId: number | null;
+    chatwootApiToken: string;
+    chatwootSecret: string;
+    chatwootAutoReply: boolean;
+    telegramBotToken: string;
+    telegramSecret: string;
+    telegramAutoReply: boolean;
+};
+
+export function buildIntegrationSettingsPayload(form: IntegrationSettingsForm): IntegrationSettingsPayload {
+    return {
+        dify: {
+            api_key: form.difyApiKey || undefined,
+            timeout: Number(form.difyTimeout),
+            handoff_threshold: Number(form.handoffThreshold),
+        },
+        chatwoot: {
+            account_id: form.chatwootAccountId || null,
+            api_token: form.chatwootApiToken || undefined,
+            webhook_secret: form.chatwootSecret || undefined,
+            auto_reply_enabled: form.chatwootAutoReply,
+        },
+        telegram: {
+            bot_token: form.telegramBotToken || undefined,
+            webhook_secret: form.telegramSecret || undefined,
+            auto_reply_enabled: form.telegramAutoReply,
+        },
+    };
+}
+
 export type AiRun = {
     id: number;
     status: string;
@@ -502,11 +536,19 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     }
 
     async function testIntegrationConnection(payload: IntegrationSettingsPayload & { provider: 'dify' | 'chatwoot' }): Promise<IntegrationTestResult> {
-        return apiRequest<IntegrationTestResult>('/api/integration-settings/test', {
-            method: 'POST',
-            tenant: tenantSlug.value,
-            body: payload,
-        });
+        try {
+            const result = await apiRequest<IntegrationTestResult>('/api/integration-settings/test', {
+                method: 'POST',
+                tenant: tenantSlug.value,
+                body: payload,
+            });
+            notify(result.message, result.ok ? 'success' : 'error');
+
+            return result;
+        } catch (caught) {
+            notify(caught instanceof Error ? caught.message : 'Connection test failed', 'error');
+            throw caught;
+        }
     }
 
     async function updateIntegrationSettings(payload: IntegrationSettingsPayload): Promise<void> {

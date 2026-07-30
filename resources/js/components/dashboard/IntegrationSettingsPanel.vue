@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Bot, KeyRound, PlugZap, Save, Send } from '@lucide/vue';
-import { useCrmDashboardStore } from '../../stores/crmDashboard';
+import { buildIntegrationSettingsPayload, useCrmDashboardStore } from '../../stores/crmDashboard';
+import type { IntegrationSettingsForm } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -12,7 +13,7 @@ const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { integrationSettings, busy, error } = storeToRefs(store);
 
-const form = reactive({
+const form = reactive<IntegrationSettingsForm>({
     difyApiKey: '',
     difyTimeout: 12,
     handoffThreshold: 70,
@@ -25,8 +26,10 @@ const form = reactive({
     telegramAutoReply: false,
 });
 
-const testingProvider = ref<'dify' | 'chatwoot' | null>(null);
-const connectionTest = ref<{ ok: boolean; message: string; status: string } | null>(null);
+type Provider = 'dify' | 'chatwoot';
+type ConnectionTest = { ok: boolean; message: string; status: string };
+const testing = reactive<Record<Provider, boolean>>({ dify: false, chatwoot: false });
+const connectionTests = reactive<Record<Provider, ConnectionTest | null>>({ dify: null, chatwoot: null });
 const difyConfigured = computed(() => integrationSettings.value?.dify.api_key_configured ?? false);
 const chatwootConfigured = computed(() => integrationSettings.value?.chatwoot.api_token_configured ?? false);
 const telegramConfigured = computed(() => integrationSettings.value?.telegram?.bot_token_configured ?? false);
@@ -47,9 +50,9 @@ function syncForm(): void {
     form.telegramAutoReply = settings.telegram?.auto_reply_enabled ?? false;
 }
 
-async function testConnection(provider: 'dify' | 'chatwoot'): Promise<void> {
-    testingProvider.value = provider;
-    connectionTest.value = null;
+async function testConnection(provider: Provider): Promise<void> {
+    testing[provider] = true;
+    connectionTests[provider] = null;
 
     try {
         const result = await store.testIntegrationConnection({
@@ -65,38 +68,25 @@ async function testConnection(provider: 'dify' | 'chatwoot'): Promise<void> {
                 auto_reply_enabled: form.chatwootAutoReply,
             } : undefined,
         });
-        connectionTest.value = { ok: result.ok, message: result.message, status: result.status };
+        connectionTests[provider] = { ok: result.ok, message: result.message, status: result.status };
     } catch (caught) {
-        connectionTest.value = {
+        connectionTests[provider] = {
             ok: false,
             message: caught instanceof Error ? caught.message : 'Connection test failed',
             status: 'failed',
         };
     } finally {
-        testingProvider.value = null;
+        testing[provider] = false;
     }
 }
 
 async function save(): Promise<void> {
-    await store.updateIntegrationSettings({
-        dify: {
-            api_key: form.difyApiKey || undefined,
-            timeout: Number(form.difyTimeout),
-            handoff_threshold: Number(form.handoffThreshold),
-        },
-        chatwoot: {
-            account_id: form.chatwootAccountId || null,
-            api_token: form.chatwootApiToken || undefined,
-            webhook_secret: form.chatwootSecret || undefined,
-        },
-        telegram: {
-            bot_token: form.telegramBotToken || undefined,
-            webhook_secret: form.telegramSecret || undefined,
-            auto_reply_enabled: form.telegramAutoReply,
-        },
-    });
-
-    syncForm();
+    try {
+        await store.updateIntegrationSettings(buildIntegrationSettingsPayload(form));
+        syncForm();
+    } catch {
+        return;
+    }
 }
 
 onMounted(async () => {
@@ -134,9 +124,12 @@ onMounted(async () => {
                         </label>
                     </div>
 
-                    <Button size="sm" variant="secondary" :disabled="testingProvider !== null" @click="testConnection('dify')">
-                        <PlugZap class="h-4 w-4" /> {{ testingProvider === 'dify' ? locale.t('settings.testing') : locale.t('settings.testDify') }}
+                    <Button size="sm" variant="secondary" type="button" :disabled="testing.dify" @click="testConnection('dify')">
+                        <PlugZap class="h-4 w-4" /> {{ testing.dify ? locale.t('settings.testing') : locale.t('settings.testDify') }}
                     </Button>
+                    <p v-if="connectionTests.dify" class="rounded-md border px-3 py-2 text-sm" :class="connectionTests.dify.ok ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100' : 'border-red-400/30 bg-red-400/10 text-red-100'">
+                        {{ connectionTests.dify.message }}
+                    </p>
                 </fieldset>
 
                 <fieldset class="space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4">
@@ -163,9 +156,12 @@ onMounted(async () => {
                         <span>AI auto-reply in Chatwoot</span>
                     </label>
 
-                    <Button size="sm" variant="secondary" :disabled="testingProvider !== null" @click="testConnection('chatwoot')">
-                        <PlugZap class="h-4 w-4" /> {{ testingProvider === 'chatwoot' ? locale.t('settings.testing') : locale.t('settings.testChatwoot') }}
+                    <Button size="sm" variant="secondary" type="button" :disabled="testing.chatwoot" @click="testConnection('chatwoot')">
+                        <PlugZap class="h-4 w-4" /> {{ testing.chatwoot ? locale.t('settings.testing') : locale.t('settings.testChatwoot') }}
                     </Button>
+                    <p v-if="connectionTests.chatwoot" class="rounded-md border px-3 py-2 text-sm" :class="connectionTests.chatwoot.ok ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100' : 'border-red-400/30 bg-red-400/10 text-red-100'">
+                        {{ connectionTests.chatwoot.message }}
+                    </p>
                 </fieldset>
 
                 <fieldset class="space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4">
@@ -188,10 +184,6 @@ onMounted(async () => {
                     </label>
                 </fieldset>
             </div>
-
-            <p v-if="connectionTest" class="rounded-md border px-3 py-2 text-sm" :class="connectionTest.ok ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100' : 'border-red-400/30 bg-red-400/10 text-red-100'">
-                {{ connectionTest.message }}
-            </p>
             <p v-if="error" class="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-100">{{ error }}</p>
 
             <div class="flex justify-end">
