@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { router } from '@inertiajs/vue3';
 import { apiRequest } from '../lib/apiClient';
+import { toast } from 'vue-sonner';
 import { pathForRecord } from '../lib/pages';
 
 export type Toast = { id: number; tone: 'success' | 'error'; message: string };
@@ -12,6 +13,7 @@ export type Customer = {
     phone: string | null;
     email: string | null;
     source: string | null;
+    created_at?: string | null;
 };
 
 export type Lead = {
@@ -22,6 +24,7 @@ export type Lead = {
     source: string | null;
     score: number;
     ai_summary: string | null;
+    created_at?: string | null;
 };
 
 export type Task = {
@@ -234,14 +237,15 @@ export type CompanyProfile = {
     address?: string | null;
     timezone?: string | null;
     working_hours?: Record<string, string> | null;
-    brand_settings?: Record<string, string> | null;
+    brand_settings?: Record<string, unknown> | null;
+    logo_url?: string | null;
 };
 
-export type CompanyPayload = Partial<Omit<CompanyProfile, 'id'>>;
+export type CompanyPayload = Partial<Omit<CompanyProfile, 'id' | 'logo_url'>>;
 
 export type Bootstrap = {
     user?: { id: number; name: string; email: string; role: string } | null;
-    tenant: { id: number; name: string; slug: string; status: string } | null;
+    tenant: { id: number; name: string; slug: string; status: string; trial_ends_at: string | null; settings: { billing?: { plan?: string } } | null } | null;
     company: CompanyProfile | null;
     stats: Record<string, number>;
     customers: Customer[];
@@ -297,7 +301,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const auditLogs = ref(boot.auditLogs ?? []);
     const tenantUsers = ref(boot.tenantUsers ?? []);
     const integrationSettings = ref<IntegrationSettings | null>(null);
-    const toasts = ref<Toast[]>([]);
     const leadStatus = ref('all');
     const selectedConversationId = ref<number | null>(conversations.value[0]?.id ?? null);
     const selectedCustomerId = ref<number | null>(customers.value[0]?.id ?? null);
@@ -322,13 +325,8 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const companyId = computed(() => company.value?.id ?? null);
 
     function notify(message: string, tone: Toast['tone'] = 'success'): void {
-        const id = Date.now() + Math.floor(Math.random() * 1000);
-        toasts.value.push({ id, tone, message });
-        window.setTimeout(() => dismissToast(id), 4000);
-    }
-
-    function dismissToast(id: number): void {
-        toasts.value = toasts.value.filter((toast) => toast.id !== id);
+        if (tone === 'error') toast.error(message);
+        else toast.success(message);
     }
 
     function hydrateBootstrap(data: Bootstrap): void {
@@ -434,6 +432,17 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }));
     }
 
+    async function uploadCompanyLogo(id: number, file: File): Promise<void> {
+        const body = new FormData();
+        body.append('photo', file);
+
+        await mutate(() => apiRequest(`/api/companies/${id}/logo`, {
+            method: 'POST',
+            tenant: tenantSlug.value,
+            body,
+        }));
+    }
+
     async function updateLeadStatus(id: number, status: string): Promise<void> {
         await mutate(() => apiRequest(`/api/leads/${id}`, {
             method: 'PATCH',
@@ -480,6 +489,24 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }));
     }
 
+    async function updatePlan(plan: string): Promise<void> {
+        if (! tenant.value) return;
+
+        await mutate(() => apiRequest(`/api/tenants/${tenant.value!.id}`, {
+            method: 'PATCH',
+            tenant: tenantSlug.value,
+            body: { settings: { ...(tenant.value!.settings ?? {}), billing: { ...(tenant.value!.settings?.billing ?? {}), plan } } },
+        }));
+    }
+
+    async function createAiAgent(payload: { name: string; status?: string; handoff_threshold?: number; instructions?: string }): Promise<void> {
+        await mutate(() => apiRequest('/api/ai-agents', {
+            method: 'POST',
+            tenant: tenantSlug.value,
+            body: payload,
+        }));
+    }
+
     async function updateAiAgent(id: number, payload: AiAgentPayload): Promise<void> {
         await mutate(() => apiRequest(`/api/ai-agents/${id}`, {
             method: 'PATCH',
@@ -510,6 +537,13 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body,
+        }));
+    }
+
+    async function deleteKnowledgeDocument(id: number): Promise<void> {
+        await mutate(() => apiRequest(`/api/knowledge-documents/${id}`, {
+            method: 'DELETE',
+            tenant: tenantSlug.value,
         }));
     }
 
@@ -588,7 +622,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         auditLogs,
         tenantUsers,
         integrationSettings,
-        toasts,
         leadStatus,
         selectedConversationId,
         selectedCustomerId,
@@ -604,7 +637,6 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         hasData,
         hydrateBootstrap,
         notify,
-        dismissToast,
         selectConversation,
         openLead,
         openCustomer,
@@ -613,15 +645,19 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         createCustomer,
         createLead,
         updateCompany,
+        uploadCompanyLogo,
         updateLeadStatus,
         createTask,
         updateTaskStatus,
         generateAiDraft,
         replyToConversation,
         syncChatwoot,
+        updatePlan,
+        createAiAgent,
         updateAiAgent,
         indexKnowledgeText,
         uploadKnowledgeFile,
+        deleteKnowledgeDocument,
         createTenantUser,
         updateTenantUser,
         loadIntegrationSettings,

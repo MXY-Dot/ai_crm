@@ -9,12 +9,12 @@ const { available, locale } = storeToRefs(localeStore);
 </script>
 
 <template>
-    <div class="inline-flex items-center gap-1 rounded-md border p-1 ui-muted">
+    <div class="inline-flex items-center gap-1 rounded-lg border p-1 ui-muted">
         <Languages class="ml-2 h-4 w-4 text-zinc-400" />
         <button
             v-for="item in available"
             :key="item.code"
-            class="h-8 rounded-sm px-3 text-sm font-semibold transition"
+            class="h-8 rounded-md px-3 text-sm font-semibold transition"
             :class="locale === item.code ? 'bg-[var(--card)] text-[var(--foreground)] shadow-sm' : 'ui-subtle hover:text-[var(--foreground)]'"
             @click="localeStore.setLocale(item.code as Locale)"
         >

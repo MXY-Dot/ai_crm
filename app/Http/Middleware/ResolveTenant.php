@@ -19,8 +19,8 @@ class ResolveTenant
         }
 
         $tenant = Tenant::query()
-            ->where('id', $tenantKey)
-            ->orWhere('slug', $tenantKey)
+            ->where('slug', $tenantKey)
+            ->when(is_numeric($tenantKey), fn ($query) => $query->orWhere('id', $tenantKey))
             ->firstOrFail();
 
         app(TenantContext::class)->set($tenant);

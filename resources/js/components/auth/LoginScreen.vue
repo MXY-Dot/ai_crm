@@ -72,7 +72,7 @@ async function submit(): Promise<void> {
                     <Link href="/" class="inline-flex h-10 w-10 items-center justify-center rounded-md bg-emerald-300 text-zinc-950"><Sparkles class="h-5 w-5" /></Link>
                     <LanguageSwitcher />
                 </div>
-                <h1 class="mt-6 max-w-2xl text-3xl font-semibold text-white sm:text-5xl">{{ isRegister ? 'Создайте workspace AI CRM' : 'Вход в Gravity AI CRM' }}</h1>
+                <h1 class="mt-6 max-w-2xl text-3xl font-semibold text-white sm:text-5xl">{{ isRegister ? 'Создайте workspace WERO' : 'Вход в WERO' }}</h1>
                 <p class="mt-4 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">Диалоги сайта и Telegram, CRM-связи, AI-черновики и handoff оператору в одном дашборде.</p>
                 <div class="mt-6 grid gap-3 sm:grid-cols-3">
                     <div class="rounded-md border border-white/10 bg-white/5 p-4 text-sm text-zinc-300">Telegram-инбокс</div>

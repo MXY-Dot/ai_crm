@@ -23,7 +23,7 @@ defineProps<{ active: string }>();
             v-for="item in items"
             :key="item.id"
             :href="pagePaths[item.id]"
-            class="flex h-12 flex-col items-center justify-center gap-1 rounded-md text-xs font-medium"
+            class="flex h-12 flex-col items-center justify-center gap-1 rounded-lg text-xs font-medium"
             :class="active === item.id ? 'bg-[var(--card)] text-[var(--foreground)] shadow-sm' : 'ui-subtle'"
         >
             <component :is="item.icon" class="h-4 w-4" />

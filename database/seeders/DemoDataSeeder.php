@@ -198,5 +198,171 @@ class DemoDataSeeder extends Seeder
                 'payload' => ['demo' => true],
             ]
         ));
+
+        $extraCustomers = collect([
+            ['name' => 'Bilal Ahmed', 'phone' => '+92 300 100 2004', 'source' => 'telegram'],
+            ['name' => 'Layla Farooq', 'email' => 'layla@example.com', 'source' => 'whatsapp'],
+        ])->map(fn (array $data) => Customer::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'name' => $data['name']],
+            $data + ['tags' => ['demo'], 'meta' => ['seeded' => true]]
+        ));
+
+        $extraLeads = collect([
+            ['title' => 'Bridal trial won', 'status' => 'won', 'score' => 95, 'source' => 'telegram', 'customer' => 0],
+            ['title' => 'Color correction inquiry', 'status' => 'lost', 'score' => 30, 'source' => 'whatsapp', 'customer' => 1],
+        ])->map(fn (array $data) => Lead::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'title' => $data['title']],
+            [
+                'status' => $data['status'],
+                'score' => $data['score'],
+                'source' => $data['source'],
+                'customer_id' => $extraCustomers[$data['customer']]->id,
+                'assigned_user_id' => $owner->id,
+                'ai_summary' => 'Demo lead created from an omnichannel conversation.',
+            ]
+        ));
+
+        collect([
+            ['title' => 'Confirm bridal trial payment receipt', 'priority' => 'normal', 'status' => 'done', 'lead' => 0],
+            ['title' => 'Follow up on lost color correction lead', 'priority' => 'low', 'status' => 'open', 'lead' => 1],
+        ])->each(fn (array $data) => CrmTask::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'title' => $data['title']],
+            [
+                'priority' => $data['priority'],
+                'status' => $data['status'],
+                'lead_id' => $extraLeads[$data['lead']]->id,
+                'assigned_user_id' => $owner->id,
+            ]
+        ));
+
+        $extraConversations = collect([
+            [
+                'channel' => 0,
+                'customer' => 0,
+                'lead' => 0,
+                'subject' => 'Bridal trial follow-up',
+                'status' => 'closed',
+                'priority' => 'normal',
+                'ai_summary' => 'Bilal confirmed the bridal trial and paid the deposit, conversation resolved.',
+            ],
+            [
+                'channel' => 1,
+                'customer' => 1,
+                'lead' => 1,
+                'subject' => 'Color correction budget question',
+                'status' => 'pending',
+                'priority' => 'low',
+                'ai_summary' => 'Layla asked about color correction pricing, decided it is out of budget for now.',
+            ],
+        ])->map(fn (array $data) => Conversation::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'subject' => $data['subject']],
+            [
+                'channel_id' => $channels[$data['channel']]->id,
+                'customer_id' => $extraCustomers[$data['customer']]->id,
+                'lead_id' => $extraLeads[$data['lead']]->id,
+                'assigned_user_id' => $owner->id,
+                'status' => $data['status'],
+                'priority' => $data['priority'],
+                'last_message_at' => now()->subDays($data['channel'] + 1)->subHours(2),
+                'ai_summary' => $data['ai_summary'],
+            ]
+        ));
+
+        $extraMessageRows = [
+            [0, 'customer', 'Bilal Ahmed', 'Hi, I would like to confirm my bridal trial for Saturday.'],
+            [0, 'ai', 'Gravity AI', 'Confirmed! Your bridal trial is booked for Saturday at 2 PM.'],
+            [0, 'operator', 'Demo Owner', 'Hi Bilal, this is Sara from the studio, looking forward to seeing you!'],
+            [1, 'customer', 'Layla Farooq', 'How much does a full color correction cost?'],
+            [1, 'ai', 'Gravity AI', 'Color correction starts from 150 USD depending on hair length and condition.'],
+        ];
+
+        foreach ($extraMessageRows as $index => [$conversationIndex, $senderType, $senderName, $body]) {
+            Message::withoutGlobalScopes()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'conversation_id' => $extraConversations[$conversationIndex]->id, 'body' => $body],
+                [
+                    'sender_type' => $senderType,
+                    'sender_name' => $senderName,
+                    'sent_at' => now()->subDays($conversationIndex + 1)->subMinutes(30 - $index * 5),
+                    'meta' => ['demo' => true],
+                ]
+            );
+        }
+
+        collect([
+            [
+                'title' => 'Service Price List 2026',
+                'source_type' => 'manual',
+                'file_name' => null,
+                'status' => 'indexed',
+                'summary' => 'Full price list for hair color, styling and bridal makeup packages.',
+                'chunks' => [
+                    'Hair color starts from 80 USD, full highlights from 140 USD.',
+                    'Bridal makeup packages start from 220 USD and include a trial session.',
+                    'Consultations are free for first-time clients booked online.',
+                ],
+            ],
+            [
+                'title' => 'Cancellation_and_Booking_Policy.pdf',
+                'source_type' => 'file',
+                'file_name' => 'Cancellation_and_Booking_Policy.pdf',
+                'status' => 'indexed',
+                'summary' => 'Booking rules, deposit and cancellation policy for the studio.',
+                'chunks' => [
+                    'Cancellations must be made at least 24 hours before the appointment.',
+                    'Deposits are required for bridal bookings and need operator approval to refund.',
+                ],
+            ],
+            [
+                'title' => 'FAQ - Studio Location and Hours',
+                'source_type' => 'link',
+                'file_name' => null,
+                'status' => 'queued',
+                'summary' => null,
+                'chunks' => [],
+            ],
+            [
+                'title' => 'Archive_2023_Pricing.docx',
+                'source_type' => 'file',
+                'file_name' => 'Archive_2023_Pricing.docx',
+                'status' => 'failed',
+                'summary' => 'File is corrupted or encrypted.',
+                'chunks' => [],
+            ],
+        ])->each(function (array $data) use ($tenant, $company, $agent) {
+            $document = KnowledgeDocument::withoutGlobalScopes()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'title' => $data['title']],
+                [
+                    'ai_agent_id' => $agent->id,
+                    'source_type' => $data['source_type'],
+                    'file_name' => $data['file_name'],
+                    'status' => $data['status'],
+                    'version' => 1,
+                    'summary' => $data['summary'],
+                    'meta' => ['seeded' => true],
+                    'indexed_at' => $data['status'] === 'indexed' ? now()->subHours(3) : null,
+                ]
+            );
+
+            foreach ($data['chunks'] as $position => $content) {
+                KnowledgeChunk::withoutGlobalScopes()->updateOrCreate(
+                    ['tenant_id' => $tenant->id, 'knowledge_document_id' => $document->id, 'position' => $position],
+                    ['content' => $content, 'token_count' => str_word_count($content), 'meta' => ['seeded' => true]]
+                );
+            }
+        });
+
+        collect([
+            ['name' => 'Fatima Noor', 'email' => 'fatima@gravity.test', 'role' => User::ROLE_MANAGER, 'status' => 'active'],
+            ['name' => 'Hamza Iqbal', 'email' => 'hamza@gravity.test', 'role' => User::ROLE_OPERATOR, 'status' => 'invited'],
+        ])->each(fn (array $data) => User::query()->updateOrCreate(
+            ['email' => $data['email']],
+            [
+                'tenant_id' => $tenant->id,
+                'name' => $data['name'],
+                'password' => Hash::make('password'),
+                'role' => $data['role'],
+                'status' => $data['status'],
+            ]
+        ));
     }
 }

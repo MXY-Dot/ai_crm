@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue';
 import { Upload } from '@lucide/vue';
 import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
 
 defineProps<{ busy: boolean; labels: Record<string, string> }>();
 const emit = defineEmits<{ submit: [payload: { title: string; file: File }] }>();
@@ -24,11 +25,19 @@ function submit(): void {
 </script>
 
 <template>
-    <form class="grid content-start gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4" @submit.prevent="submit">
-        <p class="flex items-center gap-2 text-sm font-medium text-white"><Upload class="h-4 w-4 text-emerald-300" /> {{ labels.uploadFile }}</p>
-        <input v-model="upload.title" class="h-10 rounded-md border border-white/10 bg-white/5 px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-300" :placeholder="labels.optionalTitle">
-        <input ref="fileInput" type="file" accept=".txt,.md,.csv,.json,.pdf,.docx,.xlsx" class="block rounded-md border border-dashed border-white/15 bg-white/5 px-3 py-3 text-sm text-zinc-300 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-300 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-950" required @change="selectFile">
-        <p class="text-xs leading-5 text-zinc-500">{{ labels.uploadHelp }}</p>
+    <form class="grid content-start gap-3 rounded-xl border p-4" style="border-color: var(--border); background: var(--card)" @submit.prevent="submit">
+        <p class="flex items-center gap-2 text-sm font-medium ui-text"><Upload class="h-4 w-4 text-primary" /> {{ labels.uploadFile }}</p>
+        <Input v-model="upload.title" :placeholder="labels.optionalTitle" />
+        <input
+            ref="fileInput"
+            type="file"
+            accept=".txt,.md,.csv,.json,.pdf,.docx,.xlsx"
+            class="block rounded-lg border border-dashed px-3 py-3 text-sm ui-text file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-2 file:text-sm file:font-medium"
+            style="border-color: var(--border)"
+            required
+            @change="selectFile"
+        >
+        <p class="text-xs leading-5 ui-subtle">{{ labels.uploadHelp }}</p>
         <Button class="w-full sm:w-fit" variant="primary" type="submit" :disabled="busy || !upload.file"><Upload class="h-4 w-4" />{{ labels.uploadAndIndex }}</Button>
     </form>
 </template>

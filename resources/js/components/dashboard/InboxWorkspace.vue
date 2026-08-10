@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Bot, MessagesSquare, UserRound } from '@lucide/vue';
+import { Bot, MessagesSquare } from '@lucide/vue';
 import { Switch } from '../ui/switch';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
@@ -15,25 +15,17 @@ const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { conversations, integrationSettings, selectedConversation, selectedConversationId, selectedMessages } = storeToRefs(store);
 const replyBody = ref('');
-const activeTab = ref<'chat' | 'ai' | 'details'>('chat');
+const activeTab = ref<'chat' | 'ai'>('chat');
 
 const aiDraft = computed(() => [...selectedMessages.value].reverse().find((message) => message.sender_type === 'ai') ?? null);
 const autoReplyEnabled = computed(() => integrationSettings.value?.chatwoot.auto_reply_enabled ?? false);
-const chatMessages = computed(() => selectedMessages.value);
-const tabs = computed(() => [
-    { id: 'chat', label: locale.t('inbox.tabs.chat'), icon: MessagesSquare },
-    { id: 'ai', label: locale.t('inbox.tabs.ai'), icon: Bot },
-    { id: 'details', label: locale.t('inbox.tabs.details'), icon: UserRound },
-] as const);
 
 onMounted(async () => {
     if (! integrationSettings.value) await store.loadIntegrationSettings();
 });
 
 async function toggleAutoReply(enabled: boolean): Promise<void> {
-    await store.updateIntegrationSettings({
-        chatwoot: { auto_reply_enabled: enabled },
-    });
+    await store.updateIntegrationSettings({ chatwoot: { auto_reply_enabled: enabled } });
 }
 
 async function sendReply(): Promise<void> {
@@ -62,60 +54,46 @@ async function generateDraft(): Promise<void> {
 </script>
 
 <template>
-    <section class="grid h-[calc(100vh-250px)] min-h-[620px] gap-4 overflow-hidden xl:grid-cols-[380px_minmax(0,1fr)]">
-        <aside class="flex min-h-0 flex-col overflow-hidden rounded-md border border-white/10 bg-zinc-950/40">
-            <div class="border-b border-white/10 px-4 py-3">
-                <h2 class="font-semibold text-white">{{ locale.t('inbox.queueTitle') }}</h2>
-                <p class="mt-1 text-xs text-zinc-500">{{ conversations.length }} dialogs</p>
+    <section class="grid h-[calc(100vh-200px)] min-h-[620px] gap-4 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_300px]">
+        <aside class="flex min-h-0 flex-col overflow-hidden rounded-xl border" style="border-color: var(--border); background: var(--card)">
+            <div class="border-b px-4 py-3" style="border-color: var(--border)">
+                <h2 class="font-display text-sm font-semibold ui-text">{{ locale.t('inbox.queueTitle') }}</h2>
+                <p class="mt-0.5 text-xs ui-subtle">{{ conversations.length }} диалогов</p>
             </div>
-            <ConversationQueue
-                :conversations="conversations"
-                :selected-id="selectedConversationId"
-                @select="store.selectConversation"
-            />
+            <ConversationQueue :conversations="conversations" :selected-id="selectedConversationId" @select="store.selectConversation" />
         </aside>
 
-        <section class="flex min-h-0 flex-col overflow-hidden rounded-md border border-white/10 bg-zinc-950/40">
-            <header class="shrink-0 border-b border-white/10 px-4 py-3">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div class="min-w-0">
-                        <h2 class="truncate font-semibold text-white">{{ selectedConversation?.subject ?? locale.t('inbox.previewTitle') }}</h2>
-                        <p class="mt-1 text-xs text-zinc-500">{{ selectedConversation?.customer?.name ?? locale.t('common.unknown') }}</p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <label class="inline-flex h-10 items-center gap-3 rounded-lg border border-border bg-card px-3 text-sm text-card-foreground shadow-sm">
-                            <Switch :model-value="autoReplyEnabled" :disabled="store.busy" @update:model-value="toggleAutoReply" />
-                            <span>{{ locale.t('inbox.autoReply') }}</span>
-                            <span class="text-xs" :class="autoReplyEnabled ? 'text-emerald-500 dark:text-emerald-300' : 'text-muted-foreground'">{{ autoReplyEnabled ? locale.t('common.on') : locale.t('common.off') }}</span>
-                        </label>
-                        <div class="grid grid-cols-3 rounded-md border border-white/10 bg-white/[0.03] p-1 lg:w-[420px]">
-                            <button
-                                v-for="tab in tabs"
-                                :key="tab.id"
-                                class="inline-flex h-9 min-w-0 items-center justify-center gap-1 rounded px-2 text-xs font-medium transition sm:gap-2 sm:text-sm"
-                                :class="activeTab === tab.id ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'"
-                                type="button"
-                                @click="activeTab = tab.id"
-                            >
-                                <component :is="tab.icon" class="h-4 w-4" />
-                                {{ tab.label }}
-                            </button>
-                        </div>
+        <section class="flex min-h-0 flex-col overflow-hidden rounded-xl border" style="border-color: var(--border); background: var(--card)">
+            <header class="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3" style="border-color: var(--border)">
+                <div class="min-w-0">
+                    <h2 class="truncate font-display text-base font-semibold ui-text">{{ selectedConversation?.customer?.name ?? locale.t('inbox.previewTitle') }}</h2>
+                    <p class="mt-0.5 truncate text-xs ui-subtle">{{ selectedConversation?.subject }}</p>
+                </div>
+                <div class="flex shrink-0 items-center gap-3">
+                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium ui-text" style="border-color: var(--border)">
+                        <Switch :model-value="autoReplyEnabled" :disabled="store.busy" @update:model-value="toggleAutoReply" />
+                        {{ locale.t('inbox.autoReply') }}
+                    </label>
+                    <div class="flex rounded-lg border p-0.5" style="border-color: var(--border)">
+                        <button v-for="t in (['chat', 'ai'] as const)" :key="t" class="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition" :class="activeTab === t ? 'bg-muted ui-text' : 'ui-subtle'" type="button" @click="activeTab = t">
+                            <component :is="t === 'chat' ? MessagesSquare : Bot" class="h-3.5 w-3.5" />{{ t === 'chat' ? locale.t('inbox.tabs.chat') : locale.t('inbox.tabs.ai') }}
+                        </button>
                     </div>
                 </div>
             </header>
 
             <template v-if="selectedConversation">
-                <ChatThread v-if="activeTab === 'chat'" :messages="chatMessages" />
-                <div v-else-if="activeTab === 'ai'" class="min-h-0 flex-1 overflow-y-auto p-4">
-                    <AiDraftPanel :draft="aiDraft" :summary="selectedConversation.ai_summary" :busy="store.busy" :can-send="Boolean(selectedConversation.external_id)" :can-generate="Boolean(selectedConversation.lead)" @generate-draft="generateDraft" @use-draft="insertDraft" @send-draft="sendDraft" />
-                </div>
+                <ChatThread v-if="activeTab === 'chat'" :messages="selectedMessages" />
                 <div v-else class="min-h-0 flex-1 overflow-y-auto p-4">
-                    <ConversationInfo :conversation="selectedConversation" />
+                    <AiDraftPanel :draft="aiDraft" :summary="selectedConversation.ai_summary" :busy="store.busy" :can-send="Boolean(selectedConversation.external_id)" :can-generate="Boolean(selectedConversation.lead)" @generate-draft="generateDraft" @use-draft="insertDraft" @send-draft="sendDraft" />
                 </div>
 
                 <ReplyComposer v-model:body="replyBody" :busy="store.busy" :can-reply="Boolean(selectedConversation.external_id)" @send="sendReply" />
             </template>
         </section>
+
+        <aside v-if="selectedConversation" class="hidden min-h-0 flex-col overflow-hidden rounded-xl border xl:flex" style="border-color: var(--border); background: var(--card)">
+            <ConversationInfo :conversation="selectedConversation" />
+        </aside>
     </section>
 </template>

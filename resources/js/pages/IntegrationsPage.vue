@@ -2,37 +2,19 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Bot, CheckCircle2, Globe2, MessageCircle, Send } from '@lucide/vue';
-import IntegrationSettingsPanel from '../components/dashboard/IntegrationSettingsPanel.vue';
-import { Badge } from '../components/ui/badge';
-import { Card } from '../components/ui/card';
+import { Camera, Globe2, MessageCircle, Send } from '@lucide/vue';
+import ChannelCard from '../components/dashboard/channels/ChannelCard.vue';
+import ChatwootRoutedChannelInfo from '../components/dashboard/channels/ChatwootRoutedChannelInfo.vue';
+import TelegramChannelSettings from '../components/dashboard/channels/TelegramChannelSettings.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 
 const store = useCrmDashboardStore();
-const { channels, conversations, integrationSettings } = storeToRefs(store);
+const { channels, integrationSettings, busy } = storeToRefs(store);
 
-const specs = [
-    { key: 'telegram', name: 'Telegram', icon: Send },
-    { key: 'website', name: 'Website widget', icon: Globe2 },
-    { key: 'dify', name: 'Dify AI', icon: Bot },
-    { key: 'chatwoot', name: 'Chatwoot', icon: MessageCircle },
-] as const;
-
-const cards = computed(() => specs.map((spec) => {
-    const channel = channels.value.find((item) => item.provider.toLowerCase().includes(spec.key));
-    const conversationsCount = conversations.value.filter((item) => item.channel?.provider.toLowerCase().includes(spec.key)).length;
-    const configured = spec.key === 'dify'
-        ? integrationSettings.value?.dify.api_key_configured
-        : spec.key === 'chatwoot'
-            ? integrationSettings.value?.chatwoot.api_token_configured
-            : spec.key === 'telegram'
-                ? integrationSettings.value?.telegram?.bot_token_configured || Boolean(channel)
-                : Boolean(channel);
-
-    return { ...spec, channel, conversationsCount, configured: Boolean(configured) };
-}));
-
-const connectedCount = computed(() => cards.value.filter((card) => card.configured).length);
+const telegramChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('telegram')) ?? null);
+const whatsappChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('whatsapp')) ?? null);
+const websiteChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('website')) ?? null);
+const instagramChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('instagram')) ?? null);
 
 onMounted(async () => {
     if (! integrationSettings.value) await store.loadIntegrationSettings();
@@ -43,25 +25,36 @@ defineOptions({ layout: AppLayout });
 
 <template>
     <section class="space-y-6">
-        <Card title="Интеграции" subtitle="Настройки и статус рабочих каналов.">
-            <template #actions>
-                <Badge :tone="connectedCount >= 3 ? 'green' : 'amber'">{{ connectedCount }}/{{ cards.length }} активно</Badge>
-            </template>
-            <p class="flex items-center gap-2 text-sm text-emerald-400"><CheckCircle2 class="h-4 w-4" /> Dify и Chatwoot берут URL из .env, ключи задаются для workspace.</p>
-        </Card>
+        <div>
+            <h2 class="font-display text-2xl font-bold ui-text">Каналы связи</h2>
+            <p class="mt-2 text-sm ui-subtle">Управляйте подключениями к мессенджерам и виджету на сайте.</p>
+        </div>
 
-        <IntegrationSettingsPanel />
+        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <ChannelCard :icon="Send" name="Telegram" brand="telegram" :status="telegramChannel?.status" :last-synced-at="telegramChannel?.last_synced_at">
+                <TelegramChannelSettings :settings="integrationSettings?.telegram ?? null" :busy="busy" />
+            </ChannelCard>
 
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <article v-for="card in cards" :key="card.key" class="rounded-md border p-5 ui-surface">
-                <div class="flex items-start justify-between gap-3">
-                    <component :is="card.icon" class="h-6 w-6 text-blue-400" />
-                    <Badge :tone="card.configured ? 'green' : 'amber'">{{ card.configured ? 'подключено' : 'не подключено' }}</Badge>
-                </div>
-                <h3 class="mt-4 font-semibold ui-text">{{ card.name }}</h3>
-                <p class="mt-1 text-xs ui-subtle">{{ card.conversationsCount }} диалогов</p>
-                <p v-if="card.channel" class="mt-2 text-xs ui-subtle">{{ card.channel.name }} - {{ card.channel.status }}</p>
-            </article>
+            <ChannelCard :icon="MessageCircle" name="WhatsApp" brand="whatsapp" :status="whatsappChannel?.status" :last-synced-at="whatsappChannel?.last_synced_at">
+                <ChatwootRoutedChannelInfo
+                    :chatwoot="integrationSettings?.chatwoot ?? null"
+                    description="WhatsApp подключается через единый инбокс. Добавьте этот вебхук в настройках вашего WhatsApp Business канала."
+                />
+            </ChannelCard>
+
+            <ChannelCard :icon="Camera" name="Instagram" brand="instagram" :status="instagramChannel?.status" :last-synced-at="instagramChannel?.last_synced_at">
+                <ChatwootRoutedChannelInfo
+                    :chatwoot="integrationSettings?.chatwoot ?? null"
+                    description="Instagram Direct тоже маршрутизируется через единый инбокс. Используйте тот же вебхук при подключении аккаунта."
+                />
+            </ChannelCard>
+
+            <ChannelCard :icon="Globe2" name="Виджет на сайт" brand="blue" :status="websiteChannel?.status" :last-synced-at="websiteChannel?.last_synced_at">
+                <ChatwootRoutedChannelInfo
+                    :chatwoot="integrationSettings?.chatwoot ?? null"
+                    description="Чат-виджет тоже маршрутизируется через единый инбокс. Используйте тот же вебхук при подключении виджета."
+                />
+            </ChannelCard>
         </div>
     </section>
 </template>

@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Company;
+use App\Support\Audit\AuditLogger;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class CompanyController extends TenantResourceController
 {
@@ -26,5 +30,24 @@ class CompanyController extends TenantResourceController
             'working_hours' => ['nullable', 'array'],
             'brand_settings' => ['nullable', 'array'],
         ];
+    }
+
+    public function uploadLogo(Request $request, Company $company, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('update', $company);
+
+        $data = $request->validate([
+            'photo' => ['required', 'image', 'max:4096'],
+        ]);
+
+        $path = $data['photo']->store('logos/'.$company->tenant_id, 'public');
+
+        $brandSettings = $company->brand_settings ?? [];
+        $brandSettings['logo_path'] = $path;
+        $company->update(['brand_settings' => $brandSettings]);
+
+        $audit->record('company.logo_updated', $company, ['logo_path' => $path], [], $request);
+
+        return response()->json($company->refresh());
     }
 }

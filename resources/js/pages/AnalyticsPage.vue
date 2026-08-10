@@ -1,29 +1,35 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { storeToRefs } from 'pinia';
-import { Bot, CheckSquare, MessageSquare, Target, Users } from '@lucide/vue';
-import VisualStatCard from '../components/dashboard/visual/VisualStatCard.vue';
-import LeadPipeline from '../components/dashboard/LeadPipeline.vue';
-import TaskList from '../components/dashboard/TaskList.vue';
+import AnalyticsKpis from '../components/dashboard/analytics/AnalyticsKpis.vue';
+import LoadHeatmap from '../components/dashboard/analytics/LoadHeatmap.vue';
+import MessageLoadDonut from '../components/dashboard/analytics/MessageLoadDonut.vue';
+import PriorityBreakdown from '../components/dashboard/analytics/PriorityBreakdown.vue';
+import DialogsTrendChart from '../components/dashboard/overview/DialogsTrendChart.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 
-const { conversations, customers, leads, openTasks, aiRuns } = storeToRefs(useCrmDashboardStore());
+const { conversations, openTasks, aiRuns, messages } = storeToRefs(useCrmDashboardStore());
 
 defineOptions({ layout: AppLayout });
 </script>
 
 <template>
     <section class="space-y-6">
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <VisualStatCard label="Диалоги" :value="conversations.length" :icon="MessageSquare" />
-            <VisualStatCard label="Клиенты" :value="customers.length" :icon="Users" />
-            <VisualStatCard label="Лиды" :value="leads.length" :icon="Target" />
-            <VisualStatCard label="AI-запуски" :value="aiRuns.length" :icon="Bot" />
-            <VisualStatCard label="Задачи" :value="openTasks.length" :icon="CheckSquare" />
+        <div>
+            <h2 class="font-display text-2xl font-bold ui-text">Глубокая аналитика</h2>
+            <p class="mt-1 text-sm ui-subtle">Обзор эффективности омниканальных коммуникаций</p>
         </div>
-        <div class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-            <LeadPipeline />
-            <TaskList :tasks="openTasks" />
+
+        <AnalyticsKpis :conversations="conversations" :open-tasks="openTasks" :ai-runs="aiRuns" />
+
+        <div class="grid gap-6 lg:grid-cols-3">
+            <DialogsTrendChart :conversations="conversations" />
+            <MessageLoadDonut :messages="messages" />
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+            <LoadHeatmap :messages="messages" />
+            <PriorityBreakdown :conversations="conversations" />
         </div>
     </section>
 </template>

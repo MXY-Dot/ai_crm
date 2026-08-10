@@ -9,17 +9,20 @@ import { badgeVariants } from '.'
 
 const props = defineProps</* @vue-ignore */ PrimitiveProps & {
   variant?: BadgeVariants['variant']
-  tone?: 'neutral' | 'green' | 'amber' | 'red' | 'blue'
+  tone?: 'neutral' | 'green' | 'amber' | 'red' | 'blue' | 'telegram' | 'whatsapp' | 'instagram'
   class?: HTMLAttributes['class']
 }>()
 
 const delegatedProps = reactiveOmit(props, 'class', 'tone')
 const toneClass = {
-  neutral: 'border-border bg-muted text-muted-foreground',
-  green: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  amber: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  red: 'border-destructive/25 bg-destructive/10 text-destructive',
-  blue: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  neutral: 'border-transparent bg-secondary text-secondary-foreground font-semibold',
+  green: 'border-transparent bg-emerald-600 text-white font-semibold',
+  amber: 'border-transparent bg-amber-500 text-white font-semibold',
+  red: 'border-transparent bg-destructive text-white font-semibold',
+  blue: 'border-transparent bg-sky-600 text-white font-semibold',
+  telegram: 'border-transparent bg-[#26A5E4] text-white font-semibold',
+  whatsapp: 'border-transparent bg-[#25D366] text-white font-semibold',
+  instagram: 'border-transparent bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white font-semibold',
 }[props.tone || '']
 </script>
 

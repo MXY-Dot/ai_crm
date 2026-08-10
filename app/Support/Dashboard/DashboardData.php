@@ -54,16 +54,16 @@ class DashboardData
 
         return [
             'user' => $user?->only(['id', 'name', 'email', 'role']),
-            'tenant' => $tenant->only(['id', 'name', 'slug', 'status']),
-            'company' => $company?->only(['id', 'name', 'industry']),
+            'tenant' => $tenant->only(['id', 'name', 'slug', 'status', 'trial_ends_at', 'settings']),
+            'company' => $company?->only(['id', 'name', 'industry', 'phone', 'email', 'website', 'address', 'timezone', 'working_hours', 'brand_settings', 'logo_url']),
             'stats' => [
                 'Companies' => Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
                 'Customers' => Customer::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
                 'Leads' => Lead::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
                 'Open tasks' => CrmTask::withoutGlobalScopes()->where('tenant_id', $tenant->id)->whereIn('status', ['open', 'in_progress'])->count(),
             ],
-            'customers' => Customer::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(20)->get(['id', 'name', 'phone', 'email', 'source']),
-            'leads' => Lead::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(8)->get(['id', 'customer_id', 'title', 'status', 'source', 'score', 'ai_summary']),
+            'customers' => Customer::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(500)->get(['id', 'name', 'phone', 'email', 'source', 'created_at']),
+            'leads' => Lead::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(500)->get(['id', 'customer_id', 'title', 'status', 'source', 'score', 'ai_summary', 'created_at']),
             'tasks' => CrmTask::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(8)->get(['id', 'lead_id', 'title', 'status', 'priority']),
             'channels' => $this->channels($tenant->id, $companyId),
             'conversations' => $this->conversations($tenant->id, $companyId),

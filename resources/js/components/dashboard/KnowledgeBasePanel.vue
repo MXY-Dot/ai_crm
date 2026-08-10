@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
+import { Search } from '@lucide/vue';
+import { Input } from '../ui/input';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
-import { Card } from '../ui/card';
-import KnowledgeDocumentList from './knowledge/KnowledgeDocumentList.vue';
-import KnowledgeStats from './knowledge/KnowledgeStats.vue';
+import KnowledgeSourcesTable from './knowledge/KnowledgeSourcesTable.vue';
+import KnowledgeStatsBento from './knowledge/KnowledgeStatsBento.vue';
 import KnowledgeTextForm from './knowledge/KnowledgeTextForm.vue';
 import KnowledgeUploadForm from './knowledge/KnowledgeUploadForm.vue';
 
@@ -34,6 +35,7 @@ const labels = computed(() => ({
 const filteredDocuments = computed(() => {
     const value = query.value.trim().toLowerCase();
     if (! value) return knowledgeDocuments.value;
+
     return knowledgeDocuments.value.filter((document) => [
         document.title,
         document.summary,
@@ -53,17 +55,19 @@ async function uploadFile(payload: { title: string; file: File }): Promise<void>
 </script>
 
 <template>
-    <Card :title="locale.t('kb.title')" :subtitle="locale.t('kb.subtitle')">
-        <div class="mb-5 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
-            <KnowledgeStats :documents="knowledgeDocuments" :labels="labels" />
-            <input v-model="query" class="h-10 rounded-md border border-white/10 bg-white/5 px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-300" :placeholder="labels.search">
+    <div class="space-y-6">
+        <KnowledgeStatsBento :documents="knowledgeDocuments" />
+
+        <div class="relative">
+            <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
+            <Input v-model="query" class="h-10 pl-9" :placeholder="labels.search" />
         </div>
 
-        <div class="mb-5 grid gap-4 lg:grid-cols-2">
+        <div class="grid gap-4 lg:grid-cols-2">
             <KnowledgeTextForm :busy="busy" :error="error" :labels="labels" @submit="indexText" />
             <KnowledgeUploadForm :busy="busy" :labels="labels" @submit="uploadFile" />
         </div>
 
-        <KnowledgeDocumentList :documents="filteredDocuments" :labels="labels" />
-    </Card>
+        <KnowledgeSourcesTable :documents="filteredDocuments" />
+    </div>
 </template>

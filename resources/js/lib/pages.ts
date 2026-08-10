@@ -1,15 +1,16 @@
-export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'crm' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'settings';
+export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'contacts' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'billing' | 'settings';
 
 export const pagePaths: Record<DashboardPage, string> = {
     overview: '/app',
     inbox: '/inbox',
     leads: '/leads',
     customers: '/customers',
-    crm: '/crm',
+    contacts: '/contacts',
     ai: '/ai',
     knowledge: '/knowledge',
     analytics: '/analytics',
     integrations: '/integrations',
+    billing: '/billing',
     settings: '/settings',
 };
 

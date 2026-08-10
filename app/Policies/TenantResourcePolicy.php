@@ -33,6 +33,11 @@ abstract class TenantResourcePolicy
         return $this->canUseTenant($user) && $user->tenant_id === $record->tenant_id && in_array($user->role, [User::ROLE_OWNER, User::ROLE_MANAGER], true);
     }
 
+    public function delete(User $user, Model $record): bool
+    {
+        return $this->canUseTenant($user) && $user->tenant_id === $record->tenant_id && in_array($user->role, [User::ROLE_OWNER, User::ROLE_MANAGER], true);
+    }
+
     private function canUseTenant(User $user): bool
     {
         return $user->tenant_id !== null && $user->tenant_id === app(TenantContext::class)->id();

@@ -2,12 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import { storeToRefs } from 'pinia';
-import { LogOut, Smartphone } from '@lucide/vue';
+import { LogOut } from '@lucide/vue';
 import AppSidebar from '@/components/dashboard/AppSidebar.vue';
 import EmptyState from '@/components/dashboard/EmptyState.vue';
+import GlobalSearch from '@/components/dashboard/GlobalSearch.vue';
 import LanguageSwitcher from '@/components/dashboard/LanguageSwitcher.vue';
 import MobileNav from '@/components/dashboard/MobileNav.vue';
 import ThemeSwitcher from '@/components/dashboard/ThemeSwitcher.vue';
+import { Toaster } from '@/components/ui/sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { pageFromPath } from '@/lib/pages';
@@ -19,7 +21,7 @@ const page = usePage<{ bootstrap: Bootstrap }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 useThemeStore();
-const { tenant, company, apiHeader, hasData, user, toasts } = storeToRefs(store);
+const { tenant, company, hasData, user } = storeToRefs(store);
 const activePage = computed(() => pageFromPath(new URL(page.url, window.location.origin).pathname));
 
 watch(
@@ -70,27 +72,22 @@ const tenantStatusLabel = computed(() => tenant.value?.status ? locale.t('status
             <AppSidebar :active="activePage" :tenant-name="tenant?.name ?? locale.t('common.noTenant')" />
 
             <main class="min-w-0 flex-1 pb-20 lg:pb-0">
-                <header class="sticky top-0 z-10 border-b px-4 py-4 backdrop-blur sm:px-6 lg:px-8" style="border-color: var(--border); background: color-mix(in srgb, var(--background) 92%, transparent)">
+                <header class="sticky top-0 z-10 border-b px-4 py-4 backdrop-blur sm:px-6 lg:px-8" style="border-color: var(--border); background: color-mix(in srgb, var(--card) 92%, transparent)">
                     <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div>
                             <div class="flex flex-wrap items-center gap-2">
+                                <h1 class="font-display text-2xl font-bold ui-text sm:text-3xl">{{ company?.name ?? 'WERO' }}</h1>
                                 <Badge tone="green">{{ tenantStatusLabel }}</Badge>
-                                <Badge>{{ company?.industry ?? locale.t('common.multiIndustry') }}</Badge>
-                                <Badge tone="blue"><Smartphone class="mr-1 h-3 w-3" /> {{ locale.t('common.mobileReady') }}</Badge>
                             </div>
-                            <h1 class="mt-3 text-2xl font-semibold ui-text sm:text-3xl">{{ company?.name ?? 'Gravity AI CRM' }}</h1>
-                            <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">{{ locale.t('header.description') }}</p>
+                            <p class="mt-2 max-w-3xl text-sm leading-6 ui-subtle">{{ locale.t('header.description') }}</p>
                         </div>
 
-                        <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-center">
-                            <div class="rounded-md border px-4 py-3 text-sm ui-muted">
-                                <span class="block text-xs uppercase tracking-wide text-zinc-500">{{ locale.t('common.apiTenantHeader') }}</span>
-                                <code class="mt-1 block text-emerald-200">{{ apiHeader }}</code>
-                            </div>
+                        <div class="grid gap-2 sm:grid-cols-[minmax(14rem,20rem)_auto_auto_auto_auto] sm:items-center">
+                            <GlobalSearch />
                             <LanguageSwitcher />
                             <ThemeSwitcher />
-                            <div class="rounded-md border px-3 py-2 text-sm ui-muted">
-                                <span class="block text-xs text-zinc-500">{{ locale.t('auth.signedInAs') }}</span>
+                            <div class="rounded-lg border px-3 py-2 text-sm ui-muted" style="border-color: var(--border)">
+                                <span class="block text-[10px] uppercase tracking-widest ui-subtle">{{ locale.t('auth.signedInAs') }}</span>
                                 <span class="block max-w-40 truncate ui-text">{{ user?.email }}</span>
                             </div>
                             <Button variant="primary" type="button" :disabled="logoutProcessing" @click="logout">
@@ -107,13 +104,6 @@ const tenantStatusLabel = computed(() => tenant.value?.status ? locale.t('status
             </main>
         </div>
         <MobileNav :active="activePage" />
-        <div class="fixed right-4 top-4 z-50 flex w-[min(360px,calc(100vw-32px))] flex-col gap-2">
-            <div v-for="toast in toasts" :key="toast.id" class="rounded-md border px-4 py-3 text-sm shadow-xl backdrop-blur" :class="toast.tone === 'error' ? 'border-red-400/40 bg-red-950/90 text-red-50' : 'border-emerald-400/40 bg-zinc-950/95 text-emerald-50'">
-                <div class="flex items-start justify-between gap-3">
-                    <span>{{ toast.message }}</span>
-                    <button class="text-lg leading-none text-zinc-400 hover:text-white" type="button" @click="store.dismissToast(toast.id)">x</button>
-                </div>
-            </div>
-        </div>
+        <Toaster position="top-right" rich-colors close-button />
     </div>
 </template>

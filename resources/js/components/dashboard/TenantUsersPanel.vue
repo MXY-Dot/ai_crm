@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import { ShieldCheck, UserPlus, Users } from '@lucide/vue';
+import { CheckCircle2, Minus, ShieldCheck, UserPlus, Users } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { useCrmDashboardStore, type TenantUser } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
+import { Alert, AlertDescription } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
@@ -46,49 +49,61 @@ function can(role: TenantUser['role'], permission: string): boolean {
 
 <template>
     <Card :title="locale.t('team.title')" :subtitle="locale.t('team.subtitle')">
-        <form class="mb-5 grid gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4" @submit.prevent="createUser">
-            <p class="flex items-center gap-2 text-sm font-medium text-white"><UserPlus class="h-4 w-4 text-emerald-300" /> {{ locale.t('team.inviteUser') }}</p>
-            <p v-if="error" class="rounded-md border border-red-300/30 bg-red-300/10 p-3 text-sm text-red-100">{{ error }}</p>
+        <form class="mb-5 grid gap-3 rounded-xl border p-4" style="border-color: var(--border); background: var(--card)" @submit.prevent="createUser">
+            <p class="flex items-center gap-2 text-sm font-medium ui-text"><UserPlus class="h-4 w-4 text-primary" /> {{ locale.t('team.inviteUser') }}</p>
+            <Alert v-if="error" variant="destructive"><AlertDescription>{{ error }}</AlertDescription></Alert>
             <div class="grid gap-3 sm:grid-cols-2">
-                <input v-model="form.name" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-300" :placeholder="locale.t('team.name')" required>
-                <input v-model="form.email" type="email" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-300" :placeholder="locale.t('team.email')" required>
-                <input v-model="form.phone" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-300" :placeholder="locale.t('team.phone')">
-                <input v-model="form.password" type="password" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-300" :placeholder="locale.t('team.password')">
+                <Input v-model="form.name" :placeholder="locale.t('team.name')" required />
+                <Input v-model="form.email" type="email" :placeholder="locale.t('team.email')" required />
+                <Input v-model="form.phone" :placeholder="locale.t('team.phone')" />
+                <Input v-model="form.password" type="password" :placeholder="locale.t('team.password')" />
             </div>
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <select v-model="form.role" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-emerald-300">
-                    <option v-for="role in roles" :key="role" :value="role">{{ locale.t(`team.roles.${role}`) }}</option>
-                </select>
+                <Select v-model="form.role">
+                    <SelectTrigger class="w-48"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="role in roles" :key="role" :value="role">{{ locale.t(`team.roles.${role}`) }}</SelectItem>
+                    </SelectContent>
+                </Select>
                 <Button variant="primary" type="submit" :disabled="busy"><UserPlus class="h-4 w-4" /> {{ locale.t('team.create') }}</Button>
             </div>
         </form>
 
-        <div class="mb-5 rounded-md border border-white/10 bg-white/[0.03] p-4">
-            <p class="flex items-center gap-2 font-medium text-white"><ShieldCheck class="h-4 w-4 text-emerald-300" />{{ locale.t('team.permissionsTitle') }}</p>
+        <div class="mb-5 rounded-xl border p-4" style="border-color: var(--border); background: var(--card)">
+            <p class="flex items-center gap-2 font-medium ui-text"><ShieldCheck class="h-4 w-4 text-primary" />{{ locale.t('team.permissionsTitle') }}</p>
             <div class="mt-3 overflow-x-auto">
                 <table class="w-full min-w-[34rem] text-left text-sm">
-                    <thead class="text-xs uppercase text-zinc-500"><tr><th class="py-2">{{ locale.t('team.role') }}</th><th v-for="item in permissions" :key="item" class="py-2">{{ locale.t(`team.permissions.${item}`) }}</th></tr></thead>
-                    <tbody class="divide-y divide-white/10">
-                        <tr v-for="role in roles" :key="role"><td class="py-2 text-white">{{ locale.t(`team.roles.${role}`) }}</td><td v-for="item in permissions" :key="item" class="py-2">{{ can(role, item) ? 'yes' : '-' }}</td></tr>
+                    <thead class="text-xs uppercase ui-subtle"><tr><th class="py-2">{{ locale.t('team.role') }}</th><th v-for="item in permissions" :key="item" class="py-2 text-center">{{ locale.t(`team.permissions.${item}`) }}</th></tr></thead>
+                    <tbody class="divide-y" style="border-color: var(--border)">
+                        <tr v-for="role in roles" :key="role">
+                            <td class="py-2 ui-text">{{ locale.t(`team.roles.${role}`) }}</td>
+                            <td v-for="item in permissions" :key="item" class="py-2 text-center">
+                                <CheckCircle2 v-if="can(role, item)" class="mx-auto h-4 w-4 text-primary" />
+                                <Minus v-else class="mx-auto h-4 w-4 ui-subtle" />
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <div class="space-y-3">
-            <article v-for="member in tenantUsers" :key="member.id" class="rounded-md border border-white/10 bg-white/[0.03] p-4">
+            <article v-for="member in tenantUsers" :key="member.id" class="rounded-xl border p-4" style="border-color: var(--border); background: var(--card)">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <p class="flex items-center gap-2 font-medium text-white"><Users class="h-4 w-4 text-emerald-300" />{{ member.name }}</p>
-                        <p class="mt-1 text-xs text-zinc-500">{{ member.email }} - {{ member.phone ?? locale.t('common.unknown') }}</p>
+                        <p class="flex items-center gap-2 font-medium ui-text"><Users class="h-4 w-4 text-primary" />{{ member.name }}</p>
+                        <p class="mt-1 text-xs ui-subtle">{{ member.email }} - {{ member.phone ?? locale.t('common.unknown') }}</p>
                     </div>
                     <Badge :tone="tone(member.status)">{{ member.status }}</Badge>
                 </div>
-                <p v-if="member.id === selfId && ['super_admin', 'owner'].includes(member.role)" class="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-2 text-xs text-amber-100">{{ locale.t('team.ownerWarning') }}</p>
+                <Alert v-if="member.id === selfId && ['super_admin', 'owner'].includes(member.role)" class="mt-3 border-amber-300/30 bg-amber-300/10"><AlertDescription class="text-amber-100">{{ locale.t('team.ownerWarning') }}</AlertDescription></Alert>
                 <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <select :value="member.role" class="h-9 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none" @change="updateRole(member, ($event.target as HTMLSelectElement).value as TenantUser['role'])">
-                        <option v-for="role in roles" :key="role" :value="role">{{ locale.t(`team.roles.${role}`) }}</option>
-                    </select>
+                    <Select :model-value="member.role" @update:model-value="(value) => updateRole(member, value as TenantUser['role'])">
+                        <SelectTrigger class="h-9 w-40"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem v-for="role in roles" :key="role" :value="role">{{ locale.t(`team.roles.${role}`) }}</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <Button size="sm" variant="secondary" :disabled="busy || (member.id === selfId && ['super_admin', 'owner'].includes(member.role))" @click="toggleStatus(member)">{{ member.status === 'disabled' ? locale.t('team.activate') : locale.t('team.disable') }}</Button>
                 </div>
             </article>

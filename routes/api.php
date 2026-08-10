@@ -34,7 +34,9 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('chatwoot/sync', ChatwootSyncController::class)->middleware('throttle:10,1');
         Route::apiResource('tenant-users', TenantUserController::class)->only(['index', 'store', 'update']);
         Route::apiResource('companies', CompanyController::class)->only(['index', 'store', 'show', 'update']);
+        Route::post('companies/{company}/logo', [CompanyController::class, 'uploadLogo']);
         Route::apiResource('customers', CustomerController::class)->only(['index', 'store', 'show', 'update']);
+        Route::post('ai-agents', [AiAgentController::class, 'store']);
         Route::patch('ai-agents/{aiAgent}', [AiAgentController::class, 'update']);
         Route::post('conversations/{conversation}/ai-draft', ConversationAiDraftController::class)->middleware('throttle:20,1');
         Route::post('conversations/{conversation}/reply', ConversationReplyController::class)->middleware('throttle:20,1');
@@ -42,6 +44,6 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::apiResource('tasks', TaskController::class)->only(['index', 'store', 'show', 'update']);
         Route::post('knowledge-documents/upload', [KnowledgeDocumentController::class, 'upload']);
         Route::post('knowledge-documents/index-text', [KnowledgeDocumentController::class, 'indexText']);
-        Route::apiResource('knowledge-documents', KnowledgeDocumentController::class)->only(['index', 'store', 'show', 'update']);
+        Route::apiResource('knowledge-documents', KnowledgeDocumentController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
     });
 });

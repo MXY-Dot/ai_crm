@@ -1,37 +1,46 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { storeToRefs } from 'pinia';
-import { Bot, CheckSquare, MessageSquare, Target, Users } from '@lucide/vue';
-import VisualStatCard from '../components/dashboard/visual/VisualStatCard.vue';
-import LeadPipeline from '../components/dashboard/LeadPipeline.vue';
-import TaskList from '../components/dashboard/TaskList.vue';
+import AiAttentionCard from '../components/dashboard/overview/AiAttentionCard.vue';
+import ChannelStatusCard from '../components/dashboard/overview/ChannelStatusCard.vue';
+import ChannelsDonutCard from '../components/dashboard/overview/ChannelsDonutCard.vue';
+import DialogsTrendChart from '../components/dashboard/overview/DialogsTrendChart.vue';
+import OverviewKpis from '../components/dashboard/overview/OverviewKpis.vue';
+import RecentConversationsCard from '../components/dashboard/overview/RecentConversationsCard.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 
 const store = useCrmDashboardStore();
-const { customers, leads, conversations, openTasks, aiRuns } = storeToRefs(store);
+const { customers, leads, conversations, channels, openTasks, aiRuns, aiHandoffs } = storeToRefs(store);
+
+const today = computed(() => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()));
 
 defineOptions({ layout: AppLayout });
 </script>
 
 <template>
     <section class="space-y-6">
-        <header class="rounded-md border p-5 ui-surface">
-            <p class="text-sm font-medium text-blue-400">Рабочий стол</p>
-            <h2 class="mt-2 text-2xl font-semibold ui-text">Сводка по CRM</h2>
-            <p class="mt-2 max-w-3xl text-sm leading-6 ui-subtle">Только живые данные: чаты, клиенты, лиды, AI-запуски и задачи.</p>
-        </header>
-
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <VisualStatCard label="Чаты" :value="conversations.length" :icon="MessageSquare" />
-            <VisualStatCard label="Клиенты" :value="customers.length" :icon="Users" />
-            <VisualStatCard label="Лиды" :value="leads.length" :icon="Target" />
-            <VisualStatCard label="AI-запуски" :value="aiRuns.length" :icon="Bot" />
-            <VisualStatCard label="Открытые задачи" :value="openTasks.length" :icon="CheckSquare" />
+        <div class="flex items-end justify-between">
+            <div>
+                <h2 class="font-display text-2xl font-bold ui-text">Обзор панель</h2>
+                <p class="mt-1 text-sm ui-subtle">Сегодня, {{ today }}</p>
+            </div>
+            <span class="rounded-lg border px-3 py-1.5 text-xs font-medium ui-subtle" style="border-color: var(--border)">{{ customers.length }} клиентов</span>
         </div>
 
-        <div class="grid gap-5 ">
-            <LeadPipeline />
-            <TaskList :tasks="openTasks" />
+        <OverviewKpis :conversations="conversations" :leads="leads" :open-tasks="openTasks" :ai-runs="aiRuns" />
+
+        <div class="grid gap-6 lg:grid-cols-3">
+            <DialogsTrendChart :conversations="conversations" />
+            <ChannelsDonutCard :conversations="conversations" />
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-3">
+            <RecentConversationsCard :conversations="conversations" />
+            <div class="flex flex-col gap-6">
+                <AiAttentionCard :ai-handoffs="aiHandoffs" />
+                <ChannelStatusCard :channels="channels" />
+            </div>
         </div>
     </section>
 </template>

@@ -46,4 +46,14 @@ abstract class TenantResourceController extends Controller
 
         return response()->json($record->refresh());
     }
+
+    public function destroy(string $id): JsonResponse
+    {
+        $record = $this->model()::query()->findOrFail($id);
+        Gate::authorize('delete', $record);
+
+        $record->delete();
+
+        return response()->json(['deleted' => true]);
+    }
 }

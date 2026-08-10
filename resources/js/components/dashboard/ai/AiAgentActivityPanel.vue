@@ -1,0 +1,39 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import { FlaskConical } from '@lucide/vue';
+import type { AiAgent, AiRun } from '../../../stores/crmDashboard';
+
+const props = defineProps<{ agent: AiAgent | null; aiRuns: AiRun[] }>();
+
+const runs = computed(() => props.aiRuns
+    .filter((run) => run.agent?.id === props.agent?.id)
+    .slice(0, 8));
+
+function confidenceTone(confidence: number): string {
+    if (confidence >= 70) return 'text-primary';
+    if (confidence >= 45) return 'text-amber-600 dark:text-amber-300';
+
+    return 'text-destructive';
+}
+</script>
+
+<template>
+    <div class="flex flex-col overflow-hidden rounded-xl border" style="border-color: var(--border); background: var(--card)">
+        <div class="flex items-center gap-2 border-b p-4" style="border-color: var(--border); background: var(--muted)">
+            <FlaskConical class="h-4 w-4 text-primary" />
+            <h2 class="font-display text-base font-semibold ui-text">Последние запуски</h2>
+        </div>
+        <div class="flex-1 space-y-3 overflow-y-auto p-4">
+            <article v-for="run in runs" :key="run.id" class="rounded-lg border p-3" style="border-color: var(--border); background: var(--background)">
+                <div class="mb-1 flex items-center justify-between gap-2">
+                    <span class="text-xs font-semibold ui-text">{{ run.intent ?? run.conversation?.subject ?? 'AI-запуск' }}</span>
+                    <span class="font-mono text-[11px] font-semibold" :class="confidenceTone(run.confidence)">{{ run.confidence }}%</span>
+                </div>
+                <p class="text-xs leading-5 ui-subtle">{{ run.summary }}</p>
+            </article>
+            <p v-if="! runs.length" class="rounded-lg border border-dashed p-6 text-center text-sm ui-subtle" style="border-color: var(--border)">
+                {{ agent ? 'У этого ассистента ещё нет запусков' : 'Выберите ассистента' }}
+            </p>
+        </div>
+    </div>
+</template>

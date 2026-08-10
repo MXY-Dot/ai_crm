@@ -1,34 +1,50 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue';
-import { Building2, Save } from '@lucide/vue';
+import { computed, reactive, watch } from 'vue';
+import { Save } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
+import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Separator } from '../ui/separator';
+import { Textarea } from '../ui/textarea';
+import { COMMON_TIMEZONES } from '../../lib/timezones';
+import CompanyLogoField from './CompanyLogoField.vue';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { company, busy } = storeToRefs(store);
+
 const form = reactive({
     name: '',
     industry: '',
     phone: '',
     address: '',
-    working_hours: '',
+    timezone: 'none',
+    working_hours_start: '',
+    working_hours_end: '',
     services: '',
     booking_rules: '',
     cancellation_policy: '',
 });
 
+const timezoneOptions = computed(() => (form.timezone !== 'none' && ! COMMON_TIMEZONES.includes(form.timezone)
+    ? [form.timezone, ...COMMON_TIMEZONES]
+    : COMMON_TIMEZONES));
+
 watch(company, (value) => {
     if (! value) return;
-    const brand = value.brand_settings ?? {};
+    const brand = (value.brand_settings ?? {}) as Record<string, string>;
     Object.assign(form, {
         name: value.name ?? '',
         industry: value.industry ?? '',
         phone: value.phone ?? '',
         address: value.address ?? '',
-        working_hours: value.working_hours?.summary ?? '',
+        timezone: value.timezone ?? 'none',
+        working_hours_start: value.working_hours?.start ?? '',
+        working_hours_end: value.working_hours?.end ?? '',
         services: brand.services ?? '',
         booking_rules: brand.booking_rules ?? '',
         cancellation_policy: brand.cancellation_policy ?? '',
@@ -37,13 +53,20 @@ watch(company, (value) => {
 
 async function save(): Promise<void> {
     if (! company.value) return;
+
+    const summary = form.working_hours_start && form.working_hours_end
+        ? `${form.working_hours_start}–${form.working_hours_end}`
+        : '';
+
     await store.updateCompany(company.value.id, {
         name: form.name.trim(),
         industry: form.industry.trim(),
         phone: form.phone.trim(),
         address: form.address.trim(),
-        working_hours: { summary: form.working_hours.trim() },
+        timezone: form.timezone !== 'none' ? form.timezone : null,
+        working_hours: { start: form.working_hours_start, end: form.working_hours_end, summary },
         brand_settings: {
+            ...(company.value.brand_settings ?? {}),
             services: form.services.trim(),
             booking_rules: form.booking_rules.trim(),
             cancellation_policy: form.cancellation_policy.trim(),
@@ -54,22 +77,66 @@ async function save(): Promise<void> {
 
 <template>
     <Card :title="locale.t('company.title')" :subtitle="locale.t('company.subtitle')">
-        <form class="grid gap-4" @submit.prevent="save">
-            <div class="grid gap-3 sm:grid-cols-2">
-                <input v-model="form.name" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.name')" required>
-                <input v-model="form.industry" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.industry')">
-                <input v-model="form.phone" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.phone')">
-                <input v-model="form.address" class="h-10 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.address')">
+        <form class="grid gap-5" @submit.prevent="save">
+            <CompanyLogoField v-if="company" :company-id="company.id" :logo-url="company.logo_url ?? null" />
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.name') }}</span>
+                    <Input v-model="form.name" required />
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.industry') }}</span>
+                    <Input v-model="form.industry" />
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.phone') }}</span>
+                    <Input v-model="form.phone" />
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.address') }}</span>
+                    <Input v-model="form.address" />
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.timezone') }}</span>
+                    <Select v-model="form.timezone">
+                        <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent class="max-h-72">
+                            <SelectItem value="none">{{ locale.t('common.unknown') }}</SelectItem>
+                            <SelectItem v-for="zone in timezoneOptions" :key="zone" :value="zone">{{ zone }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.workingHours') }}</span>
+                    <div class="flex items-center gap-2">
+                        <Input v-model="form.working_hours_start" type="time" />
+                        <span class="ui-subtle">&ndash;</span>
+                        <Input v-model="form.working_hours_end" type="time" />
+                    </div>
+                </label>
             </div>
 
-            <textarea v-model="form.working_hours" class="min-h-20 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.workingHours')" />
-            <textarea v-model="form.services" class="min-h-24 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.services')" />
-            <textarea v-model="form.booking_rules" class="min-h-24 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.bookingRules')" />
-            <textarea v-model="form.cancellation_policy" class="min-h-20 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300" :placeholder="locale.t('company.cancellationPolicy')" />
+            <Separator />
 
-            <button class="inline-flex h-10 w-fit items-center justify-center gap-2 rounded-md bg-emerald-300 px-4 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-200 disabled:opacity-60" type="submit" :disabled="busy">
-                <Save class="h-4 w-4" /> {{ busy ? locale.t('common.waiting') : locale.t('company.save') }}
-            </button>
+            <label class="block">
+                <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.services') }}</span>
+                <Textarea v-model="form.services" class="min-h-24" />
+            </label>
+            <label class="block">
+                <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.bookingRules') }}</span>
+                <Textarea v-model="form.booking_rules" class="min-h-24" />
+            </label>
+            <label class="block">
+                <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.cancellationPolicy') }}</span>
+                <Textarea v-model="form.cancellation_policy" class="min-h-20" />
+            </label>
+
+            <div class="flex justify-end">
+                <Button variant="primary" type="submit" :disabled="busy">
+                    <Save class="h-4 w-4" /> {{ busy ? locale.t('common.waiting') : locale.t('company.save') }}
+                </Button>
+            </div>
         </form>
     </Card>
 </template>

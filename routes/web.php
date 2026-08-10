@@ -51,8 +51,8 @@ Route::middleware('auth')->group(function () use ($dashboardPage): void {
         $dashboardPage($request, $dashboard, 'LeadsPage'))->name('leads');
     Route::get('/customers', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'CustomerProfilePage'))->name('customers');
-    Route::get('/crm', fn (Request $request, DashboardData $dashboard) =>
-        $dashboardPage($request, $dashboard, 'CrmPage'))->name('crm');
+    Route::get('/contacts', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'ContactsPage'))->name('contacts');
     Route::get('/ai', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'AiPage'))->name('ai');
     Route::get('/knowledge', fn (Request $request, DashboardData $dashboard) =>
@@ -61,6 +61,8 @@ Route::middleware('auth')->group(function () use ($dashboardPage): void {
         $dashboardPage($request, $dashboard, 'AnalyticsPage'))->name('analytics');
     Route::get('/integrations', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'IntegrationsPage'))->name('integrations');
+    Route::get('/billing', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'BillingPage'))->name('billing');
     Route::get('/settings', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'SettingsPage'))->name('settings');
 });
