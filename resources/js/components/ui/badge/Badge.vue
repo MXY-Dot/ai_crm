@@ -17,13 +17,13 @@ const props = defineProps</* @vue-ignore */ PrimitiveProps & {
 const delegatedProps = reactiveOmit(props, 'class', 'tone')
 const TONE_CLASSES: Record<string, string> = {
   neutral: 'border-transparent bg-secondary text-secondary-foreground font-semibold',
-  green: 'border-transparent bg-emerald-600 text-white font-semibold',
-  amber: 'border-transparent bg-amber-600 text-white font-semibold',
-  red: 'border-transparent bg-destructive text-white font-semibold',
-  blue: 'border-transparent bg-sky-600 text-white font-semibold',
-  telegram: 'border-transparent bg-brand-telegram text-white font-semibold',
-  whatsapp: 'border-transparent bg-brand-whatsapp text-white font-semibold',
-  instagram: 'border-transparent bg-gradient-to-tr from-brand-instagram-from via-brand-instagram-via to-brand-instagram-to text-white font-semibold',
+  green: 'border-transparent bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 font-semibold',
+  amber: 'border-transparent bg-amber-600/20 text-amber-700 dark:text-amber-300 font-semibold',
+  red: 'border-transparent bg-destructive/20 text-destructive font-semibold',
+  blue: 'border-transparent bg-sky-600/20 text-sky-700 dark:text-sky-300 font-semibold',
+  telegram: 'border-transparent bg-brand-telegram/20 text-brand-telegram font-semibold',
+  whatsapp: 'border-transparent bg-brand-whatsapp/20 text-brand-whatsapp font-semibold',
+  instagram: 'border-transparent bg-brand-instagram-to/20 text-brand-instagram-to font-semibold',
 }
 const toneClass = computed(() => (props.tone ? TONE_CLASSES[props.tone] : undefined))
 </script>
