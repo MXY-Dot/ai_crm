@@ -52,7 +52,7 @@ async function toggleStatus(member: TenantUser): Promise<void> {
         <div class="flex flex-wrap items-center gap-3 border-b p-4" style="border-color: var(--border)">
             <div class="relative flex-1 sm:max-w-xs">
                 <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
-                <Input v-model="query" class="h-9 pl-9" :placeholder="locale.t('team.searchPlaceholder')" />
+                <Input v-model="query" class="h-9 pl-9 lg:pl-10" :placeholder="locale.t('team.searchPlaceholder')" />
             </div>
             <Tabs v-model="statusFilter">
                 <TabsList>

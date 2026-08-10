@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import { apiRequest } from '../lib/apiClient';
 import { toast } from 'vue-sonner';
 import { pathForRecord } from '../lib/pages';
+import { useLocaleStore } from './locale';
 
 export type Toast = { id: number; tone: 'success' | 'error'; message: string };
 
@@ -390,15 +391,16 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         selectedLeadId.value = selectedRecordId(selectedLeadId.value, leads.value);
     }
 
-    async function mutate(action: () => Promise<unknown>): Promise<void> {
+    async function mutate(action: () => Promise<unknown>, successKey?: string): Promise<void> {
         busy.value = true;
         error.value = null;
+        const locale = useLocaleStore();
         try {
             await action();
             await refreshDashboard();
-            notify('Done');
+            notify(locale.t(successKey ?? 'toast.genericSuccess'));
         } catch (caught) {
-            error.value = caught instanceof Error ? caught.message : 'Request failed';
+            error.value = caught instanceof Error ? caught.message : locale.t('toast.genericError');
             notify(error.value, 'error');
             throw caught;
         } finally {
@@ -412,7 +414,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body: { company_id: companyId.value, ...payload },
-        }));
+        }), 'toast.customerCreated');
     }
 
     async function createLead(payload: { title: string; source?: string; score?: number; customer_id?: number | null }): Promise<void> {
@@ -421,7 +423,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body: { company_id: companyId.value, status: 'new', ...payload },
-        }));
+        }), 'toast.leadCreated');
     }
 
     async function updateCompany(id: number, payload: CompanyPayload): Promise<void> {
@@ -429,7 +431,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'PATCH',
             tenant: tenantSlug.value,
             body: payload,
-        }));
+        }), 'toast.companyUpdated');
     }
 
     async function uploadCompanyLogo(id: number, file: File): Promise<void> {
@@ -440,7 +442,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body,
-        }));
+        }), 'toast.logoUpdated');
     }
 
     async function updateLeadStatus(id: number, status: string): Promise<void> {
@@ -448,7 +450,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'PATCH',
             tenant: tenantSlug.value,
             body: { status },
-        }));
+        }), 'toast.leadStatusUpdated');
     }
 
     async function createTask(payload: { title: string; priority?: string; lead_id?: number | null }): Promise<void> {
@@ -457,7 +459,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body: { company_id: companyId.value, status: 'open', priority: 'normal', ...payload },
-        }));
+        }), 'toast.taskCreated');
     }
 
     async function updateTaskStatus(id: number, status: string): Promise<void> {
@@ -465,28 +467,28 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'PATCH',
             tenant: tenantSlug.value,
             body: { status },
-        }));
+        }), 'toast.taskUpdated');
     }
 
     async function generateAiDraft(id: number): Promise<void> {
         await mutate(() => apiRequest(`/api/conversations/${id}/ai-draft`, {
             method: 'POST',
             tenant: tenantSlug.value,
-        }));
+        }), 'toast.aiDraftGenerated');
     }
     async function replyToConversation(id: number, body: string): Promise<void> {
         await mutate(() => apiRequest(`/api/conversations/${id}/reply`, {
             method: 'POST',
             tenant: tenantSlug.value,
             body: { body },
-        }));
+        }), 'toast.replySent');
     }
 
     async function syncChatwoot(): Promise<void> {
         await mutate(() => apiRequest('/api/chatwoot/sync', {
             method: 'POST',
             tenant: tenantSlug.value,
-        }));
+        }), 'toast.chatwootSynced');
     }
 
     async function updatePlan(plan: string): Promise<void> {
@@ -496,7 +498,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'PATCH',
             tenant: tenantSlug.value,
             body: { settings: { ...(tenant.value!.settings ?? {}), billing: { ...(tenant.value!.settings?.billing ?? {}), plan } } },
-        }));
+        }), 'toast.planUpdated');
     }
 
     async function createAiAgent(payload: { name: string; status?: string; handoff_threshold?: number; instructions?: string }): Promise<void> {
@@ -504,7 +506,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body: payload,
-        }));
+        }), 'toast.agentCreated');
     }
 
     async function updateAiAgent(id: number, payload: AiAgentPayload): Promise<void> {
@@ -512,7 +514,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'PATCH',
             tenant: tenantSlug.value,
             body: payload,
-        }));
+        }), 'toast.agentUpdated');
     }
 
     async function indexKnowledgeText(payload: { title: string; content: string; ai_agent_id?: number | null }): Promise<void> {
@@ -521,7 +523,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body: { company_id: companyId.value, source_type: 'manual', ...payload },
-        }));
+        }), 'toast.knowledgeIndexed');
     }
 
     async function uploadKnowledgeFile(payload: { title?: string; file: File; ai_agent_id?: number | null }): Promise<void> {
@@ -537,14 +539,14 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body,
-        }));
+        }), 'toast.fileUploaded');
     }
 
     async function deleteKnowledgeDocument(id: number): Promise<void> {
         await mutate(() => apiRequest(`/api/knowledge-documents/${id}`, {
             method: 'DELETE',
             tenant: tenantSlug.value,
-        }));
+        }), 'toast.documentDeleted');
     }
 
     async function createTenantUser(payload: Required<Pick<TenantUserPayload, 'name' | 'email' | 'role'>> & TenantUserPayload): Promise<void> {
@@ -552,7 +554,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'POST',
             tenant: tenantSlug.value,
             body: payload,
-        }));
+        }), 'toast.userInvited');
     }
 
     async function updateTenantUser(id: number, payload: TenantUserPayload): Promise<void> {
@@ -560,7 +562,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             method: 'PATCH',
             tenant: tenantSlug.value,
             body: payload,
-        }));
+        }), 'toast.userUpdated');
     }
 
     async function loadIntegrationSettings(): Promise<void> {
@@ -580,7 +582,8 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
 
             return result;
         } catch (caught) {
-            notify(caught instanceof Error ? caught.message : 'Connection test failed', 'error');
+            const locale = useLocaleStore();
+            notify(caught instanceof Error ? caught.message : locale.t('toast.connectionTestFailed'), 'error');
             throw caught;
         }
     }
@@ -588,6 +591,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     async function updateIntegrationSettings(payload: IntegrationSettingsPayload): Promise<void> {
         busy.value = true;
         error.value = null;
+        const locale = useLocaleStore();
         try {
             integrationSettings.value = await apiRequest<IntegrationSettings>('/api/integration-settings', {
                 method: 'PATCH',
@@ -595,9 +599,9 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
                 body: payload,
             });
             await refreshDashboard();
-            notify('Settings saved');
+            notify(locale.t('toast.settingsSaved'));
         } catch (caught) {
-            error.value = caught instanceof Error ? caught.message : 'Request failed';
+            error.value = caught instanceof Error ? caught.message : locale.t('toast.genericError');
             notify(error.value, 'error');
             throw caught;
         } finally {

@@ -60,7 +60,7 @@ async function uploadFile(payload: { title: string; file: File }): Promise<void>
 
         <div class="relative">
             <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
-            <Input v-model="query" class="h-10 pl-9" :placeholder="labels.search" />
+            <Input v-model="query" class="h-10 pl-9 lg:pl-10" :placeholder="labels.search" />
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">

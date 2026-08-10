@@ -10,7 +10,6 @@ import LanguageSwitcher from '@/components/dashboard/LanguageSwitcher.vue';
 import MobileNav from '@/components/dashboard/MobileNav.vue';
 import ThemeSwitcher from '@/components/dashboard/ThemeSwitcher.vue';
 import { Toaster } from '@/components/ui/sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { pageFromPath } from '@/lib/pages';
 import { type Bootstrap, useCrmDashboardStore } from '@/stores/crmDashboard';
@@ -63,21 +62,30 @@ function logout(): void {
     });
 }
 
-const tenantStatusLabel = computed(() => tenant.value?.status ? locale.t('status.' + tenant.value.status) : locale.t('common.setup'));
+const sidebarCollapsed = ref(localStorage.getItem('gravity_sidebar_collapsed') === '1');
+
+function toggleSidebar(): void {
+    sidebarCollapsed.value = ! sidebarCollapsed.value;
+    localStorage.setItem('gravity_sidebar_collapsed', sidebarCollapsed.value ? '1' : '0');
+}
 </script>
 
 <template>
-    <div class="min-h-screen antialiased" style="background: var(--background); color: var(--foreground)">
-        <div class="flex min-h-screen">
-            <AppSidebar :active="activePage" :tenant-name="tenant?.name ?? locale.t('common.noTenant')" />
+    <div class="h-screen overflow-hidden antialiased" style="background: var(--background); color: var(--foreground)">
+        <div class="flex h-screen">
+            <AppSidebar
+                :active="activePage"
+                :tenant-name="tenant?.name ?? locale.t('common.noTenant')"
+                :collapsed="sidebarCollapsed"
+                @toggle="toggleSidebar"
+            />
 
-            <main class="min-w-0 flex-1 pb-20 lg:pb-0">
+            <main class="h-full min-w-0 flex-1 overflow-y-auto pb-20 lg:pb-0">
                 <header class="sticky top-0 z-10 border-b px-4 py-4 backdrop-blur sm:px-6 lg:px-8" style="border-color: var(--border); background: color-mix(in srgb, var(--card) 92%, transparent)">
                     <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div>
                             <div class="flex flex-wrap items-center gap-2">
                                 <h1 class="font-display text-2xl font-bold ui-text sm:text-3xl">{{ company?.name ?? 'WERO' }}</h1>
-                                <Badge tone="green">{{ tenantStatusLabel }}</Badge>
                             </div>
                             <p class="mt-2 max-w-3xl text-sm leading-6 ui-subtle">{{ locale.t('header.description') }}</p>
                         </div>
