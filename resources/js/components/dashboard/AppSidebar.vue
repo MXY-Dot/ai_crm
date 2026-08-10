@@ -35,7 +35,7 @@ defineEmits<{ toggle: [] }>();
 
 <template>
     <aside
-        class="relative hidden shrink-0 border-r px-3 py-5 transition-[width] lg:block"
+        class="relative hidden shrink-0 border-r px-3 py-5 transition-[width] duration-300 ease-in-out lg:block"
         :style="{ width: collapsed ? '76px' : '260px', borderColor: 'var(--sidebar-border)', background: 'var(--sidebar)' }"
     >
         <button

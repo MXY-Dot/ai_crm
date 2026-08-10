@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, watch } from 'vue';
 import { Input } from '../input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../select';
 
@@ -28,42 +28,57 @@ const props = withDefaults(defineProps<{ modelValue: string; placeholder?: strin
 });
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 
-const parsed = computed(() => {
-    const trimmed = (props.modelValue ?? '').trim();
+function codeFor(iso: string): string {
+    return COUNTRIES.find((country) => country.iso === iso)?.code ?? '+7';
+}
+
+function parseValue(value: string): { iso: string; local: string } {
+    const trimmed = (value ?? '').trim();
     const match = trimmed ? CODES_BY_LENGTH.find((country) => trimmed.startsWith(country.code)) : null;
 
     return match
         ? { iso: match.iso, local: trimmed.slice(match.code.length).trim() }
         : { iso: 'RU', local: trimmed };
-});
-
-function codeFor(iso: string): string {
-    return COUNTRIES.find((country) => country.iso === iso)?.code ?? '+7';
 }
 
-function combine(iso: string, local: string): string {
-    return local ? `${codeFor(iso)} ${local}`.trim() : '';
+const initial = parseValue(props.modelValue);
+const selectedIso = ref(initial.iso);
+const localValue = ref(initial.local);
+let lastEmitted = props.modelValue;
+
+watch(() => props.modelValue, (value) => {
+    if (value === lastEmitted) return;
+
+    const parsed = parseValue(value);
+    selectedIso.value = parsed.iso;
+    localValue.value = parsed.local;
+});
+
+function emitCombined(): void {
+    const combined = localValue.value ? `${codeFor(selectedIso.value)} ${localValue.value}`.trim() : codeFor(selectedIso.value);
+    lastEmitted = combined;
+    emit('update:modelValue', combined);
 }
 
-const isoModel = computed({
-    get: () => parsed.value.iso,
-    set: (value: string) => emit('update:modelValue', combine(value, parsed.value.local)),
-});
+function onIsoChange(value: string): void {
+    selectedIso.value = value;
+    emitCombined();
+}
 
-const localModel = computed({
-    get: () => parsed.value.local,
-    set: (value: string) => emit('update:modelValue', combine(parsed.value.iso, value)),
-});
+function onLocalInput(value: string | number): void {
+    localValue.value = String(value);
+    emitCombined();
+}
 </script>
 
 <template>
     <div class="flex gap-2">
-        <Select v-model="isoModel">
+        <Select :model-value="selectedIso" @update:model-value="(value) => onIsoChange(value as string)">
             <SelectTrigger class="w-24 shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
                 <SelectItem v-for="country in COUNTRIES" :key="country.iso" :value="country.iso">{{ country.iso }} {{ country.code }}</SelectItem>
             </SelectContent>
         </Select>
-        <Input v-model="localModel" type="tel" class="flex-1" :placeholder="placeholder" />
+        <Input :model-value="localValue" type="tel" class="flex-1" :placeholder="placeholder" @update:model-value="onLocalInput" />
     </div>
 </template>
