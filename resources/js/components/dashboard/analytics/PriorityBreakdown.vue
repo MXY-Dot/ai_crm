@@ -4,6 +4,7 @@ import { Lightbulb } from '@lucide/vue';
 import type { Conversation } from '../../../stores/crmDashboard';
 import { titleCase } from '../../../lib/format';
 import { Progress } from '../../ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
 const props = defineProps<{ conversations: Conversation[] }>();
 
@@ -16,7 +17,7 @@ const rows = computed(() => {
 
     return [...counts.entries()]
         .sort((a, b) => b[1] - a[1])
-        .map(([priority, count]) => ({ priority, count, percent: total ? Math.round((count / total) * 100) : 0 }));
+        .map(([priority, count]) => ({ priority, count, total, percent: total ? Math.round((count / total) * 100) : 0 }));
 });
 </script>
 
@@ -26,16 +27,23 @@ const rows = computed(() => {
             <h3 class="font-display text-base font-semibold ui-text">Приоритеты диалогов</h3>
             <p class="text-sm ui-subtle">Распределение по срочности</p>
         </div>
-        <div class="space-y-5">
-            <div v-for="row in rows" :key="row.priority">
-                <div class="mb-1 flex justify-between text-sm">
-                    <span class="ui-text">{{ titleCase(row.priority) }}</span>
-                    <span class="font-mono ui-subtle">{{ row.percent }}%</span>
-                </div>
-                <Progress :model-value="row.percent" />
+        <TooltipProvider :delay-duration="100">
+            <div class="space-y-5">
+                <Tooltip v-for="row in rows" :key="row.priority">
+                    <TooltipTrigger as-child>
+                        <div class="cursor-pointer">
+                            <div class="mb-1 flex justify-between text-sm">
+                                <span class="ui-text">{{ titleCase(row.priority) }}</span>
+                                <span class="font-mono ui-subtle">{{ row.percent }}%</span>
+                            </div>
+                            <Progress :model-value="row.percent" />
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>{{ row.count }} из {{ row.total }} диалогов</TooltipContent>
+                </Tooltip>
+                <p v-if="! rows.length" class="text-sm ui-subtle">Нет данных по диалогам</p>
             </div>
-            <p v-if="! rows.length" class="text-sm ui-subtle">Нет данных по диалогам</p>
-        </div>
+        </TooltipProvider>
         <div class="mt-6 flex gap-3 rounded-lg border p-3 text-sm" style="border-color: var(--border); background: var(--muted)">
             <Lightbulb class="h-4 w-4 shrink-0 text-primary" />
             <span class="ui-subtle">Данные считаются напрямую из реальных диалогов вашего workspace.</span>

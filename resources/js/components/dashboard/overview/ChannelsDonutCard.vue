@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { Conversation } from '../../../stores/crmDashboard';
 import { titleCase } from '../../../lib/format';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
 const props = defineProps<{ conversations: Conversation[] }>();
 const channelColors: Record<string, string> = {
@@ -48,11 +49,20 @@ const gradient = computed(() => {
     <div class="flex flex-col rounded-xl border p-5" style="border-color: var(--border); background: var(--card)">
         <h3 class="mb-6 font-display text-base font-semibold ui-text">Распределение каналов</h3>
         <div class="flex flex-1 flex-col items-center justify-center">
-            <div class="relative h-40 w-40 rounded-full" :style="{ background: `conic-gradient(${gradient})` }">
-                <div class="absolute inset-3 flex flex-col items-center justify-center rounded-full" style="background: var(--card)">
-                    <span class="font-display text-2xl font-bold ui-text">{{ conversations.length }}</span>
-                </div>
-            </div>
+            <TooltipProvider :delay-duration="100">
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <div class="relative h-40 w-40 cursor-pointer rounded-full transition hover:opacity-90" :style="{ background: `conic-gradient(${gradient})` }">
+                            <div class="absolute inset-3 flex flex-col items-center justify-center rounded-full" style="background: var(--card)">
+                                <span class="font-display text-2xl font-bold ui-text">{{ conversations.length }}</span>
+                            </div>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <span v-for="(segment, index) in segments" :key="segment.provider">{{ index > 0 ? ' · ' : '' }}{{ titleCase(segment.provider) }}: {{ segment.count }}</span>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
             <div class="mt-6 w-full space-y-2">
                 <div v-for="segment in segments" :key="segment.provider" class="flex items-center justify-between text-sm">
                     <div class="flex items-center gap-2">

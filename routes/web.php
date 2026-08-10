@@ -63,6 +63,8 @@ Route::middleware('auth')->group(function () use ($dashboardPage): void {
         $dashboardPage($request, $dashboard, 'IntegrationsPage'))->name('integrations');
     Route::get('/team', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'TeamPage'))->name('team');
+    Route::get('/marketplace', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'IntegrationsCatalogPage'))->name('marketplace');
     Route::get('/billing', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'BillingPage'))->name('billing');
     Route::get('/settings', fn (Request $request, DashboardData $dashboard) =>

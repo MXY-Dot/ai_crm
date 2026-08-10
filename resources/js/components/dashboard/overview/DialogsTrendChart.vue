@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Conversation } from '../../../stores/crmDashboard';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
 const props = defineProps<{ conversations: Conversation[] }>();
 
@@ -21,19 +22,23 @@ const days = computed(() => {
                 && stamp.getDate() === date.getDate();
         }).length;
 
-        return { label: new Intl.DateTimeFormat('ru-RU', { weekday: 'short' }).format(date), count };
+        return {
+            label: new Intl.DateTimeFormat('ru-RU', { weekday: 'short' }).format(date),
+            fullLabel: new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date),
+            count,
+        };
     });
 });
 
 const maxCount = computed(() => Math.max(1, ...days.value.map((day) => day.count)));
 
-const points = computed(() => days.value.map((day, index) => {
-    const x = (index / (days.value.length - 1)) * 100;
-    const y = 100 - (day.count / maxCount.value) * 90;
+const markers = computed(() => days.value.map((day, index) => ({
+    ...day,
+    x: (index / (days.value.length - 1)) * 100,
+    y: 100 - (day.count / maxCount.value) * 90,
+})));
 
-    return `${x},${y}`;
-}).join(' '));
-
+const points = computed(() => markers.value.map((marker) => `${marker.x},${marker.y}`).join(' '));
 const areaPoints = computed(() => `0,100 ${points.value} 100,100`);
 </script>
 
@@ -49,6 +54,18 @@ const areaPoints = computed(() => `0,100 ${points.value} 100,100`);
                 <polygon :points="areaPoints" fill="var(--primary)" opacity="0.12" />
                 <polyline :points="points" fill="none" stroke="var(--primary)" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
             </svg>
+            <TooltipProvider :delay-duration="100">
+                <Tooltip v-for="marker in markers" :key="marker.label">
+                    <TooltipTrigger as-child>
+                        <span
+                            class="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 transition hover:scale-125"
+                            style="background: var(--card); border-color: var(--primary)"
+                            :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
+                        />
+                    </TooltipTrigger>
+                    <TooltipContent>{{ marker.fullLabel }}: {{ marker.count }} диалогов</TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
         <div class="mt-2 flex justify-between text-xs font-medium uppercase ui-subtle">
             <span v-for="day in days" :key="day.label">{{ day.label }}</span>

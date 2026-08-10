@@ -24,9 +24,9 @@ const conversionRate = computed(() => (props.leads.length
 
 <template>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Диалоги" :value="conversations.length" :delta="`${activeConversations.length} активных`" :icon="MessageSquare" />
-        <StatTile label="Доля ответов AI" :value="`${aiShare}%`" :delta="`${aiRuns.length} запусков`" :icon="Bot" highlight />
-        <StatTile label="Открытые задачи" :value="openTasks.length" :icon="CheckSquare" />
-        <StatTile label="Конверсия в лид" :value="`${conversionRate}%`" :delta="`${wonLeads.length} из ${leads.length}`" :icon="Target" />
+        <StatTile label="Диалоги" :value="conversations.length" :delta="`${activeConversations.length} активных`" :icon="MessageSquare" hint="Все диалоги во всех каналах" />
+        <StatTile label="Доля ответов AI" :value="`${aiShare}%`" :delta="`${aiRuns.length} запусков`" :icon="Bot" highlight :hint="`${aiRuns.length} из ${conversations.length} диалогов обработаны AI хотя бы раз`" />
+        <StatTile label="Открытые задачи" :value="openTasks.length" :icon="CheckSquare" hint="Задачи со статусом «Открыта» или «В работе»" />
+        <StatTile label="Конверсия в лид" :value="`${conversionRate}%`" :delta="`${wonLeads.length} из ${leads.length}`" :icon="Target" hint="Доля лидов со статусом «Выиграна» от всех лидов" />
     </div>
 </template>

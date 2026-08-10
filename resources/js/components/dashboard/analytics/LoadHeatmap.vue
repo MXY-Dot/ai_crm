@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Message } from '../../../stores/crmDashboard';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
 const props = defineProps<{ messages: Message[] }>();
 const dayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -41,16 +42,20 @@ const grid = computed(() => {
                 <div />
                 <div v-for="day in dayLabels" :key="day" class="text-center text-[10px] font-semibold uppercase ui-subtle">{{ day }}</div>
             </div>
-            <div v-for="(row, rowIndex) in grid" :key="rowIndex" class="mt-1 grid grid-cols-8 items-center gap-1">
-                <div class="pr-2 text-right font-mono text-[10px] ui-subtle">{{ partLabels[rowIndex] }}</div>
-                <div
-                    v-for="(cell, cellIndex) in row"
-                    :key="cellIndex"
-                    class="h-8 rounded"
-                    :style="{ background: `color-mix(in srgb, var(--primary) ${Math.round(cell.intensity * 90)}%, var(--muted))` }"
-                    :title="`${cell.count} сообщений`"
-                />
-            </div>
+            <TooltipProvider :delay-duration="100">
+                <div v-for="(row, rowIndex) in grid" :key="rowIndex" class="mt-1 grid grid-cols-8 items-center gap-1">
+                    <div class="pr-2 text-right font-mono text-[10px] ui-subtle">{{ partLabels[rowIndex] }}</div>
+                    <Tooltip v-for="(cell, cellIndex) in row" :key="cellIndex">
+                        <TooltipTrigger as-child>
+                            <div
+                                class="h-8 cursor-pointer rounded transition hover:ring-2 hover:ring-primary/50"
+                                :style="{ background: `color-mix(in srgb, var(--primary) ${Math.round(cell.intensity * 90)}%, var(--muted))` }"
+                            />
+                        </TooltipTrigger>
+                        <TooltipContent>{{ dayLabels[cellIndex] }}, {{ partLabels[rowIndex] }}: {{ cell.count }} сообщений</TooltipContent>
+                    </Tooltip>
+                </div>
+            </TooltipProvider>
         </div>
     </div>
 </template>

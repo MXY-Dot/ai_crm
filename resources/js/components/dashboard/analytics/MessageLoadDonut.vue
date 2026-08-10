@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Message } from '../../../stores/crmDashboard';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
 const props = defineProps<{ messages: Message[] }>();
 
@@ -28,12 +29,19 @@ const gradient = computed(() => `var(--primary) 0% ${groups.value.aiPercent}%, v
             <p class="text-sm ui-subtle">Распределение ответов</p>
         </div>
         <div class="flex flex-1 items-center justify-center">
-            <div class="relative h-40 w-40 rounded-full" :style="{ background: `conic-gradient(${gradient})` }">
-                <div class="absolute inset-3 flex flex-col items-center justify-center rounded-full" style="background: var(--card)">
-                    <span class="font-display text-2xl font-bold ui-text">{{ groups.aiPercent }}%</span>
-                    <span class="text-[10px] font-semibold uppercase ui-subtle">AI</span>
-                </div>
-            </div>
+            <TooltipProvider :delay-duration="100">
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <div class="relative h-40 w-40 cursor-pointer rounded-full transition hover:opacity-90" :style="{ background: `conic-gradient(${gradient})` }">
+                            <div class="absolute inset-3 flex flex-col items-center justify-center rounded-full" style="background: var(--card)">
+                                <span class="font-display text-2xl font-bold ui-text">{{ groups.aiPercent }}%</span>
+                                <span class="text-[10px] font-semibold uppercase ui-subtle">AI</span>
+                            </div>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>AI: {{ groups.ai }} ({{ groups.aiPercent }}%) &middot; Операторы: {{ groups.operator }} ({{ groups.operatorPercent }}%)</TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
         <div class="mt-6 space-y-2 text-sm">
             <div class="flex items-center justify-between">

@@ -18,9 +18,9 @@ const avgConfidence = computed(() => (props.aiRuns.length
 
 <template>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Всего обращений" :value="conversations.length" :delta="`${activeConversations.length} активных`" :icon="MessageSquare" />
-        <StatTile label="Автоматизация (AI)" :value="`${aiShare}%`" :icon="Bot" highlight />
-        <StatTile label="Средняя уверенность AI" :value="`${avgConfidence}%`" :icon="Sparkles" />
-        <StatTile label="Открытые задачи" :value="openTasks.length" :icon="CheckSquare" />
+        <StatTile label="Всего обращений" :value="conversations.length" :delta="`${activeConversations.length} активных`" :icon="MessageSquare" hint="Все диалоги во всех каналах за всё время" />
+        <StatTile label="Автоматизация (AI)" :value="`${aiShare}%`" :icon="Bot" highlight :hint="`${aiRuns.length} из ${conversations.length} диалогов обработаны AI хотя бы раз`" />
+        <StatTile label="Средняя уверенность AI" :value="`${avgConfidence}%`" :icon="Sparkles" hint="Средняя уверенность AI по всем запускам" />
+        <StatTile label="Открытые задачи" :value="openTasks.length" :icon="CheckSquare" hint="Задачи со статусом «Открыта» или «В работе»" />
     </div>
 </template>
