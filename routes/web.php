@@ -61,6 +61,8 @@ Route::middleware('auth')->group(function () use ($dashboardPage): void {
         $dashboardPage($request, $dashboard, 'AnalyticsPage'))->name('analytics');
     Route::get('/integrations', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'IntegrationsPage'))->name('integrations');
+    Route::get('/team', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'TeamPage'))->name('team');
     Route::get('/billing', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'BillingPage'))->name('billing');
     Route::get('/settings', fn (Request $request, DashboardData $dashboard) =>

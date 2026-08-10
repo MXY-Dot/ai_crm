@@ -52,6 +52,12 @@
     --sidebar-accent-foreground: #006d33;
     --sidebar-border: #e2e2e5;
     --sidebar-ring: #2ee577;
+    --brand-telegram: #26a5e4;
+    --brand-whatsapp: #25d366;
+    --brand-instagram-from: #f09433;
+    --brand-instagram-via: #dc2743;
+    --brand-instagram-to: #bc1888;
+    --brand-website: #2563eb;
 }
 
 :root[data-theme='light'] {
@@ -213,6 +219,12 @@ summary,
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    --color-brand-telegram: var(--brand-telegram);
+    --color-brand-whatsapp: var(--brand-whatsapp);
+    --color-brand-instagram-from: var(--brand-instagram-from);
+    --color-brand-instagram-via: var(--brand-instagram-via);
+    --color-brand-instagram-to: var(--brand-instagram-to);
+    --color-brand-website: var(--brand-website);
     --radius-sm: calc(var(--radius) - 4px);
     --radius-md: calc(var(--radius) - 2px);
     --radius-lg: var(--radius);

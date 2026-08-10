@@ -15,10 +15,10 @@ const props = defineProps<{
 
 const brandStyle = computed(() => {
     const map: Record<string, string> = {
-        telegram: '#26A5E4',
-        whatsapp: '#25D366',
-        instagram: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)',
-        blue: '#2563EB',
+        telegram: 'var(--brand-telegram)',
+        whatsapp: 'var(--brand-whatsapp)',
+        instagram: 'linear-gradient(45deg, var(--brand-instagram-from), var(--brand-instagram-via), var(--brand-instagram-to))',
+        blue: 'var(--brand-website)',
     };
     const value = props.brand ? map[props.brand] : null;
 

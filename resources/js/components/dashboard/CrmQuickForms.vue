@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
+import { PhoneInput } from '../ui/phone-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 const props = withDefaults(defineProps<{ leadOnly?: boolean }>(), {
@@ -56,7 +57,7 @@ async function submitTask(): Promise<void> {
             <form v-if="!props.leadOnly" class="space-y-3" @submit.prevent="submitCustomer">
                 <h3 class="font-semibold ui-text">{{ locale.t('crm.newCustomer') }}</h3>
                 <Input v-model="customer.name" :placeholder="locale.t('crm.name')" required />
-                <Input v-model="customer.phone" :placeholder="locale.t('crm.phone')" />
+                <PhoneInput v-model="customer.phone" :placeholder="locale.t('crm.phone')" />
                 <Input v-model="customer.email" :placeholder="locale.t('crm.email')" type="email" />
                 <Button class="w-full" variant="primary" type="submit" :disabled="busy"><Plus class="h-4 w-4" />{{ locale.t('crm.createCustomer') }}</Button>
             </form>

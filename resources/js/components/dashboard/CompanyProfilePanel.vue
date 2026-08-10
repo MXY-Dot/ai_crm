@@ -7,6 +7,7 @@ import { useLocaleStore } from '../../stores/locale';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
+import { PhoneInput } from '../ui/phone-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
@@ -91,7 +92,7 @@ async function save(): Promise<void> {
                 </label>
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.phone') }}</span>
-                    <Input v-model="form.phone" />
+                    <PhoneInput v-model="form.phone" />
                 </label>
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.address') }}</span>

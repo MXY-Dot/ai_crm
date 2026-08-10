@@ -5,11 +5,11 @@ import { titleCase } from '../../../lib/format';
 
 const props = defineProps<{ conversations: Conversation[] }>();
 const channelColors: Record<string, string> = {
-    telegram: '#26A5E4',
-    whatsapp: '#25D366',
-    instagram: '#C13584',
-    website: '#2563EB',
-    web: '#2563EB',
+    telegram: 'var(--brand-telegram)',
+    whatsapp: 'var(--brand-whatsapp)',
+    instagram: 'var(--brand-instagram-to)',
+    website: 'var(--brand-website)',
+    web: 'var(--brand-website)',
 };
 
 const segments = computed(() => {

@@ -21,9 +21,9 @@ const TONE_CLASSES: Record<string, string> = {
   amber: 'border-transparent bg-amber-500 text-white font-semibold',
   red: 'border-transparent bg-destructive text-white font-semibold',
   blue: 'border-transparent bg-sky-600 text-white font-semibold',
-  telegram: 'border-transparent bg-[#26A5E4] text-white font-semibold',
-  whatsapp: 'border-transparent bg-[#25D366] text-white font-semibold',
-  instagram: 'border-transparent bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white font-semibold',
+  telegram: 'border-transparent bg-brand-telegram text-white font-semibold',
+  whatsapp: 'border-transparent bg-brand-whatsapp text-white font-semibold',
+  instagram: 'border-transparent bg-gradient-to-tr from-brand-instagram-from via-brand-instagram-via to-brand-instagram-to text-white font-semibold',
 }
 const toneClass = computed(() => (props.tone ? TONE_CLASSES[props.tone] : undefined))
 </script>

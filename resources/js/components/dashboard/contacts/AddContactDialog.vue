@@ -6,6 +6,7 @@ import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/dialog';
 import { Input } from '../../ui/input';
+import { PhoneInput } from '../../ui/phone-input';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
@@ -43,7 +44,7 @@ async function submit(): Promise<void> {
                     </label>
                     <label>
                         <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('crm.phone') }}</span>
-                        <Input v-model="form.phone" />
+                        <PhoneInput v-model="form.phone" />
                     </label>
                     <label>
                         <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('crm.email') }}</span>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { BarChart3, Bot, BookOpen, CalendarCheck, CreditCard, Inbox, LayoutDashboard, Plug, Settings, Target, Users } from '@lucide/vue';
+import { BarChart3, Bot, BookOpen, CalendarCheck, CreditCard, Inbox, LayoutDashboard, Plug, Settings, Target, Users, Users2 } from '@lucide/vue';
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { APP_VERSION } from '../../lib/version';
 import { useLocaleStore } from '../../stores/locale';
@@ -16,6 +16,7 @@ const items = computed<Array<{ id: DashboardPage; label: string; icon: unknown }
     { id: 'knowledge', label: locale.t('nav.knowledge'), icon: BookOpen },
     { id: 'analytics', label: locale.t('nav.analytics'), icon: BarChart3 },
     { id: 'integrations', label: locale.t('nav.integrations'), icon: Plug },
+    { id: 'team', label: locale.t('nav.team'), icon: Users2 },
     { id: 'billing', label: locale.t('nav.billing'), icon: CreditCard },
     { id: 'settings', label: locale.t('nav.settings'), icon: Settings },
 ]);
