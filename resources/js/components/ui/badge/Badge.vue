@@ -2,6 +2,7 @@
 import type { PrimitiveProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import type { BadgeVariants } from '.'
+import { computed } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { Primitive } from 'reka-ui'
 import { cn } from '@/lib/utils'
@@ -14,7 +15,7 @@ const props = defineProps</* @vue-ignore */ PrimitiveProps & {
 }>()
 
 const delegatedProps = reactiveOmit(props, 'class', 'tone')
-const toneClass = {
+const TONE_CLASSES: Record<string, string> = {
   neutral: 'border-transparent bg-secondary text-secondary-foreground font-semibold',
   green: 'border-transparent bg-emerald-600 text-white font-semibold',
   amber: 'border-transparent bg-amber-500 text-white font-semibold',
@@ -23,7 +24,8 @@ const toneClass = {
   telegram: 'border-transparent bg-[#26A5E4] text-white font-semibold',
   whatsapp: 'border-transparent bg-[#25D366] text-white font-semibold',
   instagram: 'border-transparent bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white font-semibold',
-}[props.tone || '']
+}
+const toneClass = computed(() => (props.tone ? TONE_CLASSES[props.tone] : undefined))
 </script>
 
 <template>
