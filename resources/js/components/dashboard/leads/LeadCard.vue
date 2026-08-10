@@ -24,8 +24,8 @@ const initials = computed(() => (props.customerName ?? props.lead.title).slice(0
 
 <template>
     <article
-        class="cursor-pointer rounded-xl border p-4 transition hover:border-primary/40"
-        :style="{ borderColor: selected ? 'var(--primary)' : 'var(--border)', background: 'var(--card)' }"
+        class="cursor-pointer rounded-xl border bg-card p-4 transition hover:border-primary/40"
+        :class="selected ? 'border-primary' : 'border-border'"
         @click="$emit('select')"
     >
         <div class="mb-3 flex items-start justify-between gap-2">
@@ -39,26 +39,26 @@ const initials = computed(() => (props.customerName ?? props.lead.title).slice(0
         <p v-if="customerName" class="mb-3 text-xs ui-subtle">{{ customerName }}</p>
         <p v-if="lead.ai_summary" class="mb-3 line-clamp-2 text-xs leading-5 ui-subtle">{{ lead.ai_summary }}</p>
 
-        <div class="flex items-center justify-between border-t pt-3" style="border-color: var(--border)">
-            <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ui-text" style="background: var(--muted)">AI {{ lead.score }}</span>
+        <div class="flex items-center justify-between border-t pt-3 border-border">
+            <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ui-text bg-muted">AI {{ lead.score }}</span>
             <Avatar class="size-7">
-                <AvatarFallback class="text-[11px] font-semibold" style="background: var(--accent); color: var(--accent-foreground)">{{ initials }}</AvatarFallback>
+                <AvatarFallback class="text-[11px] font-semibold bg-accent text-accent-foreground">{{ initials }}</AvatarFallback>
             </Avatar>
         </div>
 
-        <div v-if="lead.status !== 'won' && lead.status !== 'lost'" class="mt-3 flex items-center gap-2 border-t pt-3" style="border-color: var(--border)" @click.stop>
+        <div v-if="lead.status !== 'won' && lead.status !== 'lost'" class="mt-3 flex items-center gap-2 border-t pt-3 border-border" @click.stop>
             <button
                 v-if="lead.status === 'new'"
-                class="rounded-md border px-2 py-1 text-[11px] font-medium ui-text hover:bg-muted disabled:opacity-50"
-                style="border-color: var(--border)"
+                class="rounded-md border px-2 py-1 text-[11px] font-medium ui-text hover:bg-muted disabled:opacity-50 border-border"
+
                 :disabled="store.busy"
                 @click="store.updateLeadStatus(lead.id, 'qualified')"
             >
                 Квалифицировать
             </button>
             <button
-                class="rounded-md px-2 py-1 text-[11px] font-medium disabled:opacity-50"
-                style="background: var(--primary); color: var(--primary-foreground)"
+                class="rounded-md px-2 py-1 text-[11px] font-medium disabled:opacity-50 bg-primary text-primary-foreground"
+
                 :disabled="store.busy"
                 @click="store.updateLeadStatus(lead.id, 'won')"
             >

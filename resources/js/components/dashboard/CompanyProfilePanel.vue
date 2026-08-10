@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
 import { COMMON_TIMEZONES } from '../../lib/timezones';
+import { INDUSTRY_VALUES } from '../../lib/industries';
 import CompanyLogoField from './CompanyLogoField.vue';
 
 const store = useCrmDashboardStore();
@@ -20,7 +21,8 @@ const { company, busy } = storeToRefs(store);
 
 const form = reactive({
     name: '',
-    industry: '',
+    industry: 'none',
+    industry_other: '',
     phone: '',
     address: '',
     timezone: 'none',
@@ -38,9 +40,12 @@ const timezoneOptions = computed(() => (form.timezone !== 'none' && ! COMMON_TIM
 watch(company, (value) => {
     if (! value) return;
     const brand = (value.brand_settings ?? {}) as Record<string, string>;
+    const rawIndustry = value.industry ?? '';
+    const knownIndustry = (INDUSTRY_VALUES as readonly string[]).includes(rawIndustry);
     Object.assign(form, {
         name: value.name ?? '',
-        industry: value.industry ?? '',
+        industry: ! rawIndustry ? 'none' : (knownIndustry ? rawIndustry : 'other'),
+        industry_other: ! rawIndustry || knownIndustry ? '' : rawIndustry,
         phone: value.phone ?? '',
         address: value.address ?? '',
         timezone: value.timezone ?? 'none',
@@ -58,10 +63,11 @@ async function save(): Promise<void> {
     const summary = form.working_hours_start && form.working_hours_end
         ? `${form.working_hours_start}–${form.working_hours_end}`
         : '';
+    const industry = form.industry === 'none' ? '' : (form.industry === 'other' ? form.industry_other.trim() : form.industry);
 
     await store.updateCompany(company.value.id, {
         name: form.name.trim(),
-        industry: form.industry.trim(),
+        industry,
         phone: form.phone.trim(),
         address: form.address.trim(),
         timezone: form.timezone !== 'none' ? form.timezone : null,
@@ -88,7 +94,15 @@ async function save(): Promise<void> {
                 </label>
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.industry') }}</span>
-                    <Input v-model="form.industry" />
+                    <Select v-model="form.industry">
+                        <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent class="max-h-72">
+                            <SelectItem value="none">{{ locale.t('common.unknown') }}</SelectItem>
+                            <SelectItem v-for="value in INDUSTRY_VALUES" :key="value" :value="value">{{ locale.t(`company.industries.${value}`) }}</SelectItem>
+                            <SelectItem value="other">{{ locale.t('company.industries.other') }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Input v-if="form.industry === 'other'" v-model="form.industry_other" class="mt-2" :placeholder="locale.t('company.industryOtherPlaceholder')" />
                 </label>
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.phone') }}</span>
@@ -96,7 +110,7 @@ async function save(): Promise<void> {
                 </label>
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.address') }}</span>
-                    <Input v-model="form.address" />
+                    <Textarea v-model="form.address" class="min-h-20" />
                 </label>
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.timezone') }}</span>

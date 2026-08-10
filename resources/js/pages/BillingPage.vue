@@ -38,7 +38,7 @@ defineOptions({ layout: AppLayout });
             </div>
         </div>
 
-        <div class="rounded-xl border p-6" style="border-color: var(--border); background: var(--card)">
+        <div class="rounded-xl border p-6 border-border bg-card">
             <h2 class="mb-3 font-display text-base font-semibold ui-text">История платежей</h2>
             <div class="flex flex-col items-center gap-2 py-8 text-center">
                 <Receipt class="h-8 w-8 ui-subtle" />

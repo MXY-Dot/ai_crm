@@ -9,13 +9,13 @@ const locale = useLocaleStore();
 </script>
 
 <template>
-    <div class="rounded-md border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-50">
+    <div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p class="flex items-center gap-2 font-semibold">
                 <Bot class="h-4 w-4" /> {{ locale.t('inbox.aiDraftTitle') }}
             </p>
             <button
-                class="inline-flex h-8 items-center gap-2 rounded-md border border-amber-200/30 px-3 text-xs font-semibold disabled:opacity-60"
+                class="inline-flex h-8 items-center gap-2 rounded-md border border-amber-300 px-3 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40"
                 type="button"
                 :disabled="busy || !canGenerate"
                 @click="$emit('generateDraft')"
@@ -27,15 +27,15 @@ const locale = useLocaleStore();
         <template v-if="draft">
             <p class="whitespace-pre-wrap">{{ draft.body }}</p>
             <div v-if="canSend" class="mt-4 flex flex-wrap gap-2">
-                <button class="h-9 rounded-md border border-amber-200/30 px-3 text-xs font-semibold" type="button" @click="$emit('useDraft', draft.body)">
+                <button class="h-9 rounded-md border border-amber-300 px-3 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40" type="button" @click="$emit('useDraft', draft.body)">
                     {{ locale.t('inbox.useDraft') }}
                 </button>
-                <button class="inline-flex h-9 items-center gap-2 rounded-md bg-amber-200 px-3 text-xs font-semibold text-zinc-950 disabled:opacity-60" type="button" :disabled="busy" @click="$emit('sendDraft', draft.body)">
+                <button class="inline-flex h-9 items-center gap-2 rounded-md bg-amber-500 px-3 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-60" type="button" :disabled="busy" @click="$emit('sendDraft', draft.body)">
                     <Send class="h-3 w-3" /> {{ locale.t('inbox.sendDraft') }}
                 </button>
             </div>
         </template>
 
-        <p v-else class="text-amber-100/80">{{ summary || locale.t('inbox.noAiDraft') }}</p>
+        <p v-else class="text-amber-700 dark:text-amber-300/80">{{ summary || locale.t('inbox.noAiDraft') }}</p>
     </div>
 </template>

@@ -22,7 +22,7 @@ async function onFileSelected(event: Event): Promise<void> {
 
 <template>
     <div class="flex items-center gap-4">
-        <span class="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border" style="border-color: var(--border); background: var(--muted)">
+        <span class="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-muted">
             <img v-if="logoUrl" :src="logoUrl" alt="" class="h-full w-full object-cover">
             <Building2 v-else class="h-7 w-7 ui-subtle" />
         </span>

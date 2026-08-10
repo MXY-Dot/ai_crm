@@ -32,7 +32,7 @@ function timeLabel(value: string | null): string {
 
 <template>
     <div class="flex min-h-0 flex-1 flex-col">
-        <div class="flex items-center gap-1 border-b px-3 py-2 text-xs font-semibold" style="border-color: var(--border)">
+        <div class="flex items-center gap-1 border-b px-3 py-2 text-xs font-semibold border-border">
             <button class="rounded-md px-2 py-1 transition" :class="tab === 'all' ? 'bg-muted ui-text' : 'ui-subtle hover:bg-muted'" @click="tab = 'all'">Все</button>
             <button class="rounded-md px-2 py-1 transition" :class="tab === 'new' ? 'bg-muted ui-text' : 'ui-subtle hover:bg-muted'" @click="tab = 'new'">Новые</button>
             <button class="rounded-md px-2 py-1 transition" :class="tab === 'active' ? 'bg-muted ui-text' : 'ui-subtle hover:bg-muted'" @click="tab = 'active'">В работе</button>
@@ -47,7 +47,7 @@ function timeLabel(value: string | null): string {
             >
                 <span class="relative shrink-0">
                     <Avatar><AvatarFallback>{{ initials(conversation.customer?.name ?? '?') }}</AvatarFallback></Avatar>
-                    <span class="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full shadow-sm" style="background: var(--card)">
+                    <span class="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full shadow-sm bg-card">
                         <component :is="channelIcons[conversation.channel?.provider ?? ''] ?? Send" class="h-2.5 w-2.5 text-primary" />
                     </span>
                 </span>

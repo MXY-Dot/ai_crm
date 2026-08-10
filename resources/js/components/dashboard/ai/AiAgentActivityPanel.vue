@@ -18,20 +18,20 @@ function confidenceTone(confidence: number): string {
 </script>
 
 <template>
-    <div class="flex flex-col overflow-hidden rounded-xl border" style="border-color: var(--border); background: var(--card)">
-        <div class="flex items-center gap-2 border-b p-4" style="border-color: var(--border); background: var(--muted)">
+    <div class="flex flex-col overflow-hidden rounded-xl border border-border bg-card">
+        <div class="flex items-center gap-2 border-b p-4 border-border bg-muted">
             <FlaskConical class="h-4 w-4 text-primary" />
             <h2 class="font-display text-base font-semibold ui-text">Последние запуски</h2>
         </div>
         <div class="flex-1 space-y-3 overflow-y-auto p-4">
-            <article v-for="run in runs" :key="run.id" class="rounded-lg border p-3" style="border-color: var(--border); background: var(--background)">
+            <article v-for="run in runs" :key="run.id" class="rounded-lg border p-3 border-border bg-background">
                 <div class="mb-1 flex items-center justify-between gap-2">
                     <span class="text-xs font-semibold ui-text">{{ run.intent ?? run.conversation?.subject ?? 'AI-запуск' }}</span>
                     <span class="font-mono text-[11px] font-semibold" :class="confidenceTone(run.confidence)">{{ run.confidence }}%</span>
                 </div>
                 <p class="text-xs leading-5 ui-subtle">{{ run.summary }}</p>
             </article>
-            <p v-if="! runs.length" class="rounded-lg border border-dashed p-6 text-center text-sm ui-subtle" style="border-color: var(--border)">
+            <p v-if="! runs.length" class="rounded-lg border border-dashed p-6 text-center text-sm ui-subtle border-border">
                 {{ agent ? 'У этого ассистента ещё нет запусков' : 'Выберите ассистента' }}
             </p>
         </div>

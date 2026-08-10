@@ -48,8 +48,8 @@ async function toggleStatus(member: TenantUser): Promise<void> {
 </script>
 
 <template>
-    <div class="rounded-xl border" style="border-color: var(--border); background: var(--card)">
-        <div class="flex flex-wrap items-center gap-3 border-b p-4" style="border-color: var(--border)">
+    <div class="rounded-xl border border-border bg-card">
+        <div class="flex flex-wrap items-center gap-3 border-b p-4 border-border">
             <div class="relative flex-1 sm:max-w-xs">
                 <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
                 <Input v-model="query" class="h-9 pl-9 lg:pl-10" :placeholder="locale.t('team.searchPlaceholder')" />
@@ -64,10 +64,10 @@ async function toggleStatus(member: TenantUser): Promise<void> {
             </Tabs>
         </div>
 
-        <div class="divide-y" style="border-color: var(--border)">
+        <div class="divide-y border-border">
             <div v-for="member in filtered" :key="member.id" class="flex flex-wrap items-center gap-3 p-4">
                 <Avatar class="size-9">
-                    <AvatarFallback class="text-xs font-semibold" style="background: var(--accent); color: var(--accent-foreground)">{{ member.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
+                    <AvatarFallback class="text-xs font-semibold bg-accent text-accent-foreground">{{ member.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
                 </Avatar>
                 <div class="min-w-0 flex-1">
                     <p class="truncate font-medium ui-text">{{ member.name }}</p>

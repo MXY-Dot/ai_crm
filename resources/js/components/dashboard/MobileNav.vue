@@ -18,7 +18,7 @@ defineProps<{ active: string }>();
 </script>
 
 <template>
-    <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t px-2 py-2 backdrop-blur lg:hidden" style="border-color: var(--border); background: color-mix(in srgb, var(--background) 95%, transparent)">
+    <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t px-2 py-2 backdrop-blur lg:hidden border-border bg-background/95">
         <Link
             v-for="item in items"
             :key="item.id"

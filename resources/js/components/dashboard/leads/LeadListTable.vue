@@ -21,9 +21,9 @@ function statusTone(status: string): 'green' | 'blue' | 'amber' | 'red' | 'neutr
 </script>
 
 <template>
-    <div class="overflow-x-auto rounded-xl border" style="border-color: var(--border); background: var(--card)">
+    <div class="overflow-x-auto rounded-xl border border-border bg-card">
         <table class="w-full min-w-[48rem] text-left text-sm">
-            <thead class="text-xs uppercase ui-subtle" style="background: var(--muted)">
+            <thead class="text-xs uppercase ui-subtle bg-muted">
                 <tr>
                     <th class="px-4 py-3">{{ locale.t('leads.title') }}</th>
                     <th class="px-4 py-3">{{ locale.t('leads.columnCompany') }}</th>
@@ -32,7 +32,7 @@ function statusTone(status: string): 'green' | 'blue' | 'amber' | 'red' | 'neutr
                     <th class="px-4 py-3">{{ locale.t('leads.columnCreated') }}</th>
                 </tr>
             </thead>
-            <tbody class="divide-y" style="border-color: var(--border)">
+            <tbody class="divide-y border-border">
                 <tr
                     v-for="lead in leads"
                     :key="lead.id"

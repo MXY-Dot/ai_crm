@@ -22,7 +22,7 @@ class DashboardData
     public function forUser(?User $user): array
     {
         $empty = [
-            'user' => $user?->only(['id', 'name', 'email', 'role']),
+            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url']),
             'tenant' => null,
             'company' => null,
             'stats' => [],
@@ -53,7 +53,7 @@ class DashboardData
         $companyId = $company?->id;
 
         return [
-            'user' => $user?->only(['id', 'name', 'email', 'role']),
+            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url']),
             'tenant' => $tenant->only(['id', 'name', 'slug', 'status', 'trial_ends_at', 'settings']),
             'company' => $company?->only(['id', 'name', 'industry', 'phone', 'email', 'website', 'address', 'timezone', 'working_hours', 'brand_settings', 'logo_url']),
             'stats' => [

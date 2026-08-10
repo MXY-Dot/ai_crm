@@ -18,8 +18,8 @@ defineOptions({ layout: AppLayout });
         </div>
 
         <Card class="flex flex-col items-center gap-4 px-6 py-20 text-center gap-3">
-            <span class="grid h-16 w-16 place-items-center rounded-2xl mx-auto" style="background: var(--accent)">
-                <Blocks class="h-8 w-8" style="color: var(--accent-foreground)" />
+            <span class="grid h-16 w-16 place-items-center rounded-2xl mx-auto bg-accent">
+                <Blocks class="h-8 w-8 text-accent-foreground" />
             </span>
             <Badge tone="green">{{ locale.t('marketplace.badge') }}</Badge>
             <div class="mx-auto max-w-md">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { storeToRefs } from 'pinia';
 import { LogOut } from '@lucide/vue';
 import AppSidebar from '@/components/dashboard/AppSidebar.vue';
@@ -9,9 +9,11 @@ import GlobalSearch from '@/components/dashboard/GlobalSearch.vue';
 import LanguageSwitcher from '@/components/dashboard/LanguageSwitcher.vue';
 import MobileNav from '@/components/dashboard/MobileNav.vue';
 import ThemeSwitcher from '@/components/dashboard/ThemeSwitcher.vue';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
-import { pageFromPath } from '@/lib/pages';
+import { pageFromPath, pagePaths } from '@/lib/pages';
+import { hasSeenOnboarding, maybeStartPageTour, startOnboarding } from '@/lib/onboarding';
 import { type Bootstrap, useCrmDashboardStore } from '@/stores/crmDashboard';
 import { useLocaleStore } from '@/stores/locale';
 import { useThemeStore } from '@/stores/theme';
@@ -28,6 +30,23 @@ watch(
     (bootstrap) => bootstrap && store.hydrateBootstrap(bootstrap),
     { immediate: true },
 );
+
+watch(hasData, (value) => {
+    if (! value) return;
+
+    nextTick(() => {
+        if (! hasSeenOnboarding()) {
+            startOnboarding(() => maybeStartPageTour(activePage.value));
+        } else {
+            maybeStartPageTour(activePage.value);
+        }
+    });
+}, { immediate: true });
+
+watch(activePage, (page) => {
+    if (! hasData.value || ! hasSeenOnboarding()) return;
+    nextTick(() => maybeStartPageTour(page));
+});
 
 let dashboardRefreshTimer: number | null = null;
 let dashboardRefreshInFlight = false;
@@ -71,7 +90,7 @@ function toggleSidebar(): void {
 </script>
 
 <template>
-    <div class="h-screen overflow-hidden antialiased" style="background: var(--background); color: var(--foreground)">
+    <div class="h-screen overflow-hidden antialiased bg-background text-foreground">
         <div class="flex h-screen">
             <AppSidebar
                 :active="activePage"
@@ -81,7 +100,7 @@ function toggleSidebar(): void {
             />
 
             <main class="h-full min-w-0 flex-1 overflow-y-auto pb-20 lg:pb-0">
-                <header class="sticky top-0 z-10 border-b px-4 py-4 backdrop-blur sm:px-6 lg:px-8" style="border-color: var(--border); background: color-mix(in srgb, var(--card) 92%, transparent)">
+                <header class="sticky top-0 z-10 border-b px-4 py-4 backdrop-blur sm:px-6 lg:px-8 border-border bg-card/92">
                     <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div>
                             <div class="flex flex-wrap items-center gap-2">
@@ -91,13 +110,16 @@ function toggleSidebar(): void {
                         </div>
 
                         <div class="grid gap-2 sm:grid-cols-[minmax(14rem,20rem)_auto_auto_auto_auto] sm:items-center">
-                            <GlobalSearch />
-                            <LanguageSwitcher />
-                            <ThemeSwitcher />
-                            <div class="rounded-lg border px-3 py-2 text-sm ui-muted" style="border-color: var(--border)">
-                                <span class="block text-[10px] uppercase tracking-widest ui-subtle">{{ locale.t('auth.signedInAs') }}</span>
-                                <span class="block max-w-40 truncate ui-text">{{ user?.email }}</span>
-                            </div>
+                            <GlobalSearch data-tour="search" />
+                            <LanguageSwitcher data-tour="language" />
+                            <ThemeSwitcher data-tour="theme" />
+                            <Link :href="pagePaths.profile" data-tour="profile" class="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition hover:bg-muted border-border" :title="user?.email">
+                                <Avatar class="size-8 shrink-0">
+                                    <AvatarImage v-if="user?.avatar_url" :src="user.avatar_url" alt="" />
+                                    <AvatarFallback class="text-xs font-semibold bg-primary text-primary-foreground">{{ user?.name?.[0] ?? '?' }}</AvatarFallback>
+                                </Avatar>
+                                <span class="hidden max-w-32 truncate text-sm font-medium ui-text sm:block">{{ user?.name }}</span>
+                            </Link>
                             <Button variant="primary" type="button" :disabled="logoutProcessing" @click="logout">
                                 <LogOut class="h-4 w-4" /> {{ locale.t('auth.logout') }}
                             </Button>
@@ -105,7 +127,7 @@ function toggleSidebar(): void {
                     </div>
                 </header>
 
-                <div class="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
+                <div class="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8" data-tour="content">
                     <EmptyState v-if="!hasData" />
                     <slot v-else />
                 </div>

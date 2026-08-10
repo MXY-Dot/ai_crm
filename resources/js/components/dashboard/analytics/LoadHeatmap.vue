@@ -32,7 +32,7 @@ const grid = computed(() => {
 </script>
 
 <template>
-    <div class="rounded-xl border p-5" style="border-color: var(--border); background: var(--card)">
+    <div class="rounded-xl border p-5 border-border bg-card">
         <div class="mb-6">
             <h3 class="font-display text-base font-semibold ui-text">Тепловая карта нагрузки</h3>
             <p class="text-sm ui-subtle">Сообщения по дням недели и времени суток</p>

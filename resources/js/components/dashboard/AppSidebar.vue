@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { storeToRefs } from 'pinia';
 import { Link } from '@inertiajs/vue3';
 import { BarChart3, Blocks, Bot, BookOpen, CalendarCheck, ChevronLeft, ChevronRight, CreditCard, Inbox, LayoutDashboard, Plug, Settings, Target, Users, Users2 } from '@lucide/vue';
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { APP_VERSION } from '../../lib/version';
 import { useLocaleStore } from '../../stores/locale';
+import { useThemeStore } from '../../stores/theme';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 const locale = useLocaleStore();
+const { isDark } = storeToRefs(useThemeStore());
+const logoSrc = computed(() => isDark.value ? '/storage/logo/logo_dark.png' : '/storage/logo/logo.png');
 const items = computed<Array<{ id: DashboardPage; label: string; icon: unknown }>>(() => [
     { id: 'overview', label: locale.t('nav.overview'), icon: LayoutDashboard },
     { id: 'inbox', label: locale.t('nav.inbox'), icon: Inbox },
@@ -35,13 +39,13 @@ defineEmits<{ toggle: [] }>();
 
 <template>
     <aside
-        class="relative hidden shrink-0 border-r px-3 py-5 transition-[width] duration-300 ease-in-out lg:block"
-        :style="{ width: collapsed ? '76px' : '260px', borderColor: 'var(--sidebar-border)', background: 'var(--sidebar)' }"
+        class="relative hidden shrink-0 border-r border-sidebar-border bg-sidebar px-3 py-5 transition-[width] duration-300 ease-in-out lg:block"
+        :style="{ width: collapsed ? '76px' : '260px' }"
     >
         <button
             type="button"
-            class="absolute top-6 -right-3 z-10 grid h-6 w-6 place-items-center rounded-full border shadow-sm"
-            style="border-color: var(--sidebar-border); background: var(--card)"
+            data-tour="sidebar-toggle"
+            class="absolute top-6 -right-3 z-10 grid h-6 w-6 place-items-center rounded-full border shadow-sm border-sidebar-border bg-card"
             :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
             @click="$emit('toggle')"
         >
@@ -49,19 +53,19 @@ defineEmits<{ toggle: [] }>();
             <ChevronLeft v-else class="h-3.5 w-3.5 ui-subtle" />
         </button>
 
-        <Link class="flex items-center gap-3 px-2" :href="pagePaths.overview">
-            <div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg font-display text-sm font-bold" style="background: var(--sidebar-primary); color: var(--sidebar-primary-foreground)">W</div>
-            <div v-if="!collapsed" class="min-w-0 flex-1">
-                <div class="flex items-center gap-1.5">
-                    <p class="truncate font-display text-sm font-bold ui-text">WERO</p>
-                    <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold" style="background: var(--primary); color: var(--primary-foreground)">v{{ APP_VERSION }}</span>
+        <Link data-tour="logo" class="flex items-center gap-3 px-2" :href="pagePaths.overview">
+            <div v-if="collapsed" class="grid h-9 w-9 shrink-0 place-items-center rounded-lg font-display text-sm font-bold bg-sidebar-primary text-sidebar-primary-foreground">W</div>
+            <div v-else class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                    <img :src="logoSrc" alt="WERO" class="h-7 w-auto shrink-0">
+                    <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-primary text-primary-foreground">v{{ APP_VERSION }}</span>
                 </div>
-                <p class="truncate text-[10px] font-semibold uppercase tracking-widest" style="color: var(--primary)">Omni-channel AI</p>
+                <p class="mt-1 truncate text-[10px] font-semibold uppercase tracking-widest text-primary">Omni-channel AI</p>
             </div>
         </Link>
 
         <TooltipProvider :delay-duration="200">
-            <nav class="mt-6 space-y-1">
+            <nav class="mt-6 space-y-1" data-tour="nav">
                 <Tooltip v-for="item in items" :key="item.id" :disabled="!collapsed">
                     <TooltipTrigger as-child>
                         <Link
@@ -78,8 +82,8 @@ defineEmits<{ toggle: [] }>();
             </nav>
         </TooltipProvider>
 
-        <div v-if="!collapsed" class="mt-6 rounded-lg border p-3 ui-muted" style="border-color: var(--sidebar-border)">
-            <div class="flex items-center gap-2 text-sm font-medium ui-text"><CalendarCheck class="h-4 w-4" style="color: var(--primary)" />{{ locale.t('company.sidebarTitle') }}</div>
+        <div v-if="!collapsed" class="mt-6 rounded-lg border p-3 ui-muted border-sidebar-border">
+            <div class="flex items-center gap-2 text-sm font-medium ui-text"><CalendarCheck class="h-4 w-4 text-primary" />{{ locale.t('company.sidebarTitle') }}</div>
             <p class="mt-2 text-xs leading-5 ui-subtle">{{ tenantName }}</p>
         </div>
     </aside>

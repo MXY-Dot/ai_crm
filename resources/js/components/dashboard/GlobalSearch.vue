@@ -93,8 +93,8 @@ function clear(): void {
 
         <div
             v-if="open && query"
-            class="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-lg border shadow-lg"
-            style="border-color: var(--border); background: var(--popover)"
+            class="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-lg border shadow-lg border-border bg-popover"
+
         >
             <button
                 v-for="hit in results"

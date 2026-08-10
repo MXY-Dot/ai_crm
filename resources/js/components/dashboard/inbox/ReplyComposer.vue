@@ -10,8 +10,8 @@ const locale = useLocaleStore();
 </script>
 
 <template>
-    <form v-if="canReply" class="shrink-0 border-t p-3" style="border-color: var(--border); background: var(--card)" @submit.prevent="$emit('send')">
-        <div class="flex items-end gap-2 rounded-xl border p-1 transition focus-within:border-primary" style="border-color: var(--border)">
+    <form v-if="canReply" class="shrink-0 border-t p-3 border-border bg-card" @submit.prevent="$emit('send')">
+        <div class="flex items-end gap-2 rounded-xl border p-1 transition focus-within:border-primary border-border">
             <Textarea
                 :model-value="body"
                 class="max-h-32 min-h-11 flex-1 resize-none border-none bg-transparent shadow-none focus-visible:ring-0"
@@ -33,7 +33,7 @@ const locale = useLocaleStore();
         </div>
     </form>
 
-    <div v-else class="border-t p-4 text-sm leading-6 ui-subtle" style="border-color: var(--border); background: var(--card)">
+    <div v-else class="border-t p-4 text-sm leading-6 ui-subtle border-border bg-card">
         {{ locale.t('inbox.unlinkedConversation') }}
     </div>
 </template>

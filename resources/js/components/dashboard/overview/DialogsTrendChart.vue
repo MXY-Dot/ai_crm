@@ -43,7 +43,7 @@ const areaPoints = computed(() => `0,100 ${points.value} 100,100`);
 </script>
 
 <template>
-    <div class="rounded-xl border p-5 lg:col-span-2" style="border-color: var(--border); background: var(--card)">
+    <div class="rounded-xl border p-5 lg:col-span-2 border-border bg-card">
         <div class="mb-6 flex items-center justify-between">
             <h3 class="font-display text-base font-semibold ui-text">График диалогов</h3>
             <span class="text-xs ui-subtle">Последние 7 дней</span>
@@ -58,8 +58,8 @@ const areaPoints = computed(() => `0,100 ${points.value} 100,100`);
                 <Tooltip v-for="marker in markers" :key="marker.label">
                     <TooltipTrigger as-child>
                         <span
-                            class="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 transition hover:scale-125"
-                            style="background: var(--card); border-color: var(--primary)"
+                            class="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 transition hover:scale-125 bg-card border-primary"
+
                             :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
                         />
                     </TooltipTrigger>

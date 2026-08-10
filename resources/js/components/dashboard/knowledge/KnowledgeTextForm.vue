@@ -17,7 +17,7 @@ function submit(): void {
 </script>
 
 <template>
-    <form class="grid gap-3 rounded-xl border p-4" style="border-color: var(--border); background: var(--card)" @submit.prevent="submit">
+    <form class="grid gap-3 rounded-xl border p-4 border-border bg-card" @submit.prevent="submit">
         <p class="flex items-center gap-2 text-sm font-medium ui-text"><Plus class="h-4 w-4 text-primary" /> {{ labels.pasteText }}</p>
         <Alert v-if="error" variant="destructive"><AlertDescription>{{ error }}</AlertDescription></Alert>
         <Input v-model="form.title" :placeholder="labels.titlePlaceholder" required />

@@ -244,8 +244,12 @@ export type CompanyProfile = {
 
 export type CompanyPayload = Partial<Omit<CompanyProfile, 'id' | 'logo_url'>>;
 
+export type ProfileUser = { id: number; name: string; email: string; role: string; phone: string | null; avatar_url: string | null };
+
+export type ProfilePayload = { name?: string; phone?: string | null };
+
 export type Bootstrap = {
-    user?: { id: number; name: string; email: string; role: string } | null;
+    user?: ProfileUser | null;
     tenant: { id: number; name: string; slug: string; status: string; trial_ends_at: string | null; settings: { billing?: { plan?: string } } | null } | null;
     company: CompanyProfile | null;
     stats: Record<string, number>;
@@ -443,6 +447,23 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             tenant: tenantSlug.value,
             body,
         }), 'toast.logoUpdated');
+    }
+
+    async function updateProfile(payload: ProfilePayload): Promise<void> {
+        await mutate(() => apiRequest('/api/profile', {
+            method: 'PATCH',
+            body: payload,
+        }), 'toast.profileUpdated');
+    }
+
+    async function uploadAvatar(file: File): Promise<void> {
+        const body = new FormData();
+        body.append('photo', file);
+
+        await mutate(() => apiRequest('/api/profile/avatar', {
+            method: 'POST',
+            body,
+        }), 'toast.avatarUpdated');
     }
 
     async function updateLeadStatus(id: number, status: string): Promise<void> {
@@ -650,6 +671,8 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         createLead,
         updateCompany,
         uploadCompanyLogo,
+        updateProfile,
+        uploadAvatar,
         updateLeadStatus,
         createTask,
         updateTaskStatus,

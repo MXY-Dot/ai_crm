@@ -15,7 +15,7 @@ function customerName(lead: Lead): string | null {
         <div class="mb-3 flex items-center justify-between px-1">
             <h2 class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ui-subtle">
                 {{ title }}
-                <span class="rounded-full px-2 py-0.5 text-[11px] font-bold ui-text" style="background: var(--muted)">{{ leads.length }}</span>
+                <span class="rounded-full px-2 py-0.5 text-[11px] font-bold ui-text bg-muted">{{ leads.length }}</span>
             </h2>
         </div>
         <div class="flex-1 space-y-3 overflow-y-auto pb-4">
@@ -27,7 +27,7 @@ function customerName(lead: Lead): string | null {
                 :selected="selectedId === lead.id"
                 @select="$emit('select', lead)"
             />
-            <p v-if="! leads.length" class="rounded-xl border border-dashed p-4 text-center text-xs ui-subtle" style="border-color: var(--border)">Пусто</p>
+            <p v-if="! leads.length" class="rounded-xl border border-dashed p-4 text-center text-xs ui-subtle border-border">Пусто</p>
         </div>
     </div>
 </template>

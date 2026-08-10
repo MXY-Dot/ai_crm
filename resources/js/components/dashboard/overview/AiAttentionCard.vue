@@ -8,8 +8,8 @@ const items = computed(() => props.aiHandoffs.slice(0, 3));
 </script>
 
 <template>
-    <div class="relative flex flex-col overflow-hidden rounded-xl border p-5" style="border-color: var(--primary); background: var(--card)">
-        <div class="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-bl-full" style="background: color-mix(in srgb, var(--primary) 10%, transparent)" />
+    <div class="relative flex flex-col overflow-hidden rounded-xl border p-5 border-primary bg-card">
+        <div class="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-primary/10" />
         <h3 class="mb-4 flex items-center gap-2 font-display text-base font-semibold ui-text">
             <Sparkles class="h-4 w-4 text-primary" /> Требует внимания AI
         </h3>

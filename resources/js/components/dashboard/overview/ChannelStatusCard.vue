@@ -11,7 +11,7 @@ function isHealthy(status: string): boolean {
 </script>
 
 <template>
-    <div class="flex flex-col rounded-xl border p-5" style="border-color: var(--border); background: var(--card)">
+    <div class="flex flex-col rounded-xl border p-5 border-border bg-card">
         <h3 class="mb-4 font-display text-base font-semibold ui-text">Работоспособность каналов</h3>
         <div class="space-y-3">
             <div v-for="channel in channels" :key="channel.id" class="flex items-center justify-between text-sm">

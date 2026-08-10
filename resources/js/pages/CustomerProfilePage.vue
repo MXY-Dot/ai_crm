@@ -45,8 +45,8 @@ defineOptions({ layout: AppLayout });
         <Card>
             <div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 <div class="flex items-center gap-4">
-                    <Avatar class="size-20 ring-4" style="--tw-ring-color: var(--accent)">
-                        <AvatarFallback class="text-2xl font-semibold" style="background: var(--primary); color: var(--primary-foreground)">{{ customer.name[0] }}</AvatarFallback>
+                    <Avatar class="size-20 ring-4 ring-accent">
+                        <AvatarFallback class="text-2xl font-semibold bg-primary text-primary-foreground">{{ customer.name[0] }}</AvatarFallback>
                     </Avatar>
                     <div>
                         <h2 class="font-display text-xl font-semibold ui-text">{{ customer.name }}</h2>
@@ -75,15 +75,15 @@ defineOptions({ layout: AppLayout });
             <Separator class="my-5" />
 
             <div class="grid gap-3 sm:grid-cols-2">
-                <div class="flex items-center gap-3 rounded-lg border p-3" style="border-color: var(--border)">
-                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style="background: var(--muted)"><Phone class="h-4 w-4 text-primary" /></span>
+                <div class="flex items-center gap-3 rounded-lg border p-3 border-border">
+                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted"><Phone class="h-4 w-4 text-primary" /></span>
                     <div class="min-w-0">
                         <p class="text-[10px] font-semibold uppercase ui-subtle">Телефон</p>
                         <p class="truncate text-sm font-medium ui-text">{{ customer.phone ?? 'Не указан' }}</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3 rounded-lg border p-3" style="border-color: var(--border)">
-                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style="background: var(--muted)"><Mail class="h-4 w-4 text-primary" /></span>
+                <div class="flex items-center gap-3 rounded-lg border p-3 border-border">
+                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted"><Mail class="h-4 w-4 text-primary" /></span>
                     <div class="min-w-0">
                         <p class="text-[10px] font-semibold uppercase ui-subtle">Email</p>
                         <p class="truncate text-sm font-medium ui-text">{{ customer.email ?? 'Не указан' }}</p>
@@ -93,7 +93,7 @@ defineOptions({ layout: AppLayout });
         </Card>
 
         <Card title="Активность" subtitle="Лиды и диалоги, связанные с клиентом.">
-            <div v-if="timeline.length" class="divide-y" style="border-color: var(--border)">
+            <div v-if="timeline.length" class="divide-y border-border">
                 <button
                     v-for="item in timeline"
                     :key="item.key"
@@ -101,7 +101,7 @@ defineOptions({ layout: AppLayout });
                     class="flex w-full items-center gap-3 py-3 text-left transition hover:bg-muted"
                     @click="openItem(item)"
                 >
-                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style="background: var(--muted)">
+                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted">
                         <component :is="item.icon" class="h-4 w-4 text-primary" />
                     </span>
                     <div class="min-w-0 flex-1">

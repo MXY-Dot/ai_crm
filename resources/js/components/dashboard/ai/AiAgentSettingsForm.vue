@@ -35,8 +35,8 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-    <div class="flex flex-col rounded-xl border" style="border-color: var(--border); background: var(--card)">
-        <div class="flex items-center justify-between border-b p-4" style="border-color: var(--border)">
+    <div class="flex flex-col rounded-xl border border-border bg-card">
+        <div class="flex items-center justify-between border-b p-4 border-border">
             <h2 class="flex items-center gap-2 font-display text-base font-semibold ui-text"><Bot class="h-4 w-4 text-primary" />{{ agent ? `Настройки: ${agent.name}` : 'Выберите ассистента' }}</h2>
             <Button v-if="agent" variant="outline" size="sm" :disabled="busy" @click="save"><Save class="h-4 w-4" />{{ busy ? locale.t('common.waiting') : locale.t('ai.saveAgent') }}</Button>
         </div>
@@ -68,7 +68,7 @@ async function save(): Promise<void> {
             </label>
             <div>
                 <span class="mb-2 block text-xs font-semibold uppercase ui-subtle">Источники знаний</span>
-                <div class="divide-y overflow-hidden rounded-lg border" style="border-color: var(--border)">
+                <div class="divide-y overflow-hidden rounded-lg border border-border">
                     <p v-for="doc in documents" :key="doc.id" class="px-3 py-2 text-sm ui-text">{{ doc.title }}</p>
                     <p v-if="! documents.length" class="px-3 py-2 text-sm ui-subtle">Документы не привязаны</p>
                 </div>

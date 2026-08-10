@@ -9,11 +9,19 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['tenant_id', 'name', 'email', 'password', 'phone', 'role', 'status', 'last_login_at', 'two_factor_enabled'])]
+#[Fillable(['tenant_id', 'name', 'email', 'password', 'phone', 'role', 'status', 'last_login_at', 'two_factor_enabled', 'avatar_path'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    protected $appends = ['avatar_url'];
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null;
+    }
+
     public const ROLE_SUPER_ADMIN = 'super_admin';
     public const ROLE_OWNER = 'owner';
     public const ROLE_MANAGER = 'manager';

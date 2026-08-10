@@ -69,4 +69,6 @@ Route::middleware('auth')->group(function () use ($dashboardPage): void {
         $dashboardPage($request, $dashboard, 'BillingPage'))->name('billing');
     Route::get('/settings', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'SettingsPage'))->name('settings');
+    Route::get('/profile', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'ProfilePage'))->name('profile');
 });

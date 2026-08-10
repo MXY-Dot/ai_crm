@@ -6,6 +6,7 @@ import { authPost, type AuthErrors } from '../../lib/authClient';
 import LanguageSwitcher from '../dashboard/LanguageSwitcher.vue';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { Input } from '../ui/input';
 
 const props = withDefaults(defineProps<{
     mode: 'login' | 'register';
@@ -68,8 +69,8 @@ async function submit(): Promise<void> {
     <main class="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-8 text-zinc-100">
         <div class="grid w-full max-w-5xl gap-6 lg:grid-cols-[1fr_420px] lg:items-center">
             <section>
-                <div class="flex flex-wrap items-center gap-2">
-                    <Link href="/" class="inline-flex h-10 w-10 items-center justify-center rounded-md bg-emerald-300 text-zinc-950"><Sparkles class="h-5 w-5" /></Link>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <Link href="/"><img :src="'/storage/logo/logo_dark.png'" alt="WERO" class="h-8 w-auto"></Link>
                     <LanguageSwitcher />
                 </div>
                 <h1 class="mt-6 max-w-2xl text-3xl font-semibold text-white sm:text-5xl">{{ isRegister ? 'Создайте workspace WERO' : 'Вход в WERO' }}</h1>
@@ -82,55 +83,55 @@ async function submit(): Promise<void> {
             </section>
 
             <Card :title="isRegister ? 'Начать пробный период' : 'С возвращением'" :subtitle="isRegister ? `Выбранный тариф: ${plan}` : 'Войдите через email или Google.'">
-                <a class="mb-4 flex h-11 items-center justify-center rounded-md border border-white/10 text-sm text-zinc-200 hover:bg-white/10" href="/auth/google">Продолжить с Google</a>
+                <a class="mb-4 flex h-11 items-center justify-center rounded-md border text-sm font-medium ui-text transition hover:bg-muted border-border" href="/auth/google">Продолжить с Google</a>
                 <form class="space-y-4" @submit.prevent="submit">
                     <label v-if="isRegister" class="block">
-                        <span class="text-sm font-medium text-zinc-300">Имя</span>
-                        <span class="mt-2 flex h-11 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 focus-within:ring-2 focus-within:ring-emerald-300">
-                            <UserRound class="h-4 w-4 text-zinc-500" />
-                            <input v-model="form.name" class="w-full bg-transparent text-sm text-white outline-none" type="text" autocomplete="name" required>
-                        </span>
-                        <span v-if="errors.name" class="mt-1 block text-xs text-red-300">{{ errors.name }}</span>
+                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Имя</span>
+                        <div class="relative">
+                            <UserRound class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
+                            <Input v-model="form.name" class="h-11 pl-9" type="text" autocomplete="name" required />
+                        </div>
+                        <span v-if="errors.name" class="mt-1 block text-xs text-destructive">{{ errors.name }}</span>
                     </label>
                     <label v-if="isRegister" class="block">
-                        <span class="text-sm font-medium text-zinc-300">Workspace</span>
-                        <span class="mt-2 flex h-11 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 focus-within:ring-2 focus-within:ring-emerald-300">
-                            <Sparkles class="h-4 w-4 text-zinc-500" />
-                            <input v-model="form.workspace" class="w-full bg-transparent text-sm text-white outline-none" type="text" required>
-                        </span>
-                        <span v-if="errors.workspace" class="mt-1 block text-xs text-red-300">{{ errors.workspace }}</span>
+                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Workspace</span>
+                        <div class="relative">
+                            <Sparkles class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
+                            <Input v-model="form.workspace" class="h-11 pl-9" type="text" required />
+                        </div>
+                        <span v-if="errors.workspace" class="mt-1 block text-xs text-destructive">{{ errors.workspace }}</span>
                     </label>
                     <label class="block">
-                        <span class="text-sm font-medium text-zinc-300">Email</span>
-                        <span class="mt-2 flex h-11 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 focus-within:ring-2 focus-within:ring-emerald-300">
-                            <Mail class="h-4 w-4 text-zinc-500" />
-                            <input v-model="form.email" class="w-full bg-transparent text-sm text-white outline-none" type="email" autocomplete="email" required>
-                        </span>
-                        <span v-if="errors.email" class="mt-1 block text-xs text-red-300">{{ errors.email }}</span>
+                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Email</span>
+                        <div class="relative">
+                            <Mail class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
+                            <Input v-model="form.email" class="h-11 pl-9" type="email" autocomplete="email" required />
+                        </div>
+                        <span v-if="errors.email" class="mt-1 block text-xs text-destructive">{{ errors.email }}</span>
                     </label>
                     <label class="block">
-                        <span class="text-sm font-medium text-zinc-300">Пароль</span>
-                        <span class="mt-2 flex h-11 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 focus-within:ring-2 focus-within:ring-emerald-300">
-                            <LockKeyhole class="h-4 w-4 text-zinc-500" />
-                            <input v-model="form.password" class="w-full bg-transparent text-sm text-white outline-none" type="password" autocomplete="current-password" required>
-                        </span>
-                        <span v-if="errors.password" class="mt-1 block text-xs text-red-300">{{ errors.password }}</span>
+                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Пароль</span>
+                        <div class="relative">
+                            <LockKeyhole class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
+                            <Input v-model="form.password" class="h-11 pl-9" type="password" autocomplete="current-password" required />
+                        </div>
+                        <span v-if="errors.password" class="mt-1 block text-xs text-destructive">{{ errors.password }}</span>
                     </label>
                     <label v-if="isRegister" class="block">
-                        <span class="text-sm font-medium text-zinc-300">Подтвердите пароль</span>
-                        <span class="mt-2 flex h-11 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 focus-within:ring-2 focus-within:ring-emerald-300">
-                            <LockKeyhole class="h-4 w-4 text-zinc-500" />
-                            <input v-model="form.password_confirmation" class="w-full bg-transparent text-sm text-white outline-none" type="password" required>
-                        </span>
+                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Подтвердите пароль</span>
+                        <div class="relative">
+                            <LockKeyhole class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
+                            <Input v-model="form.password_confirmation" class="h-11 pl-9" type="password" required />
+                        </div>
                     </label>
-                    <label v-if="!isRegister" class="flex items-center gap-2 text-sm text-zinc-400">
-                        <input v-model="form.remember" class="h-4 w-4 rounded border-white/10 bg-white/5" type="checkbox">
+                    <label v-if="!isRegister" class="flex items-center gap-2 text-sm ui-subtle">
+                        <input v-model="form.remember" class="h-4 w-4 rounded border accent-primary border-border" type="checkbox">
                         Запомнить меня
                     </label>
                     <Button class="w-full" variant="primary" type="submit" :disabled="processing">{{ processing ? 'Подождите...' : (isRegister ? 'Создать workspace' : 'Войти') }}</Button>
                 </form>
-                <p class="mt-4 text-center text-sm text-zinc-400">
-                    <Link class="text-emerald-200 hover:underline" :href="isRegister ? '/login' : `/register?plan=${plan}`">{{ isRegister ? 'У меня уже есть аккаунт' : 'Создать аккаунт' }}</Link>
+                <p class="mt-4 text-center text-sm ui-subtle">
+                    <Link class="font-medium text-primary hover:underline" :href="isRegister ? '/login' : `/register?plan=${plan}`">{{ isRegister ? 'У меня уже есть аккаунт' : 'Создать аккаунт' }}</Link>
                 </p>
             </Card>
         </div>

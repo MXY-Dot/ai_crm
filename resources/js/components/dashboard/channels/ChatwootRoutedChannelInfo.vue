@@ -13,7 +13,7 @@ async function copyWebhook(): Promise<void> {
 <template>
     <div class="space-y-3 text-sm">
         <p class="ui-subtle">{{ description }}</p>
-        <div v-if="chatwoot?.webhook_url" class="rounded-lg border p-3" style="border-color: var(--border); background: var(--muted)">
+        <div v-if="chatwoot?.webhook_url" class="rounded-lg border p-3 border-border bg-muted">
             <span class="mb-1 block text-[11px] font-semibold uppercase ui-subtle">Webhook URL</span>
             <p class="break-all font-mono text-xs ui-text">{{ chatwoot.webhook_url }}</p>
             <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline" @click="copyWebhook">

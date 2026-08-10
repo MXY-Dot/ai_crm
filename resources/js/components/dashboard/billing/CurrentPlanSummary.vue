@@ -12,18 +12,18 @@ const trialLabel = computed(() => (props.trialEndsAt
 </script>
 
 <template>
-    <div class="flex h-full flex-col justify-between rounded-xl border p-6" style="border-color: var(--border); background: var(--card)">
+    <div class="flex h-full flex-col justify-between rounded-xl border p-6 border-border bg-card">
         <div>
             <h2 class="text-[11px] font-semibold uppercase tracking-wider ui-subtle">Текущий тариф</h2>
             <div class="mb-1 mt-2 flex items-baseline gap-2">
                 <span class="font-display text-2xl font-bold ui-text">{{ plan.name }}</span>
-                <span class="rounded px-2 py-0.5 text-xs font-semibold" style="background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary)">
+                <span class="rounded px-2 py-0.5 text-xs font-semibold bg-primary/15 text-primary">
                     {{ locale.t('status.' + tenantStatus) }}
                 </span>
             </div>
             <p v-if="trialLabel" class="font-mono text-xs ui-subtle">Пробный период до {{ trialLabel }}</p>
         </div>
-        <div class="mt-4 flex items-center justify-between border-t pt-4" style="border-color: var(--border)">
+        <div class="mt-4 flex items-center justify-between border-t pt-4 border-border">
             <span class="text-sm ui-text">Стоимость</span>
             <span class="font-display text-lg font-semibold ui-text">{{ plan.price }}</span>
         </div>

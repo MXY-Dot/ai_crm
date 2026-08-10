@@ -15,6 +15,12 @@ const senderLabel = computed(() => {
 const timeLabel = computed(() => (props.message.sent_at
     ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(props.message.sent_at))
     : ''));
+const bubbleClass = computed(() => {
+    if (isCustomer.value) return 'rounded-bl-sm border border-border bg-card text-foreground';
+    if (props.message.sender_type === 'ai') return 'rounded-br-sm bg-primary/12 text-foreground';
+
+    return 'rounded-br-sm bg-primary text-primary-foreground';
+});
 </script>
 
 <template>
@@ -24,10 +30,7 @@ const timeLabel = computed(() => (props.message.sent_at
         </span>
         <div
             class="max-w-[78%] rounded-2xl px-4 py-2.5 text-sm leading-6"
-            :class="isCustomer ? 'rounded-bl-sm border' : 'rounded-br-sm'"
-            :style="isCustomer
-                ? { background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }
-                : { background: message.sender_type === 'ai' ? 'color-mix(in srgb, var(--primary) 12%, var(--card))' : 'var(--primary)', color: message.sender_type === 'ai' ? 'var(--foreground)' : 'var(--primary-foreground)' }"
+            :class="bubbleClass"
         >
             <p class="whitespace-pre-wrap break-words">{{ message.body }}</p>
             <p class="mt-1 text-right text-[10px] opacity-70">{{ timeLabel }}</p>

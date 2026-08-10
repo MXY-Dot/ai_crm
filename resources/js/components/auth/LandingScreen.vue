@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bot, Mail, MessageCircle, Send, Sparkles } from '@lucide/vue';
+import { Bot, Mail, MessageCircle, Send } from '@lucide/vue';
 import { Button } from '../ui/button';
 
 const plans = [
@@ -12,7 +12,7 @@ const plans = [
 <template>
     <main class="min-h-screen bg-zinc-950 text-white">
         <header class="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
-            <a href="/" class="flex items-center gap-2 font-semibold"><span class="grid h-9 w-9 place-items-center rounded-md bg-emerald-300 text-zinc-950"><Sparkles class="h-5 w-5" /></span>WERO</a>
+            <a href="/" class="flex items-center"><img :src="'/storage/logo/logo_dark.png'" alt="WERO" class="h-8 w-auto"></a>
             <nav class="flex items-center gap-2">
                 <a class="rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-white/10" href="/login">Войти</a>
                 <a class="rounded-md bg-emerald-300 px-3 py-2 text-sm font-medium text-zinc-950" href="/register">Начать</a>

@@ -22,7 +22,7 @@ const rows = computed(() => {
 </script>
 
 <template>
-    <div class="rounded-xl border p-5" style="border-color: var(--border); background: var(--card)">
+    <div class="rounded-xl border p-5 border-border bg-card">
         <div class="mb-6">
             <h3 class="font-display text-base font-semibold ui-text">Приоритеты диалогов</h3>
             <p class="text-sm ui-subtle">Распределение по срочности</p>
@@ -44,7 +44,7 @@ const rows = computed(() => {
                 <p v-if="! rows.length" class="text-sm ui-subtle">Нет данных по диалогам</p>
             </div>
         </TooltipProvider>
-        <div class="mt-6 flex gap-3 rounded-lg border p-3 text-sm" style="border-color: var(--border); background: var(--muted)">
+        <div class="mt-6 flex gap-3 rounded-lg border p-3 text-sm border-border bg-muted">
             <Lightbulb class="h-4 w-4 shrink-0 text-primary" />
             <span class="ui-subtle">Данные считаются напрямую из реальных диалогов вашего workspace.</span>
         </div>

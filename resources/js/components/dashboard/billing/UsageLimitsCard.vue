@@ -21,7 +21,7 @@ const agentsLabel = computed(() => (props.plan.aiAgentsLimit === null
 </script>
 
 <template>
-    <div class="rounded-xl border p-6" style="border-color: var(--border); background: var(--card)">
+    <div class="rounded-xl border p-6 border-border bg-card">
         <h2 class="mb-4 text-[11px] font-semibold uppercase tracking-wider ui-subtle">Использование лимитов</h2>
         <div class="space-y-5">
             <div>

@@ -21,13 +21,13 @@ function initials(name: string): string {
 
 <template>
     <div class="flex h-full flex-col overflow-y-auto">
-        <div class="flex flex-col items-center border-b p-5 text-center" style="border-color: var(--border)">
+        <div class="flex flex-col items-center border-b p-5 text-center border-border">
             <Avatar class="mb-3 size-16"><AvatarFallback class="text-xl">{{ initials(conversation.customer?.name ?? '?') }}</AvatarFallback></Avatar>
             <h2 class="font-display text-base font-semibold ui-text">{{ conversation.customer?.name ?? locale.t('common.unknown') }}</h2>
             <p class="mt-1 text-xs ui-subtle">{{ conversation.channel?.name }}</p>
         </div>
 
-        <div v-if="conversation.ai_summary" class="relative m-4 overflow-hidden rounded-xl border p-4" style="border-color: var(--primary); background: var(--card)">
+        <div v-if="conversation.ai_summary" class="relative m-4 overflow-hidden rounded-xl border p-4 border-primary bg-card">
             <div class="mb-2 flex items-center gap-2">
                 <Sparkles class="h-4 w-4 text-primary" />
                 <h3 class="text-xs font-bold uppercase tracking-wide ui-text">AI Резюме</h3>
@@ -43,7 +43,7 @@ function initials(name: string): string {
                     <p class="flex items-center gap-2 ui-text"><Mail class="h-4 w-4 ui-subtle" />{{ fullCustomer?.email ?? locale.t('common.unknown') }}</p>
                 </div>
             </div>
-            <div class="h-px" style="background: var(--border)" />
+            <div class="h-px bg-border" />
             <div>
                 <h4 class="mb-2 text-[11px] font-semibold uppercase tracking-wider ui-subtle">CRM данные</h4>
                 <div class="space-y-2 text-sm">
@@ -62,8 +62,8 @@ function initials(name: string): string {
 
         <button
             v-if="conversation.customer"
-            class="mx-4 mb-4 mt-auto flex items-center justify-center gap-2 rounded-lg border py-2 text-sm font-medium ui-text transition hover:bg-muted"
-            style="border-color: var(--border)"
+            class="mx-4 mb-4 mt-auto flex items-center justify-center gap-2 rounded-lg border py-2 text-sm font-medium ui-text transition hover:bg-muted border-border"
+
             @click="store.openCustomer(conversation.customer.id)"
         >
             <SquareArrowOutUpRight class="h-4 w-4" /> Открыть в CRM

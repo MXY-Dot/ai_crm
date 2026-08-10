@@ -22,11 +22,11 @@ defineOptions({ layout: AppLayout });
                 <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('team.title') }}</h2>
                 <p class="mt-1 text-sm ui-subtle">{{ locale.t('team.subtitle') }}</p>
             </div>
-            <InviteTeamMemberDialog />
+            <div data-tour="team-invite"><InviteTeamMemberDialog /></div>
         </div>
 
         <TeamStatsBento :members="tenantUsers" />
         <RolePermissionsTable />
-        <TeamMembersTable :members="tenantUsers" :self-id="user?.id ?? null" />
+        <TeamMembersTable data-tour="team-table" :members="tenantUsers" :self-id="user?.id ?? null" />
     </section>
 </template>

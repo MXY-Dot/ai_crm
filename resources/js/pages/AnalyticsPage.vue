@@ -23,7 +23,7 @@ defineOptions({ layout: AppLayout });
                 <h2 class="font-display text-2xl font-bold ui-text">Глубокая аналитика</h2>
                 <p class="mt-1 text-sm ui-subtle">Обзор эффективности омниканальных коммуникаций</p>
             </div>
-            <AnalyticsExportMenu :target="exportTarget" :conversations="conversations" />
+            <AnalyticsExportMenu data-tour="analytics-export" :target="exportTarget" :conversations="conversations" />
         </div>
 
         <div ref="exportTarget" class="space-y-6 p-1">

@@ -19,8 +19,8 @@ withDefaults(defineProps<{
 <template>
     <article
         v-if="! hint"
-        class="flex h-32 flex-col justify-between rounded-xl border p-4"
-        :style="{ borderColor: highlight ? 'var(--primary)' : 'var(--border)', background: 'var(--card)' }"
+        class="flex h-32 flex-col justify-between rounded-xl border bg-card p-4"
+        :class="highlight ? 'border-primary' : 'border-border'"
     >
         <div class="flex items-start justify-between gap-2">
             <span class="text-[11px] font-semibold uppercase tracking-wider ui-subtle">{{ label }}</span>
@@ -37,8 +37,8 @@ withDefaults(defineProps<{
         <Tooltip>
             <TooltipTrigger as-child>
                 <article
-                    class="flex h-32 cursor-pointer flex-col justify-between rounded-xl border p-4"
-                    :style="{ borderColor: highlight ? 'var(--primary)' : 'var(--border)', background: 'var(--card)' }"
+                    class="flex h-32 cursor-pointer flex-col justify-between rounded-xl border bg-card p-4"
+                    :class="highlight ? 'border-primary' : 'border-border'"
                 >
                     <div class="flex items-start justify-between gap-2">
                         <span class="text-[11px] font-semibold uppercase tracking-wider ui-subtle">{{ label }}</span>

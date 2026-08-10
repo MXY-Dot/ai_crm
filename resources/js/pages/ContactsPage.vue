@@ -45,11 +45,11 @@ defineOptions({ layout: AppLayout });
                 <p class="text-sm ui-subtle">{{ locale.t('contacts.subtitle') }}</p>
             </div>
             <div class="flex gap-2">
-                <div class="relative">
+                <div class="relative" data-tour="contacts-search">
                     <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
                     <Input v-model="query" class="h-9 pl-9 lg:pl-10" :placeholder="locale.t('contacts.searchPlaceholder')" />
                 </div>
-                <AddContactDialog />
+                <div data-tour="contacts-add"><AddContactDialog /></div>
             </div>
         </div>
 

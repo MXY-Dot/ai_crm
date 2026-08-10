@@ -35,7 +35,7 @@ defineOptions({ layout: AppLayout });
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-wrap items-center gap-3">
                 <h2 class="font-display text-xl font-bold ui-text">{{ locale.t('leads.title') }}</h2>
-                <Tabs v-model="view">
+                <Tabs v-model="view" data-tour="leads-toggle">
                     <TabsList>
                         <TabsTrigger value="kanban">{{ locale.t('leads.kanbanView') }}</TabsTrigger>
                         <TabsTrigger value="list">{{ locale.t('leads.listView') }}</TabsTrigger>
@@ -47,7 +47,7 @@ defineOptions({ layout: AppLayout });
                     <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
                     <Input v-model="query" class="h-9 pl-9 lg:pl-10" :placeholder="locale.t('leads.searchPlaceholder')" />
                 </div>
-                <Button size="sm" variant="primary" @click="showLeadForm = true"><Plus class="h-4 w-4" />{{ locale.t('leads.createLead') }}</Button>
+                <Button data-tour="leads-create" size="sm" variant="primary" @click="showLeadForm = true"><Plus class="h-4 w-4" />{{ locale.t('leads.createLead') }}</Button>
             </div>
         </div>
         <CrmQuickForms v-if="showLeadForm" lead-only @lead-created="showLeadForm = false" />

@@ -25,12 +25,12 @@ defineOptions({ layout: AppLayout });
                 <h2 class="font-display text-2xl font-bold ui-text">Обзор панель</h2>
                 <p class="mt-1 text-sm ui-subtle">Сегодня, {{ today }}</p>
             </div>
-            <span class="rounded-lg border px-3 py-1.5 text-xs font-medium ui-subtle" style="border-color: var(--border)">{{ customers.length }} клиентов</span>
+            <span class="rounded-lg border px-3 py-1.5 text-xs font-medium ui-subtle border-border">{{ customers.length }} клиентов</span>
         </div>
 
-        <OverviewKpis :conversations="conversations" :leads="leads" :open-tasks="openTasks" :ai-runs="aiRuns" />
+        <OverviewKpis data-tour="ov-kpis" :conversations="conversations" :leads="leads" :open-tasks="openTasks" :ai-runs="aiRuns" />
 
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="grid gap-6 lg:grid-cols-3" data-tour="ov-charts">
             <DialogsTrendChart :conversations="conversations" />
             <ChannelsDonutCard :conversations="conversations" />
         </div>

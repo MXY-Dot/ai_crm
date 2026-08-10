@@ -24,6 +24,8 @@ Route::post('telegram/webhook', TelegramWebhookController::class)->middleware('t
 Route::middleware(['web', 'auth:web'])->group(function (): void {
     Route::get('me', [ProfileController::class, 'me']);
     Route::get('dashboard', [ProfileController::class, 'dashboard']);
+    Route::patch('profile', [ProfileController::class, 'update']);
+    Route::post('profile/avatar', [ProfileController::class, 'uploadAvatar']);
 
     Route::apiResource('tenants', TenantController::class)->only(['index', 'store', 'show', 'update']);
 

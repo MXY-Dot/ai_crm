@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Bot, MessagesSquare } from '@lucide/vue';
+import { Bot, Maximize2, MessagesSquare, Minimize2 } from '@lucide/vue';
 import { Switch } from '../ui/switch';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
@@ -16,6 +16,7 @@ const locale = useLocaleStore();
 const { conversations, integrationSettings, selectedConversation, selectedConversationId, selectedMessages } = storeToRefs(store);
 const replyBody = ref('');
 const activeTab = ref<'chat' | 'ai'>('chat');
+const chatExpanded = ref(false);
 
 const aiDraft = computed(() => [...selectedMessages.value].reverse().find((message) => message.sender_type === 'ai') ?? null);
 const autoReplyEnabled = computed(() => integrationSettings.value?.chatwoot.auto_reply_enabled ?? false);
@@ -54,31 +55,44 @@ async function generateDraft(): Promise<void> {
 </script>
 
 <template>
-    <section class="grid h-[calc(100vh-200px)] min-h-[620px] gap-4 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_300px]">
-        <aside class="flex min-h-0 flex-col overflow-hidden rounded-xl border" style="border-color: var(--border); background: var(--card)">
-            <div class="border-b px-4 py-3" style="border-color: var(--border)">
+    <section class="flex h-[calc(100vh-200px)] min-h-[620px] flex-col gap-4 overflow-hidden lg:flex-row">
+        <aside data-tour="inbox-queue" class="conv-queue flex min-h-0 flex-col rounded-xl border border-border bg-card" :class="{ 'is-collapsed': chatExpanded }">
+            <div class="w-[320px] max-w-full border-b px-4 py-3 border-border">
                 <h2 class="font-display text-sm font-semibold ui-text">{{ locale.t('inbox.queueTitle') }}</h2>
                 <p class="mt-0.5 text-xs ui-subtle">{{ conversations.length }} диалогов</p>
             </div>
-            <ConversationQueue :conversations="conversations" :selected-id="selectedConversationId" @select="store.selectConversation" />
+            <div class="w-[320px] max-w-full min-h-0 flex-1 overflow-y-auto">
+                <ConversationQueue :conversations="conversations" :selected-id="selectedConversationId" @select="store.selectConversation" />
+            </div>
         </aside>
 
-        <section class="flex min-h-0 flex-col overflow-hidden rounded-xl border" style="border-color: var(--border); background: var(--card)">
-            <header class="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3" style="border-color: var(--border)">
+        <section class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+            <header class="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3 border-border">
                 <div class="min-w-0">
                     <h2 class="truncate font-display text-base font-semibold ui-text">{{ selectedConversation?.customer?.name ?? locale.t('inbox.previewTitle') }}</h2>
                     <p class="mt-0.5 truncate text-xs ui-subtle">{{ selectedConversation?.subject }}</p>
                 </div>
                 <div class="flex shrink-0 items-center gap-3">
-                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium ui-text" style="border-color: var(--border)">
+                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium ui-text border-border">
                         <Switch :model-value="autoReplyEnabled" :disabled="store.busy" @update:model-value="toggleAutoReply" />
                         {{ locale.t('inbox.autoReply') }}
                     </label>
-                    <div class="flex rounded-lg border p-0.5" style="border-color: var(--border)">
+                    <div class="flex rounded-lg border p-0.5 border-border">
                         <button v-for="t in (['chat', 'ai'] as const)" :key="t" class="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition" :class="activeTab === t ? 'bg-muted ui-text' : 'ui-subtle'" type="button" @click="activeTab = t">
                             <component :is="t === 'chat' ? MessagesSquare : Bot" class="h-3.5 w-3.5" />{{ t === 'chat' ? locale.t('inbox.tabs.chat') : locale.t('inbox.tabs.ai') }}
                         </button>
                     </div>
+                    <button
+                        type="button"
+                        data-tour="inbox-expand"
+                        class="grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition hover:bg-muted border-border"
+
+                        :title="chatExpanded ? locale.t('inbox.collapseChat') : locale.t('inbox.expandChat')"
+                        @click="chatExpanded = !chatExpanded"
+                    >
+                        <Minimize2 v-if="chatExpanded" class="h-3.5 w-3.5 ui-subtle" />
+                        <Maximize2 v-else class="h-3.5 w-3.5 ui-subtle" />
+                    </button>
                 </div>
             </header>
 
@@ -92,8 +106,52 @@ async function generateDraft(): Promise<void> {
             </template>
         </section>
 
-        <aside v-if="selectedConversation" class="hidden min-h-0 flex-col overflow-hidden rounded-xl border xl:flex" style="border-color: var(--border); background: var(--card)">
-            <ConversationInfo :conversation="selectedConversation" />
+        <aside v-if="selectedConversation" class="conv-info flex-col rounded-xl border border-border bg-card" :class="{ 'is-collapsed': chatExpanded }">
+            <div class="w-[300px] max-w-full min-h-0 flex-1 overflow-y-auto">
+                <ConversationInfo :conversation="selectedConversation" />
+            </div>
         </aside>
     </section>
 </template>
+
+<style scoped>
+.conv-queue {
+    overflow: hidden;
+    transition: width 300ms ease-in-out, opacity 300ms ease-in-out, margin 300ms ease-in-out, border-width 300ms ease-in-out;
+}
+
+.conv-info {
+    display: none;
+    overflow: hidden;
+    transition: width 300ms ease-in-out, opacity 300ms ease-in-out, margin 300ms ease-in-out, border-width 300ms ease-in-out;
+}
+
+@media (min-width: 1024px) {
+    .conv-queue {
+        width: 320px;
+        flex-shrink: 0;
+    }
+    .conv-queue.is-collapsed {
+        width: 0;
+        opacity: 0;
+        margin-right: -1rem;
+        border-width: 0;
+        pointer-events: none;
+    }
+}
+
+@media (min-width: 1280px) {
+    .conv-info {
+        display: flex;
+        width: 300px;
+        flex-shrink: 0;
+    }
+    .conv-info.is-collapsed {
+        width: 0;
+        opacity: 0;
+        margin-left: -1rem;
+        border-width: 0;
+        pointer-events: none;
+    }
+}
+</style>

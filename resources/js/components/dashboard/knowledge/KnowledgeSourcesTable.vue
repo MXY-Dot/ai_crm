@@ -34,8 +34,8 @@ function dateLabel(value: string | null): string {
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-xl border" style="border-color: var(--border); background: var(--card)">
-        <div class="border-b p-4" style="border-color: var(--border); background: var(--muted)">
+    <div class="overflow-hidden rounded-xl border border-border bg-card">
+        <div class="border-b p-4 border-border bg-muted">
             <h3 class="font-display text-base font-semibold ui-text">Источники данных</h3>
         </div>
         <table class="w-full text-left text-sm">
@@ -51,7 +51,7 @@ function dateLabel(value: string | null): string {
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="document in documents" :key="document.id" class="border-t transition hover:bg-muted" style="border-color: var(--border)">
+                <tr v-for="document in documents" :key="document.id" class="border-t transition hover:bg-muted border-border">
                     <td class="px-4 py-3"><component :is="icon(document)" class="h-4 w-4 ui-subtle" /></td>
                     <td class="px-2 py-3">
                         <div class="font-medium ui-text">{{ document.title }}</div>

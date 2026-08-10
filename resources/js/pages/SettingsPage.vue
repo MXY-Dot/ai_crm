@@ -14,8 +14,8 @@ defineOptions({ layout: AppLayout });
         </div>
 
         <div class="grid items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
-            <CompanyProfilePanel />
-            <NotificationPreferencesPanel />
+            <CompanyProfilePanel data-tour="settings-company" />
+            <NotificationPreferencesPanel data-tour="settings-notify" />
         </div>
     </section>
 </template>

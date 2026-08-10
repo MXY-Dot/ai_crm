@@ -26,9 +26,9 @@ const rows = computed(() => props.customers.map((customer) => ({
 </script>
 
 <template>
-    <div class="overflow-x-auto rounded-xl border" style="border-color: var(--border); background: var(--card)">
+    <div class="overflow-x-auto rounded-xl border border-border bg-card">
         <table class="w-full min-w-[52rem] text-left text-sm">
-            <thead class="text-xs uppercase ui-subtle" style="background: var(--muted)">
+            <thead class="text-xs uppercase ui-subtle bg-muted">
                 <tr>
                     <th class="px-4 py-3">{{ locale.t('contacts.columnName') }}</th>
                     <th class="px-4 py-3">{{ locale.t('contacts.columnContact') }}</th>
@@ -38,7 +38,7 @@ const rows = computed(() => props.customers.map((customer) => ({
                     <th class="px-4 py-3">{{ locale.t('leads.columnCreated') }}</th>
                 </tr>
             </thead>
-            <tbody class="divide-y" style="border-color: var(--border)">
+            <tbody class="divide-y border-border">
                 <tr
                     v-for="row in rows"
                     :key="row.customer.id"
@@ -48,7 +48,7 @@ const rows = computed(() => props.customers.map((customer) => ({
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-2">
                             <Avatar class="size-8">
-                                <AvatarFallback class="text-[11px] font-semibold" style="background: var(--accent); color: var(--accent-foreground)">{{ row.customer.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
+                                <AvatarFallback class="text-[11px] font-semibold bg-accent text-accent-foreground">{{ row.customer.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
                             </Avatar>
                             <span class="font-medium ui-text">{{ row.customer.name }}</span>
                         </div>

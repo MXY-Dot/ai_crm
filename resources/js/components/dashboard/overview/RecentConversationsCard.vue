@@ -24,8 +24,8 @@ function initials(name: string): string {
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-xl border lg:col-span-2" style="border-color: var(--border); background: var(--card)">
-        <div class="flex items-center justify-between border-b p-5" style="border-color: var(--border)">
+    <div class="overflow-hidden rounded-xl border lg:col-span-2 border-border bg-card">
+        <div class="flex items-center justify-between border-b p-5 border-border">
             <h3 class="font-display text-base font-semibold ui-text">Последние диалоги</h3>
             <Link href="/inbox" class="text-sm font-medium text-primary hover:underline">Смотреть все</Link>
         </div>
@@ -42,8 +42,8 @@ function initials(name: string): string {
                 <tr
                     v-for="item in recent"
                     :key="item.id"
-                    class="cursor-pointer border-t transition hover:bg-muted"
-                    style="border-color: var(--border)"
+                    class="cursor-pointer border-t transition hover:bg-muted border-border"
+
                     @click="store.openConversation(item.id)"
                 >
                     <td class="px-5 py-3">

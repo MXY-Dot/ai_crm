@@ -96,13 +96,13 @@ const tabs = computed(() => [
         <TabsContent value="runs" class="mt-0">
             <Card :title="locale.t('ai.runsTitle')" :subtitle="locale.t('ai.runsSubtitle')">
                 <div class="grid gap-3">
-                    <article v-for="run in aiRuns" :key="run.id" class="rounded-xl border p-4" style="border-color: var(--border); background: var(--muted)">
+                    <article v-for="run in aiRuns" :key="run.id" class="rounded-xl border p-4 border-border bg-muted">
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
                                 <p class="font-medium ui-text">{{ run.intent ?? locale.t('common.unknown') }}</p>
                                 <p class="mt-1 text-xs ui-subtle">{{ run.conversation?.subject }}</p>
                             </div>
-                            <span class="rounded px-2 py-0.5 text-xs font-semibold" style="background: var(--card)">{{ run.confidence }}%</span>
+                            <span class="rounded px-2 py-0.5 text-xs font-semibold bg-card">{{ run.confidence }}%</span>
                         </div>
                         <p class="mt-3 text-sm leading-6 ui-subtle">{{ run.summary }}</p>
                         <p class="mt-3 flex items-center gap-2 text-sm text-primary"><Workflow class="h-4 w-4" />{{ run.next_action }}</p>

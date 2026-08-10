@@ -13,16 +13,15 @@ const props = defineProps<{
     brand?: 'telegram' | 'whatsapp' | 'instagram' | 'blue';
 }>();
 
-const brandStyle = computed(() => {
+const brandClass = computed(() => {
     const map: Record<string, string> = {
-        telegram: 'var(--brand-telegram)',
-        whatsapp: 'var(--brand-whatsapp)',
-        instagram: 'linear-gradient(45deg, var(--brand-instagram-from), var(--brand-instagram-via), var(--brand-instagram-to))',
-        blue: 'var(--brand-website)',
+        telegram: 'bg-brand-telegram text-white',
+        whatsapp: 'bg-brand-whatsapp text-white',
+        instagram: 'bg-gradient-to-br from-brand-instagram-from via-brand-instagram-via to-brand-instagram-to text-white',
+        blue: 'bg-brand-website text-white',
     };
-    const value = props.brand ? map[props.brand] : null;
 
-    return value ? { background: value, color: '#ffffff' } : { background: 'var(--muted)', color: 'var(--primary)' };
+    return (props.brand ? map[props.brand] : null) ?? 'bg-muted text-primary';
 });
 
 const tone = computed(() => {
@@ -39,10 +38,10 @@ const lastSyncedLabel = computed(() => (props.lastSyncedAt
 </script>
 
 <template>
-    <article class="flex h-full flex-col gap-5 rounded-xl border p-6 transition hover:border-primary/40" style="border-color: var(--border); background: var(--card)">
+    <article class="flex h-full flex-col gap-5 rounded-xl border p-6 transition hover:border-primary/40 border-border bg-card">
         <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-4">
-                <span class="grid h-12 w-12 place-items-center rounded-lg" :style="brandStyle">
+                <span class="grid h-12 w-12 place-items-center rounded-lg" :class="brandClass">
                     <component :is="icon" class="h-6 w-6" />
                 </span>
                 <div>

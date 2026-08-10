@@ -46,14 +46,14 @@ const gradient = computed(() => {
 </script>
 
 <template>
-    <div class="flex flex-col rounded-xl border p-5" style="border-color: var(--border); background: var(--card)">
+    <div class="flex flex-col rounded-xl border p-5 border-border bg-card">
         <h3 class="mb-6 font-display text-base font-semibold ui-text">Распределение каналов</h3>
         <div class="flex flex-1 flex-col items-center justify-center">
             <TooltipProvider :delay-duration="100">
                 <Tooltip>
                     <TooltipTrigger as-child>
                         <div class="relative h-40 w-40 cursor-pointer rounded-full transition hover:opacity-90" :style="{ background: `conic-gradient(${gradient})` }">
-                            <div class="absolute inset-3 flex flex-col items-center justify-center rounded-full" style="background: var(--card)">
+                            <div class="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-card">
                                 <span class="font-display text-2xl font-bold ui-text">{{ conversations.length }}</span>
                             </div>
                         </div>

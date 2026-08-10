@@ -29,7 +29,7 @@ function can(role: TenantUser['role'], permission: string): boolean {
                         <th v-for="item in permissions" :key="item" class="py-2 text-center">{{ locale.t(`team.permissions.${item}`) }}</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y" style="border-color: var(--border)">
+                <tbody class="divide-y border-border">
                     <tr v-for="role in roles" :key="role">
                         <td class="py-2 ui-text">{{ locale.t(`team.roles.${role}`) }}</td>
                         <td v-for="item in permissions" :key="item" class="py-2 text-center">

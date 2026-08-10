@@ -9,10 +9,10 @@ defineEmits<{ select: [] }>();
 
 <template>
     <article
-        class="relative flex h-full flex-col rounded-xl border p-6"
-        :style="{ borderColor: current ? 'var(--primary)' : 'var(--border)', borderWidth: current ? '2px' : '1px', background: 'var(--card)' }"
+        class="relative flex h-full flex-col rounded-xl bg-card p-6"
+        :class="current ? 'border-2 border-primary' : 'border border-border'"
     >
-        <span v-if="current" class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide" style="background: var(--primary); color: var(--primary-foreground)">
+        <span v-if="current" class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide bg-primary text-primary-foreground">
             Текущий
         </span>
         <h3 class="font-display text-lg font-semibold ui-text">{{ plan.name }}</h3>
