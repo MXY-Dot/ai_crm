@@ -18,7 +18,7 @@ const delegatedProps = reactiveOmit(props, 'class', 'tone')
 const TONE_CLASSES: Record<string, string> = {
   neutral: 'border-transparent bg-secondary text-secondary-foreground font-semibold',
   green: 'border-transparent bg-emerald-600 text-white font-semibold',
-  amber: 'border-transparent bg-amber-500 text-white font-semibold',
+  amber: 'border-transparent bg-amber-600 text-white font-semibold',
   red: 'border-transparent bg-destructive text-white font-semibold',
   blue: 'border-transparent bg-sky-600 text-white font-semibold',
   telegram: 'border-transparent bg-brand-telegram text-white font-semibold',
@@ -32,7 +32,7 @@ const toneClass = computed(() => (props.tone ? TONE_CLASSES[props.tone] : undefi
   <Primitive
     data-slot="badge"
     :data-variant="variant"
-    :class="cn(toneClass || badgeVariants({ variant }), props.class)"
+    :class="cn(badgeVariants({ variant }), toneClass, props.class)"
     v-bind="delegatedProps"
   >
     <slot />
