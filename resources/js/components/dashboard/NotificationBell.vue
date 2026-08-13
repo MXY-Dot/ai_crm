@@ -2,15 +2,18 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { toast } from 'vue-sonner';
-import { Bell, Megaphone } from '@lucide/vue';
+import { Bell, MessageCircle, Megaphone } from '@lucide/vue';
 import { apiRequest } from '@/lib/apiClient';
+import { pagePaths } from '@/lib/pages';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useUnreadStore } from '@/stores/unread';
 
 const props = defineProps<{ admin?: boolean }>();
+const unread = useUnreadStore();
 
 type NotificationItem = {
     id: string;
@@ -89,7 +92,13 @@ async function markAllRead(): Promise<void> {
     }
 }
 
-const badgeLabel = computed(() => (unreadCount.value > 9 ? '9+' : String(unreadCount.value)));
+const combinedUnread = computed(() => unreadCount.value + unread.total);
+const badgeLabel = computed(() => (combinedUnread.value > 9 ? '9+' : String(combinedUnread.value)));
+
+function goToInbox(): void {
+    open.value = false;
+    router.visit(pagePaths.inbox);
+}
 
 const announceOpen = ref(false);
 const announceBusy = ref(false);
@@ -121,7 +130,7 @@ async function sendAnnouncement(): Promise<void> {
             <Button size="icon" variant="secondary" class="relative" aria-label="Уведомления">
                 <Bell class="h-4 w-4" />
                 <span
-                    v-if="unreadCount > 0"
+                    v-if="combinedUnread > 0"
                     class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold bg-destructive text-destructive-foreground"
                 >{{ badgeLabel }}</span>
             </Button>
@@ -138,6 +147,19 @@ async function sendAnnouncement(): Promise<void> {
             </div>
 
             <div class="max-h-96 overflow-y-auto">
+                <button
+                    v-if="unread.total > 0"
+                    type="button"
+                    class="flex w-full items-start gap-2.5 border-b p-3 text-left transition bg-primary/5 border-border hover:bg-primary/10"
+                    @click="goToInbox"
+                >
+                    <MessageCircle class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-medium ui-text">{{ unread.total }} {{ unread.total === 1 ? 'непрочитанное сообщение' : 'непрочитанных сообщений' }}</span>
+                        <span class="mt-0.5 block text-xs ui-subtle">В чатах — нажмите, чтобы открыть</span>
+                    </span>
+                </button>
+
                 <button
                     v-for="item in items"
                     :key="item.id"

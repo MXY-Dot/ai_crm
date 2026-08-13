@@ -4,12 +4,14 @@ import { BarChart3, Blocks, Bot, BookOpen, CalendarCheck, CreditCard, Inbox, Lay
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { canAccessPage } from '../../lib/permissions';
 import { useLocaleStore } from '../../stores/locale';
+import { useUnreadStore } from '../../stores/unread';
 import Sidebar, { type SidebarUser } from './Sidebar.vue';
 
 const props = defineProps<{ active: string; tenantName: string; collapsed: boolean; user: SidebarUser; logoutProcessing: boolean }>();
 defineEmits<{ toggle: []; logout: [] }>();
 
 const locale = useLocaleStore();
+const unread = useUnreadStore();
 const allItems: Array<{ id: DashboardPage; label: string; icon: unknown }> = [
     { id: 'overview', label: 'nav.overview', icon: LayoutDashboard },
     { id: 'inbox', label: 'nav.inbox', icon: Inbox },
@@ -27,7 +29,12 @@ const allItems: Array<{ id: DashboardPage; label: string; icon: unknown }> = [
 ];
 const items = computed(() => allItems
     .filter((item) => canAccessPage(props.user?.role, item.id))
-    .map((item) => ({ href: pagePaths[item.id], label: locale.t(item.label), icon: item.icon })));
+    .map((item) => ({
+        href: pagePaths[item.id],
+        label: locale.t(item.label),
+        icon: item.icon,
+        badge: item.id === 'inbox' ? unread.total : undefined,
+    })));
 const activeHref = computed(() => pagePaths[props.active as DashboardPage] ?? props.active);
 </script>
 

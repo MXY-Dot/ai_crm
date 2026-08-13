@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
-export type SidebarNavItem = { href: string; label: string; icon: unknown };
+export type SidebarNavItem = { href: string; label: string; icon: unknown; badge?: number };
 export type SidebarUser = { name: string; email: string; avatar_url?: string | null; role?: string } | null;
 
 const props = defineProps<{
@@ -105,8 +105,18 @@ function itemClass(activeHref: string, href: string): string {
                                 class="flex h-10 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
                                 :class="[itemClass(activeHref, item.href), collapsed ? 'justify-center px-0' : '']"
                             >
-                                <component :is="item.icon" class="h-4 w-4 shrink-0" />
-                                <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
+                                <span class="relative shrink-0">
+                                    <component :is="item.icon" class="h-4 w-4" />
+                                    <span
+                                        v-if="collapsed && item.badge"
+                                        class="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full px-0.5 text-[9px] font-bold bg-destructive text-destructive-foreground"
+                                    >{{ item.badge > 9 ? '9+' : item.badge }}</span>
+                                </span>
+                                <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+                                <span
+                                    v-if="!collapsed && item.badge"
+                                    class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-bold bg-destructive text-destructive-foreground"
+                                >{{ item.badge > 99 ? '99+' : item.badge }}</span>
                             </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">{{ item.label }}</TooltipContent>

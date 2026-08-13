@@ -95,6 +95,32 @@ class ConversationController extends Controller
     }
 
     /**
+     * Lightweight global count for the sidebar/notification-bell badges, which are
+     * mounted app-wide (AppLayout) — unlike index() above, this deliberately doesn't
+     * need a company lookup, pagination, or per-conversation breakdown, just one
+     * number, so it stays cheap enough to poll from every page, not just /inbox.
+     */
+    public function unreadTotal(Request $request, TenantContext $context): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('view', $tenant);
+
+        $userId = (int) $request->user()->id;
+
+        $total = Message::withoutGlobalScopes()
+            ->join('conversations', 'conversations.id', '=', 'messages.conversation_id')
+            ->where('conversations.tenant_id', $tenant->id)
+            ->where('messages.sender_type', 'customer')
+            ->whereRaw(
+                'messages.id > coalesce((select last_read_message_id from conversation_reads where conversation_reads.conversation_id = messages.conversation_id and conversation_reads.user_id = ?), 0)',
+                [$userId]
+            )
+            ->count();
+
+        return response()->json(['total' => $total]);
+    }
+
+    /**
      * Manual claim/release — distinct from the automatic "first replier claims it"
      * behaviour in ConversationReplyController, which only ever sets an *unclaimed*
      * conversation and never overwrites an existing owner. This is an explicit,

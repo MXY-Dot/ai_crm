@@ -98,6 +98,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('ai-agents', [AiAgentController::class, 'store']);
         Route::patch('ai-agents/{aiAgent}', [AiAgentController::class, 'update']);
         Route::get('conversations', [ConversationController::class, 'index']);
+        Route::get('conversations/unread-total', [ConversationController::class, 'unreadTotal']);
         Route::patch('conversations/{conversation}/assignment', [ConversationController::class, 'assign']);
         Route::post('conversations/{conversation}/pin', [ConversationController::class, 'pin']);
         Route::delete('conversations/{conversation}/pin', [ConversationController::class, 'unpin']);

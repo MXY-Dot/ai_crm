@@ -5,9 +5,11 @@ import { Bot, Inbox, LayoutDashboard, Settings, Users } from '@lucide/vue';
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { canAccessPage } from '../../lib/permissions';
 import { useLocaleStore } from '../../stores/locale';
+import { useUnreadStore } from '../../stores/unread';
 
 const props = defineProps<{ active: string; role?: string }>();
 const locale = useLocaleStore();
+const unread = useUnreadStore();
 const allItems: Array<{ id: DashboardPage; label: string; icon: unknown }> = [
     { id: 'overview', label: 'nav.home', icon: LayoutDashboard },
     { id: 'inbox', label: 'nav.inbox', icon: Inbox },
@@ -17,7 +19,7 @@ const allItems: Array<{ id: DashboardPage; label: string; icon: unknown }> = [
 ];
 const items = computed(() => allItems
     .filter((item) => canAccessPage(props.role, item.id))
-    .map((item) => ({ ...item, label: locale.t(item.label) })));
+    .map((item) => ({ ...item, label: locale.t(item.label), badge: item.id === 'inbox' ? unread.total : 0 })));
 </script>
 
 <template>
@@ -29,7 +31,13 @@ const items = computed(() => allItems
             class="flex h-12 flex-col items-center justify-center gap-1 rounded-lg text-xs font-medium"
             :class="active === item.id ? 'bg-[var(--card)] text-[var(--foreground)] shadow-sm' : 'ui-subtle'"
         >
-            <component :is="item.icon" class="h-4 w-4" />
+            <span class="relative">
+                <component :is="item.icon" class="h-4 w-4" />
+                <span
+                    v-if="item.badge"
+                    class="absolute -right-2 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full px-0.5 text-[9px] font-bold bg-destructive text-destructive-foreground"
+                >{{ item.badge > 9 ? '9+' : item.badge }}</span>
+            </span>
             {{ item.label }}
         </Link>
     </nav>

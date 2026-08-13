@@ -18,10 +18,12 @@ import { hasSeenOnboarding, maybeStartPageTour, startOnboarding } from '@/lib/on
 import { type Bootstrap, useCrmDashboardStore } from '@/stores/crmDashboard';
 import { useLocaleStore } from '@/stores/locale';
 import { useThemeStore } from '@/stores/theme';
+import { useUnreadStore } from '@/stores/unread';
 
 const page = usePage<{ bootstrap: Bootstrap }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
+const unread = useUnreadStore();
 useThemeStore();
 const { tenant, company, hasData, user } = storeToRefs(store);
 const activePage = computed(() => pageFromPath(new URL(page.url, window.location.origin).pathname));
@@ -34,6 +36,8 @@ watch(
 
 watch(hasData, (value) => {
     if (! value) return;
+
+    unread.start();
 
     nextTick(() => {
         if (! hasSeenOnboarding()) {
@@ -69,6 +73,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     if (dashboardRefreshTimer !== null) window.clearInterval(dashboardRefreshTimer);
+    unread.stop();
 });
 
 const logoutProcessing = ref(false);
