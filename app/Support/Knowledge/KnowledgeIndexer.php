@@ -45,6 +45,45 @@ class KnowledgeIndexer
         });
     }
 
+    /**
+     * Replaces an existing document's content in place — used by the "edit" action
+     * on the Knowledge Base page. Works the same regardless of how the document was
+     * originally created: for a pasted-text document it's a normal content edit; for
+     * an uploaded PDF/DOCX/XLSX still sitting in 'queued' status (no automated parser
+     * exists for those formats yet — see indexUploadedFile()), this is also how an
+     * operator can manually paste in the extracted text and turn it into a real,
+     * searchable document instead of leaving it stuck unparsed forever.
+     */
+    public function reindexText(KnowledgeDocument $document, string $content, ?string $title = null): KnowledgeDocument
+    {
+        return DB::transaction(function () use ($document, $content, $title): KnowledgeDocument {
+            $content = trim($content);
+            $chunks = $this->chunk($content);
+
+            $document->update([
+                'title' => $title !== null && $title !== '' ? $title : $document->title,
+                'status' => 'indexed',
+                'version' => $document->version + 1,
+                'summary' => $this->summary($content),
+                'indexed_at' => now(),
+            ]);
+
+            $document->chunks()->delete();
+
+            foreach ($chunks as $position => $chunk) {
+                KnowledgeChunk::query()->create([
+                    'knowledge_document_id' => $document->id,
+                    'position' => $position + 1,
+                    'content' => $chunk,
+                    'token_count' => $this->tokens($chunk),
+                    'meta' => ['source' => 'text'],
+                ]);
+            }
+
+            return $document->fresh('chunks');
+        });
+    }
+
     public function indexUploadedFile(array $data): KnowledgeDocument
     {
         /** @var UploadedFile $file */

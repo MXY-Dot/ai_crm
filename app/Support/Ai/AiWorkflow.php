@@ -31,6 +31,9 @@ class AiWorkflow
         $conversation->loadMissing('channel');
         $isFirstMessage = $conversation->wasRecentlyCreated;
         $agent = $this->agent($tenant, $company, $conversation->channel?->provider);
+        if ($isFirstMessage) {
+            $this->requestContact($tenant, $conversation);
+        }
         $this->showTyping($tenant, $conversation, true);
         [$decision, $engine, $usage] = $this->decision($agent, $company, $conversation, $message, $lead, $isFirstMessage);
         $run = $this->run($tenant, $agent, $conversation, $lead, $decision, $engine, $usage);
@@ -189,7 +192,9 @@ class AiWorkflow
 
         $systemPrompt = implode("\n\n", array_filter([
             "You are the CRM AI assistant for this company. Never identify as OpenAI, ChatGPT, DeepSeek, or a generic language model — answer as the company's own assistant.",
-            'Answer naturally and helpfully in the same language the customer wrote in. If something is outside what you know about the company, ask one short clarifying question or say an operator will follow up.',
+            'Answer naturally and helpfully in the same language the customer wrote in. If a question is about the company itself but you don\'t have the specific detail, ask one short clarifying question or say an operator will follow up.',
+            "You only discuss this company's own services, booking, pricing and policies. If the customer asks something with no connection to the company at all (general knowledge, trivia, news, other businesses, coding help, or any other off-topic request), do NOT answer that question — do not provide the requested fact or information under any circumstances, even briefly. Instead, politely say that's outside what you can help with here, and steer the conversation back to the company's services. Never answer the off-topic question first and redirect after.",
+            "Reply with ONLY the message you want the customer to read — plain conversational text. Never include headers or labels like 'Intent:', 'Summary:', 'Draft reply:' or 'Handoff:', and never analyze the request before answering it; that analysis is done separately and is not part of your output.",
             $agent->instructions ? 'Agent instructions: '.$agent->instructions : '',
             'Business profile:'."\n".$this->dify->businessProfile($agent),
             'Knowledge base:'."\n".$this->dify->knowledgeContext($agent),
@@ -207,7 +212,26 @@ class AiWorkflow
             return null;
         }
 
+        $completion['text'] = $this->sanitizeReplyText($completion['text']);
+
         return $completion + ['provider' => $provider, 'model' => $agent->model];
+    }
+
+    /**
+     * Defense in depth: some models (deepseek-chat in particular) keep echoing an internal
+     * Intent/Summary/Draft-reply/Handoff analysis format despite the system prompt asking for
+     * plain conversational text — observed leaking verbatim to real customers over Telegram.
+     * If that shape slips through anyway, pull out just the actual reply text.
+     */
+    private function sanitizeReplyText(string $text): string
+    {
+        $text = trim($text);
+
+        if (preg_match('/\*\*(?:Draft reply|Reply draft)\s*:?\*\*\s*\n(.+?)(?:\n+\s*---|\n+\s*\*\*Handoff|\z)/is', $text, $matches)) {
+            return trim($matches[1]);
+        }
+
+        return $text;
     }
 
     private function withReplyText(AiDecision $decision, string $replyText): AiDecision
@@ -277,9 +301,45 @@ class AiWorkflow
         ]);
     }
 
+    /**
+     * On a customer's very first message in a brand-new conversation, ask Telegram to
+     * share their phone number via the native "request contact" reply-keyboard button
+     * — so leads land in the CRM with a real phone number instead of just a Telegram
+     * username. Tapping it sends a message back with a `contact` payload, handled by
+     * TelegramWebhookController/ChatwootWebhookHandler::customer() (already reads
+     * `sender.phone_number` and updates the existing customer). Best-effort: never
+     * blocks the actual AI reply if Telegram rejects this or the token is missing.
+     */
+    private function requestContact(Tenant $tenant, Conversation $conversation): void
+    {
+        if ($conversation->channel?->provider !== 'telegram' || ! $conversation->external_id) {
+            return;
+        }
+
+        $conversation->loadMissing('customer');
+
+        if ($conversation->customer?->phone) {
+            return;
+        }
+
+        try {
+            $this->telegram->sendMessage(
+                $tenant,
+                str_replace('telegram-', '', (string) $conversation->external_id),
+                'Поделитесь, пожалуйста, номером телефона, чтобы мы могли связаться с вами по записи 👇',
+                replyMarkup: [
+                    'keyboard' => [[['text' => '📱 Поделиться номером', 'request_contact' => true]]],
+                    'resize_keyboard' => true,
+                    'one_time_keyboard' => true,
+                ],
+            );
+        } catch (RuntimeException) {
+        }
+    }
+
     private function showTyping(Tenant $tenant, Conversation $conversation, bool $typing): void
     {
-        if (! $this->autoReplyEnabled($tenant, (string) $conversation->channel?->provider) || ! $conversation->external_id) {
+        if (! $this->autoReplyEnabled($tenant) || ! $conversation->external_id) {
             return;
         }
 
@@ -295,19 +355,20 @@ class AiWorkflow
         }
     }
 
-    private function autoReplyEnabled(Tenant $tenant, string $provider): bool
+    /**
+     * Single switch for every channel — the per-Telegram override that used to live
+     * on the Integrations card was removed (it was a second, confusing place to
+     * control the same thing as the "Автоответ AI" toggle in the Chat header); this
+     * is now the only place auto-reply is turned on or off.
+     */
+    private function autoReplyEnabled(Tenant $tenant): bool
     {
-        $settings = $tenant->settings ?? [];
-
-        if ($provider === 'telegram') {
-            return (bool) (Arr::get($settings, 'integrations.telegram.auto_reply_enabled') ?? Arr::get($settings, 'integrations.chatwoot.auto_reply_enabled', false));
-        }
-
-        return (bool) Arr::get($settings, 'integrations.chatwoot.auto_reply_enabled', false);
+        return (bool) Arr::get($tenant->settings ?? [], 'integrations.chatwoot.auto_reply_enabled', false);
     }
+
     private function autoReply(Tenant $tenant, Conversation $conversation, ?Message $draft): void
     {
-        if (! $draft || ! $conversation->external_id || ! $this->autoReplyEnabled($tenant, (string) $conversation->channel?->provider)) {
+        if (! $draft || ! $conversation->external_id || ! $this->autoReplyEnabled($tenant)) {
             return;
         }
 
@@ -315,9 +376,12 @@ class AiWorkflow
             return;
         }
 
+        $isTelegram = $conversation->channel?->provider === 'telegram';
+        $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
+
         try {
-            $payload = $conversation->channel?->provider === 'telegram'
-                ? $this->telegram->sendMessage($tenant, str_replace('telegram-', '', (string) $conversation->external_id), $draft->body)
+            $payload = $isTelegram
+                ? $this->telegram->sendMessage($tenant, $chatId, $draft->body)
                 : $this->chatwoot->sendOutgoingMessage($tenant, (string) $conversation->external_id, $draft->body);
         } catch (RuntimeException $error) {
             $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $error->getMessage()]])->save();
@@ -325,8 +389,17 @@ class AiWorkflow
             return;
         }
 
+        // Telegram external_id keeps the same `telegram-{chatId}-{messageId}` shape used
+        // everywhere else (webhook-ingested and operator-sent messages alike) — needed so
+        // this AI-sent message can later be resolved as a reply target (see
+        // ConversationReplyController::resolveTelegramReplyId()) or edited/deleted (see
+        // MessageController::parseTelegramExternalId()).
+        $externalId = $isTelegram
+            ? 'telegram-'.$chatId.'-'.Arr::get($payload, 'result.message_id')
+            : (string) (Arr::get($payload, 'id') ?? Arr::get($payload, 'payload.id') ?? $draft->external_id);
+
         $draft->forceFill([
-            'external_id' => (string) (Arr::get($payload, 'id') ?? Arr::get($payload, 'payload.id') ?? Arr::get($payload, 'result.message_id') ?? $draft->external_id),
+            'external_id' => $externalId,
             'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $conversation->channel?->provider => $payload],
         ])->save();
     }

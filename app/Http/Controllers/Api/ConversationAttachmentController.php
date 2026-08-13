@@ -9,6 +9,8 @@ use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -29,14 +31,56 @@ class ConversationAttachmentController extends Controller
         ]);
 
         $path = $data['file']->store('attachments/'.$tenant->id, 'public');
+        $filename = $data['file']->getClientOriginalName();
+        $mime = $data['file']->getClientMimeType();
+        $size = $data['file']->getSize();
+
+        // Browser voice recordings come out as webm/opus, which Telegram's sendVoice
+        // rejects (it only accepts an Ogg/Opus container) — remux to .ogg here, once,
+        // at upload time, so both the CRM's own playback and the later Telegram send
+        // (ConversationReplyController) work off the same Telegram-compatible file.
+        if ($data['type'] === 'voice') {
+            $remuxed = $this->remuxToOggOpus($tenant->id, $path);
+
+            if ($remuxed) {
+                $path = $remuxed;
+                $filename = pathinfo($filename, PATHINFO_FILENAME).'.ogg';
+                $mime = 'audio/ogg';
+                $size = Storage::disk('public')->size($path);
+            }
+        }
 
         return response()->json([
             'url' => Storage::disk('public')->url($path),
             'path' => $path,
-            'filename' => $data['file']->getClientOriginalName(),
-            'mime' => $data['file']->getClientMimeType(),
-            'size' => $data['file']->getSize(),
+            'filename' => $filename,
+            'mime' => $mime,
+            'size' => $size,
             'type' => $data['type'],
         ], 201);
+    }
+
+    /** @return string|null the new .ogg storage path, or null if ffmpeg failed (caller falls back to the original file) */
+    private function remuxToOggOpus(int $tenantId, string $sourcePath): ?string
+    {
+        $sourceAbsolute = Storage::disk('public')->path($sourcePath);
+        $targetRelative = 'attachments/'.$tenantId.'/'.pathinfo($sourcePath, PATHINFO_FILENAME).'.ogg';
+        $targetAbsolute = Storage::disk('public')->path($targetRelative);
+
+        $result = Process::timeout(20)->run([
+            'ffmpeg', '-y', '-i', $sourceAbsolute,
+            '-vn', '-ac', '1', '-ar', '48000', '-c:a', 'libopus', '-b:a', '32k',
+            $targetAbsolute,
+        ]);
+
+        if (! $result->successful()) {
+            Log::warning('Voice note ffmpeg remux to ogg/opus failed', ['error' => $result->errorOutput()]);
+
+            return null;
+        }
+
+        Storage::disk('public')->delete($sourcePath);
+
+        return $targetRelative;
     }
 }

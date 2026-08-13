@@ -2,12 +2,15 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import type { Component } from 'vue';
-import { Activity, Brain, CheckCircle2, Cpu, DollarSign, Feather, Gem, PlugZap, Radio, RefreshCw, Save, Sparkles, Workflow, Zap } from '@lucide/vue';
+import { Activity, Brain, CheckCircle2, Cpu, DollarSign, PlugZap, Radio, RefreshCw, Save, Workflow, Zap } from '@lucide/vue';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import KpiCard from '@/components/dashboard/KpiCard.vue';
 import ChannelCard from '@/components/dashboard/channels/ChannelCard.vue';
 import ProviderTrendChart from '@/components/dashboard/ai/ProviderTrendChart.vue';
+import ClaudeIcon from '@/components/icons/ClaudeIcon.vue';
+import GoogleIcon from '@/components/icons/GoogleIcon.vue';
+import OpenAiIcon from '@/components/icons/OpenAiIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +32,9 @@ type Overview = {
     usage: { top_tenants: TopTenant[]; requests_this_month: number };
 };
 
-const providerIcons: Record<string, Component> = { groq: Zap, openai: Sparkles, deepseek: Brain, anthropic: Feather, google: Gem };
+// Real brand logos where Font Awesome free has them (OpenAI/Claude/Google); Groq and DeepSeek
+// have no official icon in either Lucide or Font Awesome free, so a generic Lucide icon stands in.
+const providerIcons: Record<string, Component> = { groq: Zap, openai: OpenAiIcon, deepseek: Brain, anthropic: ClaudeIcon, google: GoogleIcon };
 
 const data = ref<Overview | null>(null);
 const loading = ref(true);
@@ -154,7 +159,7 @@ const totalRequests30d = computed(() => (data.value?.providers ?? []).reduce((su
             <ChannelCard
                 v-for="p in data.providers"
                 :key="p.provider"
-                :icon="providerIcons[p.provider] ?? Sparkles"
+                :icon="providerIcons[p.provider] ?? Cpu"
                 :name="p.label"
                 brand="blue"
                 :status="p.configured ? 'connected' : 'pending'"

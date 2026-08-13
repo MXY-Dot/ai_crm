@@ -5,6 +5,7 @@ import { Search } from '@lucide/vue';
 import { Input } from '../ui/input';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
+import KnowledgeDocumentDialog from './knowledge/KnowledgeDocumentDialog.vue';
 import KnowledgeSourcesTable from './knowledge/KnowledgeSourcesTable.vue';
 import KnowledgeStatsBento from './knowledge/KnowledgeStatsBento.vue';
 import KnowledgeTextForm from './knowledge/KnowledgeTextForm.vue';
@@ -14,6 +15,7 @@ const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { knowledgeDocuments, aiAgents, busy, error } = storeToRefs(store);
 const query = ref('');
+const openDocumentId = ref<number | null>(null);
 
 const labels = computed(() => ({
     chunks: locale.t('kb.chunks'),
@@ -69,7 +71,9 @@ async function uploadFile(payload: { title: string; file: File }): Promise<void>
         </div>
 
         <div data-tour="kb-sources">
-            <KnowledgeSourcesTable :documents="filteredDocuments" />
+            <KnowledgeSourcesTable :documents="filteredDocuments" @open="openDocumentId = $event" />
         </div>
+
+        <KnowledgeDocumentDialog :document-id="openDocumentId" @update:document-id="openDocumentId = $event" />
     </div>
 </template>

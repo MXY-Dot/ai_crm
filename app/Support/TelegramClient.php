@@ -16,7 +16,7 @@ class TelegramClient
     {
     }
 
-    public function sendMessage(Tenant $tenant, string $chatId, string $text): array
+    public function sendMessage(Tenant $tenant, string $chatId, string $text, ?string $replyToMessageId = null, ?array $replyMarkup = null): array
     {
         $token = $this->settings->telegramBotToken($tenant);
 
@@ -25,10 +25,12 @@ class TelegramClient
         }
 
         try {
-            $response = $this->http()->post('https://api.telegram.org/bot'.$token.'/sendMessage', [
+            $response = $this->http()->post('https://api.telegram.org/bot'.$token.'/sendMessage', array_filter([
                 'chat_id' => $chatId,
                 'text' => $text,
-            ]);
+                'reply_parameters' => $replyToMessageId ? ['message_id' => (int) $replyToMessageId] : null,
+                'reply_markup' => $replyMarkup,
+            ], fn ($value) => $value !== null));
         } catch (Throwable $error) {
             throw new RuntimeException('Telegram request failed: '.$error->getMessage(), previous: $error);
         }
@@ -42,19 +44,19 @@ class TelegramClient
         return is_array($json) ? $json : [];
     }
 
-    public function sendPhoto(Tenant $tenant, string $chatId, string $localPath, string $filename, string $caption = ''): array
+    public function sendPhoto(Tenant $tenant, string $chatId, string $localPath, string $filename, string $caption = '', ?string $replyToMessageId = null): array
     {
-        return $this->sendMedia($tenant, 'sendPhoto', $chatId, 'photo', $localPath, $filename, $caption);
+        return $this->sendMedia($tenant, 'sendPhoto', $chatId, 'photo', $localPath, $filename, $caption, $replyToMessageId);
     }
 
-    public function sendVoice(Tenant $tenant, string $chatId, string $localPath, string $filename, string $caption = ''): array
+    public function sendVoice(Tenant $tenant, string $chatId, string $localPath, string $filename, string $caption = '', ?string $replyToMessageId = null): array
     {
-        return $this->sendMedia($tenant, 'sendVoice', $chatId, 'voice', $localPath, $filename, $caption);
+        return $this->sendMedia($tenant, 'sendVoice', $chatId, 'voice', $localPath, $filename, $caption, $replyToMessageId);
     }
 
-    public function sendDocument(Tenant $tenant, string $chatId, string $localPath, string $filename, string $caption = ''): array
+    public function sendDocument(Tenant $tenant, string $chatId, string $localPath, string $filename, string $caption = '', ?string $replyToMessageId = null): array
     {
-        return $this->sendMedia($tenant, 'sendDocument', $chatId, 'document', $localPath, $filename, $caption);
+        return $this->sendMedia($tenant, 'sendDocument', $chatId, 'document', $localPath, $filename, $caption, $replyToMessageId);
     }
 
     /**
@@ -62,7 +64,7 @@ class TelegramClient
      * Telegram's URL-fetch mode reliably rejects file URLs hosted on a bare IP address
      * (this server has no public domain name yet), so direct upload is used instead.
      */
-    private function sendMedia(Tenant $tenant, string $method, string $chatId, string $field, string $localPath, string $filename, string $caption): array
+    private function sendMedia(Tenant $tenant, string $method, string $chatId, string $field, string $localPath, string $filename, string $caption, ?string $replyToMessageId = null): array
     {
         $token = $this->settings->telegramBotToken($tenant);
 
@@ -80,6 +82,10 @@ class TelegramClient
                 ->post('https://api.telegram.org/bot'.$token.'/'.$method, array_filter([
                     'chat_id' => $chatId,
                     'caption' => $caption !== '' ? $caption : null,
+                    // multipart/form-data has no nested-object support, so structured fields
+                    // (like reply_parameters) must be sent as a JSON-encoded string — this is
+                    // Telegram Bot API's own documented convention for complex fields over multipart.
+                    'reply_parameters' => $replyToMessageId ? json_encode(['message_id' => (int) $replyToMessageId]) : null,
                 ], fn ($value) => $value !== null));
         } catch (Throwable $error) {
             throw new RuntimeException('Telegram request failed: '.$error->getMessage(), previous: $error);
@@ -92,6 +98,54 @@ class TelegramClient
         $json = $response->json();
 
         return is_array($json) ? $json : [];
+    }
+
+    /**
+     * Best-effort: edits a message WERO previously sent via the bot. Returns false
+     * (never throws) on any failure — Telegram rejects edits on messages older than
+     * 48h or already-deleted messages, and callers here only need "did it work?"
+     * to decide whether to note the outcome, not a hard error.
+     */
+    public function editMessageText(Tenant $tenant, string $chatId, string $messageId, string $text): bool
+    {
+        $token = $this->settings->telegramBotToken($tenant);
+
+        if ($token === '') {
+            return false;
+        }
+
+        try {
+            $response = $this->http()->post('https://api.telegram.org/bot'.$token.'/editMessageText', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $text,
+            ]);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $response->successful() && (bool) Arr::get($response->json(), 'ok', false);
+    }
+
+    /** Best-effort: deletes a message WERO previously sent via the bot. Never throws. */
+    public function deleteMessage(Tenant $tenant, string $chatId, string $messageId): bool
+    {
+        $token = $this->settings->telegramBotToken($tenant);
+
+        if ($token === '') {
+            return false;
+        }
+
+        try {
+            $response = $this->http()->post('https://api.telegram.org/bot'.$token.'/deleteMessage', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+            ]);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $response->successful() && (bool) Arr::get($response->json(), 'ok', false);
     }
 
     public function sendChatAction(Tenant $tenant, string $chatId, string $action = 'typing'): void

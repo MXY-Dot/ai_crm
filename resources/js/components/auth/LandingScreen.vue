@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Bot, Check, Globe2, Inbox, MessageCircle, Send, Sparkles, Target, Users } from '@lucide/vue';
+import { Bot, Check, Globe2, Inbox, Send, Sparkles, Target, Users } from '@lucide/vue';
 import { Button } from '../ui/button';
+import TelegramIcon from '../icons/TelegramIcon.vue';
 
 const plans = [
     { id: 'starter', name: 'Старт', price: '$19', popular: false, features: ['Website + Telegram inbox', 'AI-черновики ответов', 'Один workspace'] },
@@ -9,7 +10,7 @@ const plans = [
 ];
 
 const features = [
-    { icon: Send, title: 'Telegram-инбокс', text: 'Webhook в CRM, AI-черновик и мгновенный ответ оператора.' },
+    { icon: TelegramIcon, title: 'Telegram-инбокс', text: 'Webhook в CRM, AI-черновик и мгновенный ответ оператора.' },
     { icon: Globe2, title: 'Виджет сайта', text: 'Чат сайта и формы автоматически становятся CRM-диалогами.' },
     { icon: Bot, title: 'AI-черновики', text: 'AI классифицирует запрос, готовит ответ и оценивает уверенность.' },
     { icon: Users, title: 'CRM и команда', text: 'Лиды, клиенты и задачи в одном месте с ролями для команды.' },
@@ -66,7 +67,7 @@ const features = [
                         </div>
                         <div class="mt-4 space-y-3">
                             <div class="rounded-xl border border-white/10 bg-white/[0.02] p-3.5 transition hover:border-primary/30">
-                                <p class="flex items-center gap-2 font-medium"><MessageCircle class="h-4 w-4 text-primary" />Telegram</p>
+                                <p class="flex items-center gap-2 font-medium"><TelegramIcon class="h-4 w-4 text-primary" />Telegram</p>
                                 <p class="mt-1 text-sm text-zinc-400">Webhook в CRM, AI-черновик и ответ оператора.</p>
                             </div>
                             <div class="rounded-xl border border-white/10 bg-white/[0.02] p-3.5 transition hover:border-primary/30">

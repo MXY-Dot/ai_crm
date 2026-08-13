@@ -6,6 +6,7 @@ import DeleteDocumentButton from './DeleteDocumentButton.vue';
 import { knowledgeStatusLabels } from '../../../lib/statusLabels';
 
 defineProps<{ documents: KnowledgeDocument[] }>();
+const emit = defineEmits<{ (event: 'open', documentId: number): void }>();
 
 function icon(document: KnowledgeDocument) {
     if (document.file_name) return FileText;
@@ -52,7 +53,12 @@ function dateLabel(value: string | null): string {
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="document in documents" :key="document.id" class="border-t transition hover:bg-muted border-border">
+                <tr
+                    v-for="document in documents"
+                    :key="document.id"
+                    class="cursor-pointer border-t transition hover:bg-muted border-border"
+                    @click="emit('open', document.id)"
+                >
                     <td class="px-4 py-3"><component :is="icon(document)" class="h-4 w-4 ui-subtle" /></td>
                     <td class="px-2 py-3">
                         <div class="font-medium ui-text">{{ document.title }}</div>
@@ -62,7 +68,7 @@ function dateLabel(value: string | null): string {
                     <td class="px-4 py-3"><Badge :tone="tone(document.status)">{{ knowledgeStatusLabels[document.status] ?? document.status }}</Badge></td>
                     <td class="px-4 py-3 text-right font-mono ui-text">{{ document.chunks_count }}</td>
                     <td class="px-4 py-3 text-right ui-subtle">{{ dateLabel(document.updated_at) }}</td>
-                    <td class="px-4 py-3 text-right"><DeleteDocumentButton :document-id="document.id" :title="document.title" /></td>
+                    <td class="px-4 py-3 text-right" @click.stop><DeleteDocumentButton :document-id="document.id" :title="document.title" /></td>
                 </tr>
                 <tr v-if="! documents.length">
                     <td colspan="7" class="px-4 py-6 text-center ui-subtle">Источники не найдены</td>

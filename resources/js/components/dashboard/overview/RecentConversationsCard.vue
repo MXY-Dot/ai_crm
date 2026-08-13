@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Globe2, MessageCircle, MessagesSquare, Send } from '@lucide/vue';
+import { Globe2, MessagesSquare } from '@lucide/vue';
 import { Badge } from '../../ui/badge';
 import { Avatar, AvatarFallback } from '../../ui/avatar';
 import type { Conversation } from '../../../stores/crmDashboard';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { titleCase } from '../../../lib/format';
 import { conversationStatusLabels, conversationStatusTone, sourceLabels } from '../../../lib/statusLabels';
+import TelegramIcon from '../../icons/TelegramIcon.vue';
+import WhatsappIcon from '../../icons/WhatsappIcon.vue';
 
 const props = defineProps<{ conversations: Conversation[] }>();
 const store = useCrmDashboardStore();
 
-const channelIcons: Record<string, unknown> = { telegram: Send, whatsapp: MessageCircle, website: Globe2, web: Globe2 };
+const channelIcons: Record<string, unknown> = { telegram: TelegramIcon, whatsapp: WhatsappIcon, website: Globe2, web: Globe2 };
 
 const recent = computed(() => [...props.conversations]
     .sort((a, b) => new Date(b.last_message_at ?? 0).getTime() - new Date(a.last_message_at ?? 0).getTime())

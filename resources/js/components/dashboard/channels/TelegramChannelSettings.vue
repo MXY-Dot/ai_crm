@@ -1,30 +1,24 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive } from 'vue';
 import { PlugZap, Save } from '@lucide/vue';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { Switch } from '../../ui/switch';
 import type { IntegrationSettings } from '../../../stores/crmDashboard';
 
 const props = defineProps<{ settings: IntegrationSettings['telegram'] | null; busy: boolean }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 
-const form = reactive({ botToken: '', webhookSecret: '', autoReply: false });
+const form = reactive({ botToken: '', webhookSecret: '' });
 const testing = computed(() => store.busy);
-
-watch(() => props.settings, (value) => {
-    form.autoReply = value?.auto_reply_enabled ?? false;
-}, { immediate: true });
 
 async function save(): Promise<void> {
     await store.updateIntegrationSettings({
         telegram: {
             bot_token: form.botToken || undefined,
             webhook_secret: form.webhookSecret || undefined,
-            auto_reply_enabled: form.autoReply,
         },
     });
     form.botToken = '';
@@ -49,10 +43,6 @@ async function testConnection(): Promise<void> {
             <Input v-model="form.webhookSecret" type="password" placeholder="Необязательно — сгенерируется автоматически" autocomplete="new-password" />
         </label>
         <p v-if="settings?.webhook_url" class="break-all text-xs ui-subtle">{{ settings.webhook_url }}</p>
-        <label class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm ui-text border-border">
-            <span>AI автоответ в Telegram</span>
-            <Switch v-model="form.autoReply" />
-        </label>
         <div class="flex gap-2">
             <Button size="sm" variant="primary" type="submit" class="flex-1" :disabled="busy">
                 <Save class="h-4 w-4" /> {{ busy ? locale.t('common.waiting') : locale.t('settings.save') }}

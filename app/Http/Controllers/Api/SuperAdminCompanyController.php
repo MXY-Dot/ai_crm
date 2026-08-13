@@ -293,9 +293,19 @@ class SuperAdminCompanyController extends Controller
             'plan' => ['required', Rule::in(['starter', 'pro', 'business'])],
         ]);
 
-        $settings = $tenant->settings ?? [];
-        Arr::set($settings, 'billing.plan', $data['plan']);
-        $tenant->update(['settings' => $settings]);
+        // `settings` is a single JSON blob multiple controllers read-modify-write
+        // independently (see IntegrationSettingsController::update()) — without a
+        // lock, two concurrent requests can both read the same "before" snapshot and
+        // the second save silently clobbers whatever the first one added (e.g. a
+        // Telegram token saved between this request's read and its write vanishes).
+        // lockForUpdate() inside a transaction serializes concurrent writers so the
+        // merge always starts from the latest committed data.
+        DB::transaction(function () use ($tenant, $data) {
+            $locked = Tenant::query()->lockForUpdate()->findOrFail($tenant->id);
+            $settings = $locked->settings ?? [];
+            Arr::set($settings, 'billing.plan', $data['plan']);
+            $locked->update(['settings' => $settings]);
+        });
 
         return response()->json($tenant->fresh());
     }

@@ -2,6 +2,7 @@
 
 namespace App\Support\Inbox;
 
+use App\Jobs\ProcessAiReplyJob;
 use App\Models\AiRun;
 use App\Models\Channel;
 use App\Models\Company;
@@ -11,20 +12,18 @@ use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
-use App\Support\Ai\AiWorkflow;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ChatwootWebhookHandler
 {
-    public function __construct(private readonly AiWorkflow $aiWorkflow)
+    /**
+     * @return array{company: Company, channel: Channel, customer: Customer, lead: Lead, conversation: Conversation, message: Message}
+     */
+    private function ingest(Tenant $tenant, array $payload): array
     {
-    }
-
-    public function handle(Tenant $tenant, array $payload, bool $runAi = true): array
-    {
-        return DB::transaction(function () use ($tenant, $payload, $runAi): array {
+        return DB::transaction(function () use ($tenant, $payload): array {
             $company = $this->company($tenant);
             $channel = $this->channel($tenant, $company, $payload);
             $customer = $this->customer($tenant, $company, $payload);
@@ -32,25 +31,47 @@ class ChatwootWebhookHandler
             $conversation = $this->conversation($tenant, $company, $channel, $customer, $lead, $payload);
             $message = $this->message($tenant, $conversation, $payload);
 
-            if (! $message->wasRecentlyCreated) {
-                return $this->duplicateResult($channel, $customer, $lead, $conversation, $message);
-            }
-
-            $ai = $runAi ? $this->aiWorkflow->process($tenant, $company, $conversation, $lead, $message) : ['agent' => null, 'run' => null, 'task' => null];
-            $task = $this->task($tenant, $company, $lead->fresh(), $conversation->fresh(), $payload) ?? $ai['task'];
-
-            return [
-                'channel' => $channel->fresh(),
-                'customer' => $customer->fresh(),
-                'lead' => $lead->fresh(),
-                'conversation' => $conversation->fresh(['channel', 'customer', 'lead']),
-                'message' => $message->fresh(),
-                'ai_agent' => $ai['agent'],
-                'ai_run' => $ai['run'],
-                'task' => $task?->fresh(),
-                'duplicate' => false,
-            ];
+            return compact('company', 'channel', 'customer', 'lead', 'conversation', 'message');
         });
+    }
+
+    /**
+     * Ingests the incoming message synchronously (so it's committed and visible to
+     * the CRM's own polling immediately), then hands AI processing off to a queued
+     * job — see ProcessAiReplyJob for why: an inline LLM call here used to block the
+     * webhook response, and with it the customer's message even appearing in the CRM,
+     * for the several seconds the AI reply took to generate.
+     */
+    public function handle(Tenant $tenant, array $payload, bool $runAi = true): array
+    {
+        ['company' => $company, 'channel' => $channel, 'customer' => $customer, 'lead' => $lead, 'conversation' => $conversation, 'message' => $message]
+            = $this->ingest($tenant, $payload);
+
+        if (! $message->wasRecentlyCreated) {
+            return $this->duplicateResult($channel, $customer, $lead, $conversation, $message);
+        }
+
+        if ($runAi) {
+            // Short delay so a burst of messages sent seconds apart collapses into
+            // one reply instead of one-per-message — see ProcessAiReplyJob::handle()'s
+            // "supersededBy" check, which this delay exists to give a chance to fire.
+            ProcessAiReplyJob::dispatch($tenant->id, $company->id, $conversation->id, $lead->id, $message->id)
+                ->delay(now()->addSeconds(2));
+        }
+
+        $task = $this->task($tenant, $company, $lead->fresh(), $conversation->fresh(), $payload);
+
+        return [
+            'channel' => $channel->fresh(),
+            'customer' => $customer->fresh(),
+            'lead' => $lead->fresh(),
+            'conversation' => $conversation->fresh(['channel', 'customer', 'lead']),
+            'message' => $message->fresh(),
+            'ai_agent' => null,
+            'ai_run' => null,
+            'task' => $task?->fresh(),
+            'duplicate' => false,
+        ];
     }
 
     private function duplicateResult(Channel $channel, Customer $customer, Lead $lead, Conversation $conversation, Message $message): array
@@ -179,6 +200,14 @@ class ChatwootWebhookHandler
         }
 
         $externalId = $this->string($payload, ['message.id', 'message.external_id', 'id'], sha1($conversation->id.'|'.$body));
+        $replyToExternalId = $this->string($payload, ['message.reply_to_external_id']);
+        $replyToMessageId = $replyToExternalId
+            ? Message::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('conversation_id', $conversation->id)
+                ->where('external_id', $replyToExternalId)
+                ->value('id')
+            : null;
 
         return Message::withoutGlobalScopes()->updateOrCreate(
             ['tenant_id' => $tenant->id, 'conversation_id' => $conversation->id, 'external_id' => $externalId],
@@ -186,6 +215,7 @@ class ChatwootWebhookHandler
                 'sender_type' => $this->senderType($payload),
                 'sender_name' => $this->string($payload, ['sender.name', 'contact.name', 'message.sender.name']),
                 'body' => $body,
+                'reply_to_message_id' => $replyToMessageId,
                 'sent_at' => now(),
                 'meta' => ['event' => $this->string($payload, ['event'], 'message_created')],
             ]

@@ -33,8 +33,23 @@ class Conversation extends Model
         return $this->belongsTo(Lead::class);
     }
 
+    public function assignedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
+    }
+
+    public function reads(): HasMany
+    {
+        return $this->hasMany(ConversationRead::class);
+    }
+
+    public function pins(): HasMany
+    {
+        return $this->hasMany(ConversationPin::class);
     }
 }

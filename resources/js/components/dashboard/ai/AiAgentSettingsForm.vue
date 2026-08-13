@@ -71,6 +71,11 @@ function toggleChannel(channel: string): void {
 async function save(): Promise<void> {
     if (! props.agent) return;
     const model = form.model === '__custom__' ? form.modelCustom.trim() : form.model;
+    // Snapshot before the first await: updateAiAgent() refreshes the whole dashboard
+    // internally, which reassigns `documents` with fresh (pre-sync) data and re-triggers
+    // the watcher above that resets selectedDocIds — reading selectedDocIds.value *after*
+    // that await would silently send the stale, already-wiped selection to syncAgentKnowledge.
+    const documentIds = [...selectedDocIds.value];
     await store.updateAiAgent(props.agent.id, {
         name: form.name.trim(),
         status: form.status,
@@ -79,7 +84,7 @@ async function save(): Promise<void> {
         model: model || null,
         channels: selectedChannels.value,
     });
-    await store.syncAgentKnowledge(props.agent.id, selectedDocIds.value);
+    await store.syncAgentKnowledge(props.agent.id, documentIds);
 }
 </script>
 

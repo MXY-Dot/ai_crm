@@ -2,10 +2,13 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Camera, Globe2, MessageCircle, Send } from '@lucide/vue';
+import { Globe2 } from '@lucide/vue';
 import ChannelCard from '../components/dashboard/channels/ChannelCard.vue';
 import ChatwootRoutedChannelInfo from '../components/dashboard/channels/ChatwootRoutedChannelInfo.vue';
 import TelegramChannelSettings from '../components/dashboard/channels/TelegramChannelSettings.vue';
+import InstagramIcon from '../components/icons/InstagramIcon.vue';
+import TelegramIcon from '../components/icons/TelegramIcon.vue';
+import WhatsappIcon from '../components/icons/WhatsappIcon.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 
 const store = useCrmDashboardStore();
@@ -31,18 +34,18 @@ defineOptions({ layout: AppLayout });
         </div>
 
         <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4" data-tour="channels-grid">
-            <ChannelCard :icon="Send" name="Telegram" brand="telegram" :status="telegramChannel?.status" :last-synced-at="telegramChannel?.last_synced_at">
+            <ChannelCard :icon="TelegramIcon" name="Telegram" brand="telegram" :status="telegramChannel?.status" :last-synced-at="telegramChannel?.last_synced_at">
                 <TelegramChannelSettings :settings="integrationSettings?.telegram ?? null" :busy="busy" />
             </ChannelCard>
 
-            <ChannelCard :icon="MessageCircle" name="WhatsApp" brand="whatsapp" :status="whatsappChannel?.status" :last-synced-at="whatsappChannel?.last_synced_at">
+            <ChannelCard :icon="WhatsappIcon" name="WhatsApp" brand="whatsapp" :status="whatsappChannel?.status" :last-synced-at="whatsappChannel?.last_synced_at">
                 <ChatwootRoutedChannelInfo
                     :chatwoot="integrationSettings?.chatwoot ?? null"
                     description="WhatsApp подключается через единый инбокс. Добавьте этот вебхук в настройках вашего WhatsApp Business канала."
                 />
             </ChannelCard>
 
-            <ChannelCard :icon="Camera" name="Instagram" brand="instagram" :status="instagramChannel?.status" :last-synced-at="instagramChannel?.last_synced_at">
+            <ChannelCard :icon="InstagramIcon" name="Instagram" brand="instagram" :status="instagramChannel?.status" :last-synced-at="instagramChannel?.last_synced_at">
                 <ChatwootRoutedChannelInfo
                     :chatwoot="integrationSettings?.chatwoot ?? null"
                     description="Instagram Direct тоже маршрутизируется через единый инбокс. Используйте тот же вебхук при подключении аккаунта."

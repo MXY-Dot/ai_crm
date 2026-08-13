@@ -19,7 +19,12 @@ class TelegramWebhookController extends Controller
         $this->guardSecret($request, $tenant, $settings);
         $message = $request->input('message') ?? $request->input('edited_message');
 
-        if (! is_array($message) || $this->text($message) === '') {
+        // A shared-contact update (tapped the "request contact" keyboard button — see
+        // AiWorkflow::requestContact()) has no text/caption of its own, so it would
+        // otherwise be dropped by the empty-text guard below.
+        $hasContact = is_array($message) && $this->ownContact($message) !== null;
+
+        if (! is_array($message) || (! $hasContact && $this->text($message) === '')) {
             return response()->json(['ok' => true, 'ignored' => true, 'reason' => 'unsupported_update']);
         }
 
@@ -62,6 +67,9 @@ class TelegramWebhookController extends Controller
         $chatId = (string) Arr::get($message, 'chat.id', '');
         $messageId = (string) Arr::get($message, 'message_id', sha1(json_encode($message)));
         $name = trim(Arr::get($message, 'from.first_name', '').' '.Arr::get($message, 'from.last_name', ''));
+        $repliedId = Arr::get($message, 'reply_to_message.message_id');
+        $contact = $this->ownContact($message);
+        $content = $contact ? '📱 Поделился(-ась) контактом' : $this->text($message);
 
         return [
             'event' => 'telegram_message',
@@ -76,10 +84,12 @@ class TelegramWebhookController extends Controller
             'sender' => [
                 'name' => $name !== '' ? $name : (Arr::get($message, 'from.username') ?? 'Telegram user'),
                 'type' => 'customer',
+                'phone_number' => $contact ? Arr::get($contact, 'phone_number') : null,
             ],
             'message' => [
                 'id' => 'telegram-'.$chatId.'-'.$messageId,
-                'content' => $this->text($message),
+                'content' => $content,
+                'reply_to_external_id' => $repliedId ? 'telegram-'.$chatId.'-'.$repliedId : null,
             ],
         ];
     }
@@ -87,5 +97,22 @@ class TelegramWebhookController extends Controller
     private function text(array $message): string
     {
         return trim((string) (Arr::get($message, 'text') ?? Arr::get($message, 'caption') ?? ''));
+    }
+
+    /**
+     * Only trusts a `contact` payload when it's the sender's own number (Telegram's
+     * request_contact keyboard button enforces this client-side, but a raw API call
+     * could in principle attach someone else's contact card — don't trust that as
+     * the sender's phone).
+     */
+    private function ownContact(array $message): ?array
+    {
+        $contact = Arr::get($message, 'contact');
+
+        if (! is_array($contact) || Arr::get($contact, 'user_id') !== Arr::get($message, 'from.id')) {
+            return null;
+        }
+
+        return $contact;
     }
 }

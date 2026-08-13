@@ -10,7 +10,9 @@ use App\Support\Knowledge\KnowledgeIndexer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KnowledgeDocumentController extends TenantResourceController
 {
@@ -36,6 +38,54 @@ class KnowledgeDocumentController extends TenantResourceController
             'meta' => ['nullable', 'array'],
             'indexed_at' => ['nullable', 'date'],
         ];
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $document = KnowledgeDocument::query()
+            ->with(['chunks' => fn ($query) => $query->orderBy('position')])
+            ->findOrFail($id);
+        Gate::authorize('view', $document);
+
+        return response()->json($document);
+    }
+
+    /**
+     * Streams the original uploaded file (PDF/DOCX/etc) so the frontend can render it
+     * with a real client-side viewer (pdf.js / mammoth.js) instead of only showing the
+     * parsed chunk text. Only exists for documents actually created via upload() — text
+     * pasted directly, or seeded/demo rows, have no underlying file (`meta.storage_path`
+     * absent), and the frontend falls back to the plain chunk-content view for those.
+     */
+    public function file(KnowledgeDocument $knowledgeDocument): StreamedResponse
+    {
+        Gate::authorize('view', $knowledgeDocument);
+
+        $disk = $knowledgeDocument->meta['storage_disk'] ?? 'local';
+        $path = $knowledgeDocument->meta['storage_path'] ?? null;
+
+        abort_unless($path && Storage::disk($disk)->exists($path), 404);
+
+        return Storage::disk($disk)->response($path, $knowledgeDocument->file_name, [
+            'Content-Type' => $knowledgeDocument->mime_type ?? 'application/octet-stream',
+        ]);
+    }
+
+    public function updateContent(Request $request, KnowledgeDocument $knowledgeDocument, KnowledgeIndexer $indexer, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('update', $knowledgeDocument);
+
+        $data = $request->validate([
+            'title' => ['nullable', 'string', 'max:180'],
+            'content' => ['required', 'string', 'min:20'],
+        ]);
+
+        $before = $this->auditDocument($knowledgeDocument);
+        $document = $indexer->reindexText($knowledgeDocument, $data['content'], $data['title'] ?? null);
+
+        $audit->record('knowledge_document.content_updated', $document, $this->auditDocument($document), $before, $request);
+
+        return response()->json($document);
     }
 
     public function upload(Request $request, KnowledgeIndexer $indexer, AuditLogger $audit): JsonResponse

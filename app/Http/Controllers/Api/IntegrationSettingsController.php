@@ -14,6 +14,7 @@ use App\Support\TelegramClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -53,55 +54,65 @@ class IntegrationSettingsController extends Controller
             'chatwoot.auto_reply_enabled' => ['nullable', 'boolean'],
             'telegram.bot_token' => ['nullable', 'string', 'max:255'],
             'telegram.webhook_secret' => ['nullable', 'string', 'max:255'],
-            'telegram.auto_reply_enabled' => ['nullable', 'boolean'],
         ]);
 
         $oldAudit = $this->auditSettingsSnapshot($tenant);
-        $settings = $tenant->settings ?? [];
 
-        foreach (['url', 'timeout', 'handoff_threshold'] as $key) {
-            if (array_key_exists($key, $data['dify'] ?? [])) {
-                Arr::set($settings, 'integrations.dify.'.$key, $data['dify'][$key]);
+        // `settings` is a single JSON blob that more than one controller reads,
+        // merges into, and saves independently (see SuperAdminCompanyController::
+        // updatePlan(), which does the same billing.plan merge on this same column).
+        // Without a lock, two concurrent requests can both read the same "before"
+        // snapshot and the second save silently overwrites whatever the first one
+        // just added — this is exactly how a just-saved Telegram token could vanish
+        // minutes later with no trace of anything explicitly deleting it. Locking the
+        // row for the duration of the read-modify-write serializes concurrent writers
+        // so each one always merges on top of the latest committed data.
+        $telegramTokenNowSet = DB::transaction(function () use ($tenant, $data): bool {
+            $locked = Tenant::query()->lockForUpdate()->findOrFail($tenant->id);
+            $settings = $locked->settings ?? [];
+
+            foreach (['url', 'timeout', 'handoff_threshold'] as $key) {
+                if (array_key_exists($key, $data['dify'] ?? [])) {
+                    Arr::set($settings, 'integrations.dify.'.$key, $data['dify'][$key]);
+                }
             }
-        }
 
-        if ($this->hasFilledSecret($data['dify'] ?? [], 'api_key')) {
-            Arr::set($settings, 'integrations.dify.api_key', $this->secrets->encrypt($data['dify']['api_key']));
-        }
-
-        foreach (['url', 'account_id', 'auto_reply_enabled'] as $key) {
-            if (array_key_exists($key, $data['chatwoot'] ?? [])) {
-                Arr::set($settings, 'integrations.chatwoot.'.$key, $data['chatwoot'][$key]);
+            if ($this->hasFilledSecret($data['dify'] ?? [], 'api_key')) {
+                Arr::set($settings, 'integrations.dify.api_key', $this->secrets->encrypt($data['dify']['api_key']));
             }
-        }
 
-        if ($this->hasFilledSecret($data['chatwoot'] ?? [], 'api_token')) {
-            Arr::set($settings, 'integrations.chatwoot.api_token', $this->secrets->encrypt($data['chatwoot']['api_token']));
-        }
+            foreach (['url', 'account_id', 'auto_reply_enabled'] as $key) {
+                if (array_key_exists($key, $data['chatwoot'] ?? [])) {
+                    Arr::set($settings, 'integrations.chatwoot.'.$key, $data['chatwoot'][$key]);
+                }
+            }
 
-        if ($this->hasFilledSecret($data['chatwoot'] ?? [], 'webhook_secret')) {
-            Arr::set($settings, 'integrations.chatwoot.webhook_secret', $this->secrets->encrypt($data['chatwoot']['webhook_secret']));
-        }
+            if ($this->hasFilledSecret($data['chatwoot'] ?? [], 'api_token')) {
+                Arr::set($settings, 'integrations.chatwoot.api_token', $this->secrets->encrypt($data['chatwoot']['api_token']));
+            }
 
-        if (array_key_exists('auto_reply_enabled', $data['telegram'] ?? [])) {
-            Arr::set($settings, 'integrations.telegram.auto_reply_enabled', $data['telegram']['auto_reply_enabled']);
-        }
+            if ($this->hasFilledSecret($data['chatwoot'] ?? [], 'webhook_secret')) {
+                Arr::set($settings, 'integrations.chatwoot.webhook_secret', $this->secrets->encrypt($data['chatwoot']['webhook_secret']));
+            }
 
-        if ($this->hasFilledSecret($data['telegram'] ?? [], 'bot_token')) {
-            Arr::set($settings, 'integrations.telegram.bot_token', $this->secrets->encrypt($data['telegram']['bot_token']));
-        }
+            if ($this->hasFilledSecret($data['telegram'] ?? [], 'bot_token')) {
+                Arr::set($settings, 'integrations.telegram.bot_token', $this->secrets->encrypt($data['telegram']['bot_token']));
+            }
 
-        if ($this->hasFilledSecret($data['telegram'] ?? [], 'webhook_secret')) {
-            Arr::set($settings, 'integrations.telegram.webhook_secret', $this->secrets->encrypt($data['telegram']['webhook_secret']));
-        }
+            if ($this->hasFilledSecret($data['telegram'] ?? [], 'webhook_secret')) {
+                Arr::set($settings, 'integrations.telegram.webhook_secret', $this->secrets->encrypt($data['telegram']['webhook_secret']));
+            }
 
-        $telegramTokenNowSet = $this->secrets->decrypt(Arr::get($settings, 'integrations.telegram.bot_token')) !== '';
+            $telegramTokenNowSet = $this->secrets->decrypt(Arr::get($settings, 'integrations.telegram.bot_token')) !== '';
 
-        if ($telegramTokenNowSet && $this->secrets->decrypt(Arr::get($settings, 'integrations.telegram.webhook_secret')) === '') {
-            Arr::set($settings, 'integrations.telegram.webhook_secret', $this->secrets->encrypt(Str::random(32)));
-        }
+            if ($telegramTokenNowSet && $this->secrets->decrypt(Arr::get($settings, 'integrations.telegram.webhook_secret')) === '') {
+                Arr::set($settings, 'integrations.telegram.webhook_secret', $this->secrets->encrypt(Str::random(32)));
+            }
 
-        $tenant->forceFill(['settings' => $settings])->save();
+            $locked->forceFill(['settings' => $settings])->save();
+
+            return $telegramTokenNowSet;
+        });
 
         if (Arr::has($data, 'dify.handoff_threshold')) {
             AiAgent::withoutGlobalScopes()
@@ -157,7 +168,6 @@ class IntegrationSettingsController extends Controller
             'chatwoot.auto_reply_enabled' => ['nullable', 'boolean'],
             'telegram.bot_token' => ['nullable', 'string', 'max:255'],
             'telegram.webhook_secret' => ['nullable', 'string', 'max:255'],
-            'telegram.auto_reply_enabled' => ['nullable', 'boolean'],
         ]);
 
         $result = match ($data['provider']) {
@@ -331,7 +341,6 @@ class IntegrationSettingsController extends Controller
                 'webhook_secret_configured' => $payload['telegram']['webhook_secret_configured'],
                 'webhook_secret_mask' => $payload['telegram']['webhook_secret_mask'],
                 'webhook_url' => $payload['telegram']['webhook_url'],
-                'auto_reply_enabled' => $payload['telegram']['auto_reply_enabled'] ?? false,
             ],
         ];
     }
@@ -374,7 +383,6 @@ class IntegrationSettingsController extends Controller
                 'webhook_secret_configured' => $telegramSecret !== '',
                 'webhook_secret_mask' => $this->secrets->mask($telegramSecret),
                 'webhook_url' => url('/api/telegram/webhook?tenant_slug='.$tenant->slug),
-                'auto_reply_enabled' => (bool) Arr::get($settings, 'integrations.telegram.auto_reply_enabled', false),
             ],
         ];
     }

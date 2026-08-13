@@ -1,0 +1,210 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Company;
+use App\Models\Conversation;
+use App\Models\ConversationPin;
+use App\Models\ConversationRead;
+use App\Models\Message;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Support\Tenancy\TenantContext;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * Dedicated conversation list endpoint for the chat UI — search + real pagination,
+ * unlike DashboardData::conversations() which is a fixed-12 snapshot baked into
+ * the whole-app bootstrap. DashboardData is left untouched (still feeds the
+ * initial Inertia page + the 10s app-wide poll for badges/counts elsewhere);
+ * this is what the chat sidebar actually calls to list/search/paginate.
+ */
+class ConversationController extends Controller
+{
+    private const PER_PAGE = 30;
+
+    public function index(Request $request, TenantContext $context): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('view', $tenant);
+
+        $company = Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->first();
+
+        if (! $company) {
+            return response()->json(['data' => [], 'meta' => ['current_page' => 1, 'last_page' => 1, 'total' => 0]]);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+
+        $query = Conversation::withoutGlobalScopes()
+            ->with(['channel:id,provider,name', 'customer:id,name,phone', 'lead:id,title', 'assignedUser:id,name'])
+            ->where('tenant_id', $tenant->id)
+            ->where('company_id', $company->id);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search): void {
+                $q->where('subject', 'ilike', "%{$search}%")
+                    ->orWhere('ai_summary', 'ilike', "%{$search}%")
+                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'ilike', "%{$search}%")->orWhere('phone', 'ilike', "%{$search}%"));
+            });
+        }
+
+        $userId = (int) $request->user()->id;
+
+        // Personal pin (like Telegram's own chat pinning) sorts a conversation to the
+        // top of *this* operator's own list only — deliberately independent of
+        // `assigned_user_id` ("who's responsible for this customer", a shared status
+        // visible to everyone and untouched by pinning; see assign()/ConversationReplyController).
+        // Each operator has their own pins on the exact same shared conversation rows.
+        $paginator = $query
+            ->orderByRaw(
+                '(exists (select 1 from conversation_pins where conversation_pins.conversation_id = conversations.id and conversation_pins.user_id = ?)) desc',
+                [$userId]
+            )
+            ->orderByDesc('last_message_at')
+            ->paginate(self::PER_PAGE);
+
+        $conversationIds = collect($paginator->items())->pluck('id');
+        $unreadByConversation = $this->unreadCounts($conversationIds, $userId);
+        $pinnedIds = ConversationPin::withoutGlobalScopes()
+            ->whereIn('conversation_id', $conversationIds)
+            ->where('user_id', $userId)
+            ->pluck('conversation_id')
+            ->all();
+
+        $data = collect($paginator->items())->map(function (Conversation $conversation) use ($unreadByConversation, $pinnedIds): array {
+            $row = $conversation->toArray();
+            $row['unread_count'] = $unreadByConversation[$conversation->id] ?? 0;
+            $row['is_pinned'] = in_array($conversation->id, $pinnedIds, true);
+
+            return $row;
+        })->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Manual claim/release — distinct from the automatic "first replier claims it"
+     * behaviour in ConversationReplyController, which only ever sets an *unclaimed*
+     * conversation and never overwrites an existing owner. This is an explicit,
+     * deliberate override: an operator can claim an unclaimed conversation, steal
+     * one from another operator, or release their own — always visible to everyone
+     * via the same `assigned_user` field, no separate "who did this" tracking needed
+     * beyond the existing audit-less soft-claim model already in place.
+     */
+    public function assign(Request $request, Conversation $conversation, TenantContext $context): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('update', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        $data = $request->validate(['assigned_user_id' => ['nullable', 'integer']]);
+        $userId = $data['assigned_user_id'] ?? null;
+
+        // Claiming/releasing for yourself needs no extra check — Gate::authorize()
+        // above already established you're allowed to act in this tenant, and that's
+        // true for super_admin too even though their own `users.tenant_id` is null
+        // (they're not scoped to any single tenant by design). Only a *different*
+        // target user needs the tenant-membership check — the UI doesn't expose
+        // assigning to someone else yet, but the endpoint supports it generically.
+        if ($userId !== null && $userId !== (int) $request->user()->id) {
+            $exists = User::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('id', $userId)->exists();
+
+            if (! $exists) {
+                throw ValidationException::withMessages(['assigned_user_id' => 'User does not belong to this tenant.']);
+            }
+        }
+
+        $conversation->forceFill(['assigned_user_id' => $userId])->save();
+
+        return response()->json($conversation->fresh()->load('assignedUser:id,name'));
+    }
+
+    /** Personal pin — see the `pins()` migration/model docblock. Purely per-user, no effect on `assigned_user_id`. */
+    public function pin(Conversation $conversation, TenantContext $context, Request $request): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('view', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        ConversationPin::withoutGlobalScopes()->firstOrCreate([
+            'tenant_id' => $tenant->id,
+            'conversation_id' => $conversation->id,
+            'user_id' => $request->user()->id,
+        ]);
+
+        return response()->json(['ok' => true, 'is_pinned' => true]);
+    }
+
+    public function unpin(Conversation $conversation, TenantContext $context, Request $request): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('view', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        ConversationPin::withoutGlobalScopes()
+            ->where('conversation_id', $conversation->id)
+            ->where('user_id', $request->user()->id)
+            ->delete();
+
+        return response()->json(['ok' => true, 'is_pinned' => false]);
+    }
+
+    public function markRead(Conversation $conversation, TenantContext $context, Request $request): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('view', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        $lastMessageId = Message::withoutGlobalScopes()
+            ->where('conversation_id', $conversation->id)
+            ->max('id');
+
+        ConversationRead::withoutGlobalScopes()->updateOrCreate(
+            ['conversation_id' => $conversation->id, 'user_id' => $request->user()->id],
+            ['tenant_id' => $tenant->id, 'last_read_message_id' => $lastMessageId]
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * One grouped query with a correlated subquery per row instead of one query
+     * per conversation — unread = genuinely incoming customer messages (not our
+     * own operator replies, and not the AI's auto-sent replies — those are
+     * already-handled outgoing content, not something waiting on a human) newer
+     * than this user's last-read mark for that thread.
+     *
+     * @param \Illuminate\Support\Collection<int, int> $conversationIds
+     */
+    private function unreadCounts($conversationIds, int $userId): array
+    {
+        if ($conversationIds->isEmpty()) {
+            return [];
+        }
+
+        return Message::withoutGlobalScopes()
+            ->whereIn('conversation_id', $conversationIds)
+            ->where('sender_type', 'customer')
+            ->whereRaw(
+                'id > coalesce((select last_read_message_id from conversation_reads where conversation_reads.conversation_id = messages.conversation_id and conversation_reads.user_id = ?), 0)',
+                [$userId]
+            )
+            ->selectRaw('conversation_id, count(*) as unread')
+            ->groupBy('conversation_id')
+            ->pluck('unread', 'conversation_id')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+    }
+}

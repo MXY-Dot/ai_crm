@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { Globe2, MessageCircle, MessagesSquare, Send } from '@lucide/vue';
+import { Globe2, MessagesSquare } from '@lucide/vue';
 import type { Channel } from '../../../stores/crmDashboard';
 import { channelHealthLabels } from '../../../lib/statusLabels';
+import TelegramIcon from '../../icons/TelegramIcon.vue';
+import WhatsappIcon from '../../icons/WhatsappIcon.vue';
 
 defineProps<{ channels: Channel[] }>();
-const channelIcons: Record<string, unknown> = { telegram: Send, whatsapp: MessageCircle, website: Globe2, web: Globe2 };
+const channelIcons: Record<string, unknown> = { telegram: TelegramIcon, whatsapp: WhatsappIcon, website: Globe2, web: Globe2 };
 
 function isHealthy(status: string): boolean {
     return status === 'connected' || status === 'active';

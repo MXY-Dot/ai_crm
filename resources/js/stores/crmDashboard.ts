@@ -95,6 +95,28 @@ export type AiAgentPayload = {
     channels?: string[];
 };
 
+export type KnowledgeChunk = {
+    id: number;
+    position: number;
+    content: string;
+};
+
+export type KnowledgeDocumentDetail = {
+    id: number;
+    ai_agent_id: number | null;
+    title: string;
+    source_type: string;
+    file_name: string | null;
+    mime_type: string | null;
+    status: string;
+    version: number;
+    summary: string | null;
+    indexed_at: string | null;
+    updated_at: string | null;
+    meta: { storage_path?: string } | null;
+    chunks: KnowledgeChunk[];
+};
+
 export type KnowledgeDocument = {
     id: number;
     ai_agent_id: number | null;
@@ -162,7 +184,6 @@ export type IntegrationSettings = {
         webhook_secret_configured: boolean;
         webhook_secret_mask: string | null;
         webhook_url: string;
-        auto_reply_enabled: boolean;
     };
     telegram_webhook?: { ok: boolean; message: string } | null;
 };
@@ -625,6 +646,18 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }), 'toast.documentDeleted');
     }
 
+    function fetchKnowledgeDocument(id: number): Promise<KnowledgeDocumentDetail> {
+        return apiRequest(`/api/knowledge-documents/${id}`, { tenant: tenantSlug.value });
+    }
+
+    async function updateKnowledgeDocumentContent(id: number, payload: { title?: string; content: string }): Promise<void> {
+        await mutate(() => apiRequest(`/api/knowledge-documents/${id}/content`, {
+            method: 'PATCH',
+            tenant: tenantSlug.value,
+            body: payload,
+        }), 'toast.documentUpdated');
+    }
+
     async function createTenantUser(payload: Required<Pick<TenantUserPayload, 'name' | 'email' | 'role'>> & TenantUserPayload): Promise<void> {
         await mutate(() => apiRequest('/api/tenant-users', {
             method: 'POST',
@@ -747,6 +780,8 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         indexKnowledgeText,
         uploadKnowledgeFile,
         deleteKnowledgeDocument,
+        fetchKnowledgeDocument,
+        updateKnowledgeDocumentContent,
         createTenantUser,
         updateTenantUser,
         loadIntegrationSettings,
