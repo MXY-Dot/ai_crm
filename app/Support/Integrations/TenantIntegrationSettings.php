@@ -63,6 +63,7 @@ class TenantIntegrationSettings
     {
         return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.telegram.webhook_secret'));
     }
+
     public function encrypt(?string $value): ?string
     {
         if ($value === null || $value === '') {

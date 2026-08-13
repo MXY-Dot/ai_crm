@@ -63,8 +63,8 @@ class ChatwootWebhookController extends Controller
         }
 
         $tenant = Tenant::query()
-            ->where('id', $value)
-            ->orWhere('slug', $value)
+            ->where('slug', $value)
+            ->when(is_numeric($value), fn ($query) => $query->orWhere('id', $value))
             ->first();
 
         if (! $tenant) {

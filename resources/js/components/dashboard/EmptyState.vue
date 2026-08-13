@@ -7,7 +7,7 @@ const locale = useLocaleStore();
 </script>
 
 <template>
-    <Alert>
+    <Alert class="animate-fade-up">
         <AlertTriangle />
         <AlertTitle>{{ locale.t('empty.title') }}</AlertTitle>
         <AlertDescription>{{ locale.t('empty.text') }}</AlertDescription>

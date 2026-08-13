@@ -5,11 +5,11 @@ import { useLocaleStore } from '../../stores/locale';
 import { Card } from '../ui/card';
 
 const locale = useLocaleStore();
-const roles: TenantUser['role'][] = ['super_admin', 'owner', 'manager', 'operator'];
+const roles: TenantUser['role'][] = ['owner', 'manager', 'operator'];
 const permissions = ['settings', 'team', 'crm', 'inbox', 'ai'];
 
 function can(role: TenantUser['role'], permission: string): boolean {
-    if (role === 'super_admin' || role === 'owner') return true;
+    if (role === 'owner') return true;
     if (role === 'manager') return permission !== 'settings';
 
     return ['crm', 'inbox'].includes(permission);

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Globe2, MessageCircle, MessagesSquare, Send } from '@lucide/vue';
 import type { Channel } from '../../../stores/crmDashboard';
+import { channelHealthLabels } from '../../../lib/statusLabels';
 
 defineProps<{ channels: Channel[] }>();
 const channelIcons: Record<string, unknown> = { telegram: Send, whatsapp: MessageCircle, website: Globe2, web: Globe2 };
@@ -21,7 +22,7 @@ function isHealthy(status: string): boolean {
                 </span>
                 <span class="flex items-center gap-1.5 text-xs font-medium" :class="isHealthy(channel.status) ? 'text-primary' : 'text-destructive'">
                     <span class="h-2 w-2 rounded-full" :class="isHealthy(channel.status) ? 'bg-primary' : 'animate-pulse bg-destructive'" />
-                    {{ isHealthy(channel.status) ? 'OK' : channel.status }}
+                    {{ isHealthy(channel.status) ? 'Работает' : (channelHealthLabels[channel.status] ?? channel.status) }}
                 </span>
             </div>
             <p v-if="! channels.length" class="text-sm ui-subtle">Каналы ещё не подключены</p>

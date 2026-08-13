@@ -25,8 +25,10 @@ defineOptions({ layout: AppLayout });
             <div data-tour="team-invite"><InviteTeamMemberDialog /></div>
         </div>
 
-        <TeamStatsBento :members="tenantUsers" />
-        <RolePermissionsTable />
+        <TeamStatsBento data-tour="team-stats" :members="tenantUsers" />
+        <div data-tour="team-permissions">
+            <RolePermissionsTable />
+        </div>
         <TeamMembersTable data-tour="team-table" :members="tenantUsers" :self-id="user?.id ?? null" />
     </section>
 </template>

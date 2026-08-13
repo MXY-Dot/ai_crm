@@ -45,7 +45,10 @@ class TelegramWebhookController extends Controller
             throw ValidationException::withMessages(['tenant' => 'Tenant context is required.']);
         }
 
-        $tenant = Tenant::query()->where('id', $value)->orWhere('slug', $value)->first();
+        $tenant = Tenant::query()
+            ->where('slug', $value)
+            ->when(is_numeric($value), fn ($query) => $query->orWhere('id', $value))
+            ->first();
 
         if (! $tenant) {
             throw ValidationException::withMessages(['tenant' => 'Tenant was not found.']);

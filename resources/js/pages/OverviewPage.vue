@@ -36,8 +36,8 @@ defineOptions({ layout: AppLayout });
         </div>
 
         <div class="grid gap-6 lg:grid-cols-3">
-            <RecentConversationsCard :conversations="conversations" />
-            <div class="flex flex-col gap-6">
+            <RecentConversationsCard data-tour="ov-recent" :conversations="conversations" />
+            <div class="flex flex-col gap-6" data-tour="ov-attention">
                 <AiAttentionCard :ai-handoffs="aiHandoffs" />
                 <ChannelStatusCard :channels="channels" />
             </div>

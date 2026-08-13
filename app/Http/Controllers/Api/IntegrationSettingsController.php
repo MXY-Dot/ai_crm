@@ -4,22 +4,28 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiAgent;
+use App\Models\Channel;
+use App\Models\Company;
 use App\Models\Tenant;
 use App\Support\Audit\AuditLogger;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\Tenancy\TenantContext;
+use App\Support\TelegramClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
 
 class IntegrationSettingsController extends Controller
 {
-    public function __construct(private readonly TenantIntegrationSettings $secrets)
-    {
+    public function __construct(
+        private readonly TenantIntegrationSettings $secrets,
+        private readonly TelegramClient $telegram,
+    ) {
     }
 
     public function show(TenantContext $context): JsonResponse
@@ -89,6 +95,12 @@ class IntegrationSettingsController extends Controller
             Arr::set($settings, 'integrations.telegram.webhook_secret', $this->secrets->encrypt($data['telegram']['webhook_secret']));
         }
 
+        $telegramTokenNowSet = $this->secrets->decrypt(Arr::get($settings, 'integrations.telegram.bot_token')) !== '';
+
+        if ($telegramTokenNowSet && $this->secrets->decrypt(Arr::get($settings, 'integrations.telegram.webhook_secret')) === '') {
+            Arr::set($settings, 'integrations.telegram.webhook_secret', $this->secrets->encrypt(Str::random(32)));
+        }
+
         $tenant->forceFill(['settings' => $settings])->save();
 
         if (Arr::has($data, 'dify.handoff_threshold')) {
@@ -98,9 +110,34 @@ class IntegrationSettingsController extends Controller
         }
 
         $tenant = $tenant->fresh();
+        $telegramWebhook = $telegramTokenNowSet ? $this->registerTelegramWebhook($tenant) : null;
+
         $audit->record('integration_settings.updated', $tenant, $this->auditSettingsSnapshot($tenant), $oldAudit, $request);
 
-        return response()->json($this->payload($tenant));
+        return response()->json($this->payload($tenant) + ['telegram_webhook' => $telegramWebhook]);
+    }
+
+    private function registerTelegramWebhook(Tenant $tenant): array
+    {
+        $url = url('/api/telegram/webhook?tenant_slug='.$tenant->slug);
+        $secret = $this->secrets->telegramWebhookSecret($tenant);
+
+        try {
+            $this->telegram->setWebhook($tenant, $url, $secret);
+        } catch (Throwable $error) {
+            return ['ok' => false, 'message' => $error->getMessage()];
+        }
+
+        $company = Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->first();
+
+        if ($company) {
+            Channel::withoutGlobalScopes()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'provider' => 'telegram', 'name' => 'Telegram Bot'],
+                ['status' => 'connected', 'last_synced_at' => now()]
+            );
+        }
+
+        return ['ok' => true, 'message' => 'Telegram-бот подключён, вебхук зарегистрирован.'];
     }
 
     public function test(Request $request, TenantContext $context, AuditLogger $audit): JsonResponse
@@ -109,7 +146,7 @@ class IntegrationSettingsController extends Controller
         Gate::authorize('update', $tenant);
 
         $data = $request->validate([
-            'provider' => ['required', Rule::in(['dify', 'chatwoot'])],
+            'provider' => ['required', Rule::in(['dify', 'chatwoot', 'telegram'])],
             'dify.url' => ['nullable', 'url', 'max:255'],
             'dify.api_key' => ['nullable', 'string', 'max:255'],
             'dify.timeout' => ['nullable', 'integer', 'min:3', 'max:60'],
@@ -123,9 +160,11 @@ class IntegrationSettingsController extends Controller
             'telegram.auto_reply_enabled' => ['nullable', 'boolean'],
         ]);
 
-        $result = $data['provider'] === 'dify'
-            ? $this->testDify($tenant, $data['dify'] ?? [])
-            : $this->testChatwoot($tenant, $data['chatwoot'] ?? []);
+        $result = match ($data['provider']) {
+            'dify' => $this->testDify($tenant, $data['dify'] ?? []),
+            'chatwoot' => $this->testChatwoot($tenant, $data['chatwoot'] ?? []),
+            'telegram' => $this->testTelegram($tenant),
+        };
 
         $audit->record('integration_connection.tested', $tenant, [
             'provider' => $result['provider'],
@@ -144,7 +183,7 @@ class IntegrationSettingsController extends Controller
         $timeout = (int) ($draft['timeout'] ?? Arr::get($settings, 'integrations.dify.timeout', config('services.dify.timeout', 12)));
 
         if ($baseUrl === '' || $apiKey === '') {
-            return $this->connectionResult(false, 'dify', 'missing_credentials', 'Dify URL and API key are required.');
+            return $this->connectionResult(false, 'dify', 'missing_credentials', 'AI engine URL and API key are required.');
         }
 
         try {
@@ -163,10 +202,10 @@ class IntegrationSettingsController extends Controller
         }
 
         if (! $response->successful()) {
-            return $this->connectionResult(false, 'dify', 'http_'.$response->status(), 'Dify returned HTTP '.$response->status().'.');
+            return $this->connectionResult(false, 'dify', 'http_'.$response->status(), 'AI engine returned HTTP '.$response->status().'.');
         }
 
-        return $this->connectionResult(true, 'dify', 'connected', 'Dify connection succeeded.');
+        return $this->connectionResult(true, 'dify', 'connected', 'AI engine connection succeeded.');
     }
 
     private function testChatwoot(Tenant $tenant, array $draft): array
@@ -179,7 +218,7 @@ class IntegrationSettingsController extends Controller
         $webhookUrl = url('/api/chatwoot/webhook?tenant_slug='.$tenant->slug);
 
         if ($baseUrl === '' || $accountId < 1 || $apiToken === '') {
-            return $this->connectionResult(false, 'chatwoot', 'missing_credentials', 'Chatwoot URL, account ID and API token are required.', [
+            return $this->connectionResult(false, 'chatwoot', 'missing_credentials', 'Unified inbox URL, account ID and API token are required.', [
                 'webhook_url' => $webhookUrl,
                 'webhook_secret_configured' => $webhookSecret !== '',
             ]);
@@ -198,16 +237,52 @@ class IntegrationSettingsController extends Controller
         }
 
         if (! $response->successful()) {
-            return $this->connectionResult(false, 'chatwoot', 'http_'.$response->status(), 'Chatwoot returned HTTP '.$response->status().'.', [
+            return $this->connectionResult(false, 'chatwoot', 'http_'.$response->status(), 'Unified inbox returned HTTP '.$response->status().'.', [
                 'webhook_url' => $webhookUrl,
             ]);
         }
 
-        return $this->connectionResult(true, 'chatwoot', 'connected', 'Chatwoot API connection succeeded.', [
+        return $this->connectionResult(true, 'chatwoot', 'connected', 'Unified inbox connection succeeded.', [
             'account_id' => (string) $accountId,
             'webhook_url' => $webhookUrl,
             'tenant_query' => 'tenant_slug='.$tenant->slug,
             'webhook_secret_configured' => $webhookSecret !== '',
+        ]);
+    }
+
+    private function testTelegram(Tenant $tenant): array
+    {
+        $token = $this->secrets->telegramBotToken($tenant);
+        $webhookUrl = url('/api/telegram/webhook?tenant_slug='.$tenant->slug);
+
+        if ($token === '') {
+            return $this->connectionResult(false, 'telegram', 'missing_credentials', 'Сначала сохраните токен бота.', [
+                'webhook_url' => $webhookUrl,
+            ]);
+        }
+
+        try {
+            $response = Http::timeout(10)->connectTimeout(4)->acceptJson()
+                ->get('https://api.telegram.org/bot'.$token.'/getMe');
+        } catch (Throwable $error) {
+            return $this->connectionResult(false, 'telegram', 'request_failed', $error->getMessage(), [
+                'webhook_url' => $webhookUrl,
+            ]);
+        }
+
+        $json = $response->json();
+
+        if (! $response->successful() || ! Arr::get($json, 'ok', false)) {
+            return $this->connectionResult(false, 'telegram', 'invalid_token', Arr::get($json, 'description', 'Telegram отклонил токен.'), [
+                'webhook_url' => $webhookUrl,
+            ]);
+        }
+
+        $username = Arr::get($json, 'result.username');
+
+        return $this->connectionResult(true, 'telegram', 'connected', 'Бот @'.$username.' подтверждён.', [
+            'webhook_url' => $webhookUrl,
+            'bot_username' => (string) $username,
         ]);
     }
 

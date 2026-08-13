@@ -3,6 +3,7 @@ import { FileText, Globe2, Notebook } from '@lucide/vue';
 import type { KnowledgeDocument } from '../../../stores/crmDashboard';
 import { Badge } from '../../ui/badge';
 import DeleteDocumentButton from './DeleteDocumentButton.vue';
+import { knowledgeStatusLabels } from '../../../lib/statusLabels';
 
 defineProps<{ documents: KnowledgeDocument[] }>();
 
@@ -58,7 +59,7 @@ function dateLabel(value: string | null): string {
                         <div class="mt-0.5 text-xs ui-subtle">{{ document.file_name ?? document.summary ?? '—' }}</div>
                     </td>
                     <td class="px-4 py-3 ui-subtle">{{ typeLabel(document) }}</td>
-                    <td class="px-4 py-3"><Badge :tone="tone(document.status)">{{ document.status }}</Badge></td>
+                    <td class="px-4 py-3"><Badge :tone="tone(document.status)">{{ knowledgeStatusLabels[document.status] ?? document.status }}</Badge></td>
                     <td class="px-4 py-3 text-right font-mono ui-text">{{ document.chunks_count }}</td>
                     <td class="px-4 py-3 text-right ui-subtle">{{ dateLabel(document.updated_at) }}</td>
                     <td class="px-4 py-3 text-right"><DeleteDocumentButton :document-id="document.id" :title="document.title" /></td>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Component } from 'vue';
-import { Settings2 } from '@lucide/vue';
+import { ExternalLink, Settings2 } from '@lucide/vue';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/dialog';
 
@@ -11,6 +11,8 @@ const props = defineProps<{
     status?: string;
     lastSyncedAt?: string | null;
     brand?: 'telegram' | 'whatsapp' | 'instagram' | 'blue';
+    /** Optional external link (e.g. the provider's own dashboard) shown as a small button next to "Настроить". */
+    externalUrl?: string | null;
 }>();
 
 const brandClass = computed(() => {
@@ -54,21 +56,29 @@ const lastSyncedLabel = computed(() => (props.lastSyncedAt
             </div>
         </div>
 
-        <p v-if="lastSyncedLabel" class="flex-1 text-xs ui-subtle">Синхронизировано: {{ lastSyncedLabel }}</p>
+        <div v-if="lastSyncedLabel || $slots.stats" class="flex-1 space-y-3">
+            <p v-if="lastSyncedLabel" class="text-xs ui-subtle">Синхронизировано: {{ lastSyncedLabel }}</p>
+            <slot name="stats" />
+        </div>
         <div v-else class="flex-1" />
 
-        <Dialog>
-            <DialogTrigger as-child>
-                <Button variant="outline" class="w-full" type="button"><Settings2 class="h-4 w-4" />Настроить</Button>
-            </DialogTrigger>
-            <DialogContent class="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle class="flex items-center gap-2"><component :is="icon" class="h-4 w-4 text-primary" />{{ name }}</DialogTitle>
-                </DialogHeader>
-                <div class="space-y-4 py-2">
-                    <slot />
-                </div>
-            </DialogContent>
-        </Dialog>
+        <div class="flex gap-2">
+            <Dialog>
+                <DialogTrigger as-child>
+                    <Button variant="outline" class="flex-1" type="button"><Settings2 class="h-4 w-4" />Настроить</Button>
+                </DialogTrigger>
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle class="flex items-center gap-2"><component :is="icon" class="h-4 w-4 text-primary" />{{ name }}</DialogTitle>
+                    </DialogHeader>
+                    <div class="space-y-4 py-2">
+                        <slot />
+                    </div>
+                </DialogContent>
+            </Dialog>
+            <Button v-if="externalUrl" variant="outline" size="icon" as="a" :href="externalUrl" target="_blank" rel="noopener noreferrer" title="Открыть сайт провайдера">
+                <ExternalLink class="h-4 w-4" />
+            </Button>
+        </div>
     </article>
 </template>

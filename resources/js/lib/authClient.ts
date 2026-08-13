@@ -2,9 +2,10 @@ import axios from 'axios';
 
 export type AuthErrors = Record<string, string>;
 
-export async function authPost(path: string, data: Record<string, unknown> = {}): Promise<void> {
+export async function authPost(path: string, data: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     try {
-        await axios.post(path, data, { headers: { Accept: 'application/json' } });
+        const response = await axios.post(path, data, { headers: { Accept: 'application/json' } });
+        return response.data ?? {};
     } catch (caught) {
         if (axios.isAxiosError(caught) && caught.response?.status === 422) {
             const errors = caught.response.data?.errors ?? {};

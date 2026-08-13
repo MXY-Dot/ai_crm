@@ -6,7 +6,8 @@ import { storeToRefs } from 'pinia';
 import { Mail, MessageSquare, Phone, Target } from '@lucide/vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
-import { channelTone, titleCase, timeAgo } from '../lib/format';
+import { channelTone, timeAgo } from '../lib/format';
+import { conversationStatusLabels, sourceLabels } from '../lib/statusLabels';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
@@ -23,10 +24,10 @@ type TimelineItem = { key: string; kind: 'lead' | 'conversation'; id: number; ti
 
 const timeline = computed<TimelineItem[]>(() => {
     const leadItems: TimelineItem[] = customerLeads.value.map((lead) => ({
-        key: `lead-${lead.id}`, kind: 'lead', id: lead.id, title: lead.title, meta: titleCase(lead.status), date: lead.created_at ?? null, icon: Target,
+        key: `lead-${lead.id}`, kind: 'lead', id: lead.id, title: lead.title, meta: locale.t(`leads.statuses.${lead.status}`), date: lead.created_at ?? null, icon: Target,
     }));
     const conversationItems: TimelineItem[] = customerConversations.value.map((conversation) => ({
-        key: `conversation-${conversation.id}`, kind: 'conversation', id: conversation.id, title: conversation.subject, meta: titleCase(conversation.status), date: conversation.last_message_at, icon: MessageSquare,
+        key: `conversation-${conversation.id}`, kind: 'conversation', id: conversation.id, title: conversation.subject, meta: conversationStatusLabels[conversation.status] ?? conversation.status, date: conversation.last_message_at, icon: MessageSquare,
     }));
 
     return [...leadItems, ...conversationItems].sort((a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime());
@@ -42,7 +43,7 @@ defineOptions({ layout: AppLayout });
 
 <template>
     <div v-if="customer" class="space-y-6">
-        <Card>
+        <Card data-tour="customer-summary">
             <div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 <div class="flex items-center gap-4">
                     <Avatar class="size-20 ring-4 ring-accent">
@@ -52,7 +53,7 @@ defineOptions({ layout: AppLayout });
                         <h2 class="font-display text-xl font-semibold ui-text">{{ customer.name }}</h2>
                         <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                             <Badge tone="green">Активный клиент</Badge>
-                            <Badge v-if="customer.source" :tone="channelTone(customer.source)">{{ titleCase(customer.source) }}</Badge>
+                            <Badge v-if="customer.source" :tone="channelTone(customer.source)">{{ sourceLabels[customer.source] ?? customer.source }}</Badge>
                         </div>
                     </div>
                 </div>
@@ -92,7 +93,7 @@ defineOptions({ layout: AppLayout });
             </div>
         </Card>
 
-        <Card title="Активность" subtitle="Лиды и диалоги, связанные с клиентом.">
+        <Card data-tour="customer-timeline" title="Активность" subtitle="Лиды и диалоги, связанные с клиентом.">
             <div v-if="timeline.length" class="divide-y border-border">
                 <button
                     v-for="item in timeline"

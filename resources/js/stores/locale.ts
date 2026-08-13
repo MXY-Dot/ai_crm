@@ -1,8 +1,7 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
+import { usePage } from '@inertiajs/vue3';
 import { type Locale, messages } from '../i18n/messages';
-
-const saved = localStorage.getItem('gravity_locale') as Locale | null;
 
 function readPath(source: Record<string, unknown>, path: string): unknown {
     return path.split('.').reduce<unknown>((current, segment) => {
@@ -12,8 +11,16 @@ function readPath(source: Record<string, unknown>, path: string): unknown {
     }, source);
 }
 
+function initialLocale(): Locale {
+    const shared = usePage<{ locale?: string }>().props.locale;
+    if (shared && shared in messages) return shared as Locale;
+
+    const saved = localStorage.getItem('gravity_locale');
+    return saved && saved in messages ? saved as Locale : 'ru';
+}
+
 export const useLocaleStore = defineStore('locale', () => {
-    const locale = ref<Locale>(saved && saved in messages ? saved : 'ru');
+    const locale = ref<Locale>(initialLocale());
     const available = computed(() => [
         { code: 'ru' as Locale, label: 'RU' },
         { code: 'en' as Locale, label: 'EN' },

@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { AlertTriangle, Sparkles } from '@lucide/vue';
 import type { AiRun } from '../../../stores/crmDashboard';
+import { aiNextActionLabels } from '../../../lib/statusLabels';
 
 const props = defineProps<{ aiHandoffs: AiRun[] }>();
 const items = computed(() => props.aiHandoffs.slice(0, 3));
@@ -18,7 +19,7 @@ const items = computed(() => props.aiHandoffs.slice(0, 3));
                 <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span class="ui-subtle">
                     <span class="font-medium ui-text">{{ item.conversation?.subject ?? item.lead?.title ?? 'Диалог' }}</span>
-                    — уверенность AI {{ item.confidence }}%{{ item.next_action ? `, ${item.next_action}` : '' }}
+                    — уверенность AI {{ item.confidence }}%{{ item.next_action ? `, ${aiNextActionLabels[item.next_action] ?? item.next_action}` : '' }}
                 </span>
             </li>
         </ul>

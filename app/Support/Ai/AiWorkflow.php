@@ -20,6 +20,7 @@ class AiWorkflow
     public function __construct(
         private readonly LocalConversationAnalyzer $localAnalyzer,
         private readonly DifyClient $dify,
+        private readonly LlmClient $llm,
         private readonly ChatwootClient $chatwoot,
         private readonly TelegramClient $telegram,
     ) {
@@ -27,11 +28,12 @@ class AiWorkflow
 
     public function process(Tenant $tenant, Company $company, Conversation $conversation, Lead $lead, Message $message): array
     {
-        $agent = $this->agent($tenant, $company);
         $conversation->loadMissing('channel');
+        $isFirstMessage = $conversation->wasRecentlyCreated;
+        $agent = $this->agent($tenant, $company, $conversation->channel?->provider);
         $this->showTyping($tenant, $conversation, true);
-        [$decision, $engine] = $this->decision($agent, $conversation, $message, $lead);
-        $run = $this->run($tenant, $agent, $conversation, $lead, $decision, $engine);
+        [$decision, $engine, $usage] = $this->decision($agent, $company, $conversation, $message, $lead, $isFirstMessage);
+        $run = $this->run($tenant, $agent, $conversation, $lead, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);
         $this->showTyping($tenant, $conversation, false);
@@ -56,32 +58,174 @@ class AiWorkflow
         ];
     }
 
-    private function agent(Tenant $tenant, Company $company): AiAgent
+    private function agent(Tenant $tenant, Company $company, ?string $provider): AiAgent
     {
+        $agents = AiAgent::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('company_id', $company->id)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->get();
+
+        if ($provider) {
+            $bound = $agents->first(fn (AiAgent $candidate): bool => in_array($provider, $candidate->channels ?? [], true));
+
+            if ($bound) {
+                return $bound;
+            }
+        }
+
+        $catchAll = $agents->first(fn (AiAgent $candidate): bool => empty($candidate->channels));
+
+        if ($catchAll) {
+            return $catchAll;
+        }
+
         return AiAgent::withoutGlobalScopes()->firstOrCreate(
-            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'name' => 'Default Dify Assistant'],
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'name' => 'Основной ассистент'],
             [
                 'provider' => 'dify',
                 'status' => 'active',
                 'handoff_threshold' => 70,
                 'instructions' => 'Classify intent, summarize the latest customer message, draft a helpful reply, and decide whether an operator handoff is needed.',
+                'channels' => [],
                 'settings' => ['mode' => config('services.dify.api_key') ? 'dify' : 'local-mvp'],
             ]
         );
     }
 
-    private function decision(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead): array
+    private function decision(AiAgent $agent, Company $company, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage): array
     {
-        $decision = $this->dify->decide($agent, $conversation, $message, $lead);
+        $decision = $this->dify->decide($agent, $conversation, $message, $lead, $isFirstMessage);
 
         if ($decision) {
-            return [$decision, 'dify'];
+            return [$decision, 'dify', null];
         }
 
-        return [$this->localAnalyzer->analyze($conversation, $message, $lead, $agent->handoff_threshold), 'local-mvp'];
+        $local = $this->localAnalyzer->analyze($conversation, $message, $lead, $agent->handoff_threshold, $company, $isFirstMessage);
+        $llmCompletion = $this->directLlmReply($agent, $conversation, $message, $isFirstMessage);
+
+        if ($llmCompletion !== null) {
+            return [$this->withReplyText($local, $llmCompletion['text']), 'direct-llm', $llmCompletion];
+        }
+
+        return [$local, 'local-mvp', null];
     }
 
-    private function run(Tenant $tenant, AiAgent $agent, Conversation $conversation, Lead $lead, AiDecision $decision, string $engine): AiRun
+    /**
+     * Mirrors resources/js/lib/plans.ts' Plan.aiProviders — which model providers
+     * each subscription tier unlocks. Starter gets Gemini+DeepSeek+Groq, Pro adds
+     * Claude, Business adds GPT. Groq is available on every tier — it's the
+     * platform-managed fast/cheap default (see LlmClient), not a BYOK upsell like
+     * the other four. Enforced here (not just hidden in the UI) so a downgraded
+     * tenant, or a custom-typed model name, can't bypass the gate.
+     */
+    private const PLAN_PROVIDERS = [
+        'starter' => ['google', 'deepseek', 'groq'],
+        'pro' => ['google', 'deepseek', 'groq', 'anthropic'],
+        'business' => ['google', 'deepseek', 'groq', 'anthropic', 'openai'],
+    ];
+
+    /**
+     * Monthly cap on direct-LLM calls per tenant (LLM Usage Billing / Tenant LLM
+     * Limits, spec ЭТАП 1.4). Mirrors resources/js/lib/plans.ts' Plan.aiUsageLimit.
+     * null = unlimited. Counts ai_runs rows with a recorded provider (i.e. calls
+     * that actually reached a direct LLM provider), not every AI run.
+     */
+    private const PLAN_AI_USAGE_LIMITS = [
+        'starter' => 1000,
+        'pro' => 5000,
+        'business' => null,
+    ];
+
+    private function planAllowsProvider(Tenant $tenant, string $provider): bool
+    {
+        $plan = (string) Arr::get($tenant->settings ?? [], 'billing.plan', 'starter');
+        $allowed = self::PLAN_PROVIDERS[$plan] ?? self::PLAN_PROVIDERS['starter'];
+
+        return in_array($provider, $allowed, true);
+    }
+
+    private function usageLimitExceeded(Tenant $tenant): bool
+    {
+        $plan = (string) Arr::get($tenant->settings ?? [], 'billing.plan', 'starter');
+        $limit = array_key_exists($plan, self::PLAN_AI_USAGE_LIMITS) ? self::PLAN_AI_USAGE_LIMITS[$plan] : self::PLAN_AI_USAGE_LIMITS['starter'];
+
+        if ($limit === null) {
+            return false;
+        }
+
+        $usedThisMonth = AiRun::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereNotNull('provider')
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->count();
+
+        return $usedThisMonth >= $limit;
+    }
+
+    /**
+     * @return array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float}|null
+     */
+    private function directLlmReply(AiAgent $agent, Conversation $conversation, Message $message, bool $isFirstMessage): ?array
+    {
+        if (! $agent->model || ! $agent->tenant) {
+            return null;
+        }
+
+        $provider = $this->llm->providerForModel($agent->model);
+
+        if (! $provider || $this->llm->apiKey($agent->tenant, $provider) === '') {
+            return null;
+        }
+
+        if (! $this->planAllowsProvider($agent->tenant, $provider)) {
+            return null;
+        }
+
+        if ($this->usageLimitExceeded($agent->tenant)) {
+            return null;
+        }
+
+        $systemPrompt = implode("\n\n", array_filter([
+            "You are the CRM AI assistant for this company. Never identify as OpenAI, ChatGPT, DeepSeek, or a generic language model — answer as the company's own assistant.",
+            'Answer naturally and helpfully in the same language the customer wrote in. If something is outside what you know about the company, ask one short clarifying question or say an operator will follow up.',
+            $agent->instructions ? 'Agent instructions: '.$agent->instructions : '',
+            'Business profile:'."\n".$this->dify->businessProfile($agent),
+            'Knowledge base:'."\n".$this->dify->knowledgeContext($agent),
+            $isFirstMessage ? "This is the customer's first message in this conversation — begin your reply with a brief natural greeting stating the company name (and phone number if useful), then answer their question." : '',
+        ], fn (string $part): bool => trim($part) !== ''));
+
+        $userPrompt = implode("\n\n", array_filter([
+            'Recent messages:'."\n".$this->dify->recentMessages($conversation),
+            'Customer message:'."\n".$message->body,
+        ], fn (string $part): bool => trim($part) !== ''));
+
+        $completion = $this->llm->complete($agent->tenant, $provider, $agent->model, $systemPrompt, $userPrompt);
+
+        if ($completion === null) {
+            return null;
+        }
+
+        return $completion + ['provider' => $provider, 'model' => $agent->model];
+    }
+
+    private function withReplyText(AiDecision $decision, string $replyText): AiDecision
+    {
+        return new AiDecision(
+            confidence: $decision->confidence,
+            intent: $decision->intent,
+            summary: $decision->summary,
+            nextAction: $decision->nextAction,
+            handoffRequired: $decision->handoffRequired,
+            replyText: $replyText,
+        );
+    }
+
+    /**
+     * @param array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float}|null $usage
+     */
+    private function run(Tenant $tenant, AiAgent $agent, Conversation $conversation, Lead $lead, AiDecision $decision, string $engine, ?array $usage): AiRun
     {
         return AiRun::withoutGlobalScopes()->create([
             'tenant_id' => $tenant->id,
@@ -95,8 +239,15 @@ class AiWorkflow
             'next_action' => $decision->nextAction,
             'started_at' => now(),
             'finished_at' => now(),
+            'provider' => $usage['provider'] ?? null,
+            'model' => $usage['model'] ?? $agent->model,
+            'tokens_in' => $usage['tokens_in'] ?? null,
+            'tokens_out' => $usage['tokens_out'] ?? null,
+            'cost_usd' => $usage['cost_usd'] ?? null,
+            'latency_ms' => $usage['latency_ms'] ?? null,
             'payload' => [
                 'engine' => $engine,
+                'model' => $agent->model,
                 'handoff_required' => $decision->handoffRequired,
                 'reply_text' => $decision->replyText,
             ],
@@ -113,7 +264,7 @@ class AiWorkflow
             'tenant_id' => $tenant->id,
             'conversation_id' => $conversation->id,
             'sender_type' => 'ai',
-            'sender_name' => $engine === 'dify' ? 'Dify AI' : 'Local AI',
+            'sender_name' => 'WERO AI',
             'body' => trim($decision->replyText),
             'external_id' => 'ai-run-'.$run->id,
             'sent_at' => now(),

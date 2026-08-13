@@ -11,8 +11,9 @@ import { Input } from '../ui/input';
 import { PhoneInput } from '../ui/phone-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
-const props = withDefaults(defineProps<{ leadOnly?: boolean }>(), {
+const props = withDefaults(defineProps<{ leadOnly?: boolean, bare?: boolean }>(), {
     leadOnly: false,
+    bare: false,
 });
 const emit = defineEmits<{ leadCreated: [] }>();
 
@@ -51,7 +52,7 @@ async function submitTask(): Promise<void> {
 </script>
 
 <template>
-    <Card :title="props.leadOnly ? locale.t('crm.newLead') : locale.t('crm.quickCreate')" :subtitle="props.leadOnly ? '' : locale.t('crm.quickCreateSubtitle')">
+    <component :is="props.bare ? 'div' : Card" :title="!props.bare && props.leadOnly ? locale.t('crm.newLead') : !props.bare ? locale.t('crm.quickCreate') : undefined" :subtitle="!props.bare && !props.leadOnly ? locale.t('crm.quickCreateSubtitle') : undefined">
         <Alert v-if="error" variant="destructive" class="mb-4"><AlertDescription>{{ error }}</AlertDescription></Alert>
         <div :class="props.leadOnly ? 'max-w-md' : 'grid gap-4 xl:grid-cols-3'">
             <form v-if="!props.leadOnly" class="space-y-3" @submit.prevent="submitCustomer">
@@ -63,7 +64,7 @@ async function submitTask(): Promise<void> {
             </form>
 
             <form class="space-y-3" @submit.prevent="submitLead">
-                <h3 class="font-semibold ui-text">{{ locale.t('crm.newLead') }}</h3>
+                <h3 v-if="!props.bare" class="font-semibold ui-text">{{ locale.t('crm.newLead') }}</h3>
                 <Input v-model="lead.title" :placeholder="locale.t('crm.leadTitle')" required />
                 <Select v-model="lead.customer_id">
                     <SelectTrigger class="w-full"><SelectValue :placeholder="locale.t('crm.noCustomer')" /></SelectTrigger>
@@ -98,5 +99,5 @@ async function submitTask(): Promise<void> {
                 <Button class="w-full" variant="primary" type="submit" :disabled="busy"><Plus class="h-4 w-4" />{{ locale.t('crm.createTask') }}</Button>
             </form>
         </div>
-    </Card>
+    </component>
 </template>

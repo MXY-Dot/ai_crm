@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Customer, Lead } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
-import { titleCase, timeAgo } from '../../../lib/format';
+import { timeAgo } from '../../../lib/format';
+import { sourceLabels } from '../../../lib/statusLabels';
 import { Badge } from '../../ui/badge';
 
 const props = defineProps<{ leads: Lead[]; customers: Customer[] }>();
@@ -43,7 +44,7 @@ function statusTone(status: string): 'green' | 'blue' | 'amber' | 'red' | 'neutr
                     <td class="px-4 py-3 ui-subtle">{{ customerName(lead) }}</td>
                     <td class="px-4 py-3"><Badge :tone="statusTone(lead.status)">{{ locale.t(`leads.statuses.${lead.status}`) }}</Badge></td>
                     <td class="px-4 py-3 ui-subtle">{{ lead.score }}</td>
-                    <td class="px-4 py-3 ui-subtle">{{ timeAgo(lead.created_at, locale.locale) || titleCase(lead.source) }}</td>
+                    <td class="px-4 py-3 ui-subtle">{{ timeAgo(lead.created_at, locale.locale) || (lead.source ? (sourceLabels[lead.source] ?? lead.source) : '—') }}</td>
                 </tr>
                 <tr v-if="! leads.length">
                     <td colspan="5" class="px-4 py-6 text-center ui-subtle">{{ locale.t('common.noResults') }}</td>

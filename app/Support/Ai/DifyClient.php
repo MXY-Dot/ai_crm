@@ -18,7 +18,7 @@ class DifyClient
     {
     }
 
-    public function decide(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead): ?AiDecision
+    public function decide(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage = false): ?AiDecision
     {
         $settings = $agent->tenant?->settings ?? [];
         $baseUrl = $agent->tenant ? $this->secrets->difyUrl($agent->tenant) : rtrim((string) config('services.dify.url', ''), '/');
@@ -40,11 +40,13 @@ class DifyClient
                         'lead_title' => $lead->title,
                         'handoff_threshold' => $agent->handoff_threshold,
                         'instructions' => $agent->instructions,
+                        'preferred_model' => $agent->model ?? '',
+                        'is_first_message' => $isFirstMessage ? 'yes' : 'no',
                         'recent_messages' => $this->recentMessages($conversation),
                         'knowledge_context' => $this->knowledgeContext($agent),
                         'business_profile' => $this->businessProfile($agent),
                     ],
-                    'query' => $this->query($agent, $conversation, $message, $lead),
+                    'query' => $this->query($agent, $conversation, $message, $lead, $isFirstMessage),
                     'response_mode' => 'blocking',
                     'user' => 'tenant-'.$agent->tenant_id.'-conversation-'.$conversation->id,
                 ]);
@@ -59,11 +61,13 @@ class DifyClient
         return $this->decisionFrom($response->json(), $agent, $conversation, $message, $lead);
     }
 
-    private function query(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead): string
+    private function query(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage): string
     {
         return implode("\n\n", array_filter([
             'You are the CRM AI assistant for this company. Never identify as DeepSeek, ChatGPT, Dify, or a generic language model. Answer as the company assistant.',
             'Return a helpful customer-facing answer. If the customer asks about something outside the company rules, ask one short clarifying question or hand off to an operator.',
+            $agent->model ? 'Preferred AI model for this agent: '.$agent->model.'. If your Dify app routes by model, use it; otherwise ignore this line.' : '',
+            $isFirstMessage ? "This is the customer's first message in this conversation. Begin your reply with a brief, natural greeting that states the company name (and phone number if it helps the customer), then answer their question." : '',
             'Agent instructions: '.$agent->instructions,
             'Lead: '.$lead->title,
             'Conversation: '.$conversation->subject,
@@ -81,7 +85,7 @@ class DifyClient
         $confidence = $this->confidence(Arr::get($data, 'confidence', 65));
         $intent = (string) Arr::get($data, 'intent', 'general_question');
         $nextAction = (string) Arr::get($data, 'next_action', ($confidence < $agent->handoff_threshold ? 'handoff_operator' : 'draft_reply'));
-        $summary = $this->cleanGeneratedText((string) Arr::get($data, 'summary', $rawAnswer !== '' ? $rawAnswer : 'Dify response for '.$lead->title));
+        $summary = $this->cleanGeneratedText((string) Arr::get($data, 'summary', $rawAnswer !== '' ? $rawAnswer : 'AI response for '.$lead->title));
         $replyText = $this->replyText($data, $rawAnswer);
         $handoff = filter_var(Arr::get($data, 'handoff_required', $confidence < $agent->handoff_threshold), FILTER_VALIDATE_BOOL);
 
@@ -173,7 +177,7 @@ class DifyClient
         return trim($text);
     }
 
-    private function recentMessages(Conversation $conversation): string
+    public function recentMessages(Conversation $conversation): string
     {
         return $conversation->messages()
             ->latest('sent_at')
@@ -184,7 +188,7 @@ class DifyClient
             ->implode("\n");
     }
 
-    private function knowledgeContext(AiAgent $agent): string
+    public function knowledgeContext(AiAgent $agent): string
     {
         return KnowledgeChunk::withoutGlobalScopes()
             ->where('tenant_id', $agent->tenant_id)
@@ -199,7 +203,7 @@ class DifyClient
             ->implode("\n---\n");
     }
 
-    private function businessProfile(AiAgent $agent): string
+    public function businessProfile(AiAgent $agent): string
     {
         $company = $agent->company;
 
@@ -226,6 +230,6 @@ class DifyClient
     }
     private function fallbackSummary(Conversation $conversation, Message $message): string
     {
-        return 'Dify processed conversation "'.$conversation->subject.'". Latest message: '.mb_strimwidth($message->body, 0, 140, '...');
+        return 'AI processed conversation "'.$conversation->subject.'". Latest message: '.mb_strimwidth($message->body, 0, 140, '...');
     }
 }

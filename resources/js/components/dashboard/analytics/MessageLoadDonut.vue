@@ -1,25 +1,40 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { VisDonut, VisDonutSelectors, VisSingleContainer } from '@unovis/vue';
 import type { Message } from '../../../stores/crmDashboard';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
+import { ChartContainer, ChartTooltip, type ChartConfig } from '../../ui/chart';
 
 const props = defineProps<{ messages: Message[] }>();
 
-const groups = computed(() => {
+type Segment = { key: 'ai' | 'operator'; label: string; count: number; percent: number; color: string };
+
+const chartConfig: ChartConfig = {
+    ai: { label: 'AI Ассистент', color: 'var(--primary)' },
+    operator: { label: 'Операторы', color: 'var(--muted-foreground)' },
+};
+
+const segments = computed<Segment[]>(() => {
     const total = props.messages.length;
     const ai = props.messages.filter((message) => message.sender_type === 'ai').length;
     const operator = props.messages.filter((message) => message.sender_type === 'operator').length;
 
-    return {
-        total,
-        ai,
-        operator,
-        aiPercent: total ? Math.round((ai / total) * 100) : 0,
-        operatorPercent: total ? Math.round((operator / total) * 100) : 0,
-    };
+    return [
+        { key: 'ai', label: chartConfig.ai.label as string, count: ai, percent: total ? Math.round((ai / total) * 100) : 0, color: chartConfig.ai.color as string },
+        { key: 'operator', label: chartConfig.operator.label as string, count: operator, percent: total ? Math.round((operator / total) * 100) : 0, color: chartConfig.operator.color as string },
+    ];
 });
 
-const gradient = computed(() => `var(--primary) 0% ${groups.value.aiPercent}%, var(--muted) ${groups.value.aiPercent}% 100%`);
+const aiPercent = computed(() => segments.value.find((segment) => segment.key === 'ai')?.percent ?? 0);
+
+function tooltipHtml(segment: Segment): string {
+    return `<div class="grid min-w-32 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+        <div class="flex w-full items-center gap-2">
+            <span class="h-2.5 w-2.5 shrink-0 rounded-xs" style="background:${segment.color}"></span>
+            <span class="flex-1 text-muted-foreground">${segment.label}</span>
+            <span class="font-mono font-medium text-foreground">${segment.count} (${segment.percent}%)</span>
+        </div>
+    </div>`;
+}
 </script>
 
 <template>
@@ -29,28 +44,25 @@ const gradient = computed(() => `var(--primary) 0% ${groups.value.aiPercent}%, v
             <p class="text-sm ui-subtle">Распределение ответов</p>
         </div>
         <div class="flex flex-1 items-center justify-center">
-            <TooltipProvider :delay-duration="100">
-                <Tooltip>
-                    <TooltipTrigger as-child>
-                        <div class="relative h-40 w-40 cursor-pointer rounded-full transition hover:opacity-90" :style="{ background: `conic-gradient(${gradient})` }">
-                            <div class="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-card">
-                                <span class="font-display text-2xl font-bold ui-text">{{ groups.aiPercent }}%</span>
-                                <span class="text-[10px] font-semibold uppercase ui-subtle">AI</span>
-                            </div>
-                        </div>
-                    </TooltipTrigger>
-                    <TooltipContent>AI: {{ groups.ai }} ({{ groups.aiPercent }}%) &middot; Операторы: {{ groups.operator }} ({{ groups.operatorPercent }}%)</TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <ChartContainer :config="chartConfig" class="h-40 w-40 shrink-0">
+                <VisSingleContainer :data="segments" :height="160" :width="160">
+                    <VisDonut
+                        :value="(d: Segment) => d.count"
+                        :color="(d: Segment) => d.color"
+                        :corner-radius="3"
+                        :pad-angle="0.02"
+                        :arc-width="18"
+                        :central-label="`${aiPercent}%`"
+                        central-sub-label="AI"
+                    />
+                    <ChartTooltip :triggers="{ [VisDonutSelectors.segment]: (d: any) => tooltipHtml(d.data) }" />
+                </VisSingleContainer>
+            </ChartContainer>
         </div>
         <div class="mt-6 space-y-2 text-sm">
-            <div class="flex items-center justify-between">
-                <span class="flex items-center gap-2 ui-text"><span class="h-3 w-3 rounded-full bg-primary" />AI Ассистент</span>
-                <span class="font-mono ui-subtle">{{ groups.ai }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="flex items-center gap-2 ui-text"><span class="h-3 w-3 rounded-full bg-muted-foreground" />Операторы</span>
-                <span class="font-mono ui-subtle">{{ groups.operator }}</span>
+            <div v-for="segment in segments" :key="segment.key" class="flex items-center justify-between">
+                <span class="flex items-center gap-2 ui-text"><span class="h-3 w-3 rounded-full" :style="{ background: segment.color }" />{{ segment.label }}</span>
+                <span class="font-mono ui-subtle">{{ segment.count }}</span>
             </div>
         </div>
     </div>

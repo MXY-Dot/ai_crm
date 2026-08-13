@@ -21,7 +21,7 @@ defineOptions({ layout: AppLayout });
             <span class="grid h-16 w-16 place-items-center rounded-2xl mx-auto bg-accent">
                 <Blocks class="h-8 w-8 text-accent-foreground" />
             </span>
-            <Badge tone="green">{{ locale.t('marketplace.badge') }}</Badge>
+            <Badge tone="green" class="my-2.5">{{ locale.t('marketplace.badge') }}</Badge>
             <div class="mx-auto max-w-md">
                 <h3 class="font-display text-lg font-semibold ui-text">{{ locale.t('marketplace.title') }}</h3>
                 <p class="mt-2 text-sm leading-6 ui-subtle">{{ locale.t('marketplace.description') }}</p>

@@ -21,7 +21,12 @@ const items = computed(() => Object.entries(props.stats).map(([label, value]) =>
 
 <template>
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article v-for="(item, index) in items" :key="item.label" class="rounded-md border border-white/10 bg-zinc-900 p-4">
+        <article
+            v-for="(item, index) in items"
+            :key="item.label"
+            class="animate-fade-up rounded-md border border-white/10 bg-zinc-900 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-lg"
+            :style="{ animationDelay: `${index * 60}ms` }"
+        >
             <div class="flex items-center justify-between gap-3">
                 <p class="text-sm text-zinc-400">{{ item.label }}</p>
                 <component :is="icons[index] ?? MessagesSquare" class="h-4 w-4 text-emerald-300" />

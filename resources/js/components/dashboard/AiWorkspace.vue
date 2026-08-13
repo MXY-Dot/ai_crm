@@ -49,7 +49,7 @@ const tabs = computed(() => [
                 <h2 class="font-display text-xl font-bold ui-text">{{ locale.t('ai.workspaceTitle') }}</h2>
                 <p class="mt-1 text-sm ui-subtle">{{ locale.t('ai.workspaceSubtitle') }}</p>
             </div>
-            <TabsList class="flex-wrap">
+            <TabsList class="flex-wrap" data-tour="ai-tabs">
                 <TabsTrigger v-for="tab in tabs" :key="tab.value" :value="tab.value">
                     <component :is="tab.icon" class="h-4 w-4" />
                     {{ tab.label }}
@@ -58,9 +58,9 @@ const tabs = computed(() => [
         </div>
 
         <TabsContent value="agent" class="mt-0">
-            <div class="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+            <div class="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)_320px]" data-tour="ai-agent-columns">
                 <AiAgentList :agents="aiAgents" :ai-runs="aiRuns" :selected-id="selectedAgentId" @select="selectedAgentId = $event" />
-                <AiAgentSettingsForm :agent="selectedAgent" :documents="agentDocuments" :busy="busy" />
+                <AiAgentSettingsForm :agent="selectedAgent" :documents="agentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
                 <AiAgentActivityPanel :agent="selectedAgent" :ai-runs="aiRuns" />
             </div>
         </TabsContent>

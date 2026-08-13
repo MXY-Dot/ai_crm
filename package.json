@@ -22,6 +22,8 @@
     "dependencies": {
         "@inertiajs/vue3": "^3.6.1",
         "@lucide/vue": "^1.31.0",
+        "@unovis/ts": "^1.6.7",
+        "@unovis/vue": "^1.6.7",
         "@vitejs/plugin-vue": "^6.0.7",
         "@vueuse/core": "^14.4.0",
         "axios": "^1.18.1",
@@ -32,6 +34,7 @@
         "pinia": "^3.0.4",
         "reka-ui": "^2.10.3",
         "tailwind-merge": "^3.6.0",
+        "vaul-vue": "^0.4.1",
         "vue": "^3.5.39",
         "vue-sonner": "^2.0.9"
     }

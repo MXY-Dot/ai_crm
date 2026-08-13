@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Search } from '@lucide/vue';
 import { useCrmDashboardStore, type TenantUser } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
 import { timeAgo } from '../../lib/format';
+import SearchInput from './SearchInput.vue';
+import TableFiltersButton from './TableFiltersButton.vue';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
 const props = defineProps<{ members: TenantUser[]; selfId: number | null }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
-const roles: TenantUser['role'][] = ['super_admin', 'owner', 'manager', 'operator'];
+const roles: TenantUser['role'][] = ['owner', 'manager', 'operator'];
 const query = ref('');
 const statusFilter = ref('all');
+const statusOptions = ['active', 'invited', 'disabled'] as const;
+const activeFilterCount = computed(() => (statusFilter.value !== 'all' ? 1 : 0));
+
+function resetFilters(): void {
+    statusFilter.value = 'all';
+}
 
 const filtered = computed(() => props.members
     .filter((member) => statusFilter.value === 'all' || member.status === statusFilter.value)
@@ -50,18 +55,21 @@ async function toggleStatus(member: TenantUser): Promise<void> {
 <template>
     <div class="rounded-xl border border-border bg-card">
         <div class="flex flex-wrap items-center gap-3 border-b p-4 border-border">
-            <div class="relative flex-1 sm:max-w-xs">
-                <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
-                <Input v-model="query" class="h-9 pl-9 lg:pl-10" :placeholder="locale.t('team.searchPlaceholder')" />
-            </div>
-            <Tabs v-model="statusFilter">
-                <TabsList>
-                    <TabsTrigger value="all">{{ locale.t('team.allStatuses') }}</TabsTrigger>
-                    <TabsTrigger value="active">{{ locale.t('team.statusActive') }}</TabsTrigger>
-                    <TabsTrigger value="invited">{{ locale.t('team.statusInvited') }}</TabsTrigger>
-                    <TabsTrigger value="disabled">{{ locale.t('team.statusDisabled') }}</TabsTrigger>
-                </TabsList>
-            </Tabs>
+            <SearchInput v-model="query" class="w-full sm:max-w-xs" :placeholder="locale.t('team.searchPlaceholder')" />
+            <TableFiltersButton :active-count="activeFilterCount" @reset="resetFilters">
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('team.allStatuses') }}</span>
+                    <Select v-model="statusFilter">
+                        <SelectTrigger class="h-9 w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">{{ locale.t('team.allStatuses') }}</SelectItem>
+                            <SelectItem v-for="status in statusOptions" :key="status" :value="status">
+                                {{ locale.t(`team.status${status.charAt(0).toUpperCase()}${status.slice(1)}`) }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </label>
+            </TableFiltersButton>
         </div>
 
         <div class="divide-y border-border">

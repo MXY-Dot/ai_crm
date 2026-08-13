@@ -138,6 +138,26 @@ summary,
     }
 }
 
+@keyframes wero-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.animate-shimmer {
+    background-image: linear-gradient(100deg, var(--muted) 40%, color-mix(in srgb, var(--muted) 40%, var(--card)) 50%, var(--muted) 60%);
+    background-size: 250% 100%;
+    animation: wero-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes wero-fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+    animation: wero-fade-up 320ms ease-out both;
+}
+
 .ui-surface { background: var(--card); color: var(--card-foreground); border-color: var(--border); }
 .ui-muted { background: color-mix(in srgb, var(--muted) 72%, transparent); border-color: var(--border); }
 .ui-text { color: var(--foreground); }

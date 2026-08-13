@@ -57,6 +57,14 @@ export type Conversation = {
     lead?: { id: number; title: string } | null;
 };
 
+export type MessageAttachment = {
+    url: string;
+    path: string;
+    type: 'photo' | 'voice' | 'document';
+    filename?: string | null;
+    mime?: string | null;
+};
+
 export type Message = {
     id: number;
     conversation_id: number;
@@ -64,15 +72,18 @@ export type Message = {
     sender_name: string | null;
     body: string;
     sent_at: string | null;
+    meta?: { attachment?: MessageAttachment | null } | null;
 };
 
 export type AiAgent = {
     id: number;
     name: string;
     provider: string;
+    model: string | null;
     status: string;
     handoff_threshold: number;
     instructions: string | null;
+    channels: string[] | null;
 };
 
 export type AiAgentPayload = {
@@ -80,6 +91,8 @@ export type AiAgentPayload = {
     status?: 'active' | 'paused' | 'disabled';
     handoff_threshold?: number;
     instructions?: string | null;
+    model?: string | null;
+    channels?: string[];
 };
 
 export type KnowledgeDocument = {
@@ -151,15 +164,16 @@ export type IntegrationSettings = {
         webhook_url: string;
         auto_reply_enabled: boolean;
     };
+    telegram_webhook?: { ok: boolean; message: string } | null;
 };
 
 export type IntegrationTestResult = {
     ok: boolean;
-    provider: 'dify' | 'chatwoot';
+    provider: 'dify' | 'chatwoot' | 'telegram';
     status: string;
     message: string;
     checked_at: string;
-    meta: Record<string, string>;
+    meta: Record<string, unknown>;
 };
 
 export type IntegrationSettingsPayload = {
@@ -244,7 +258,7 @@ export type CompanyProfile = {
 
 export type CompanyPayload = Partial<Omit<CompanyProfile, 'id' | 'logo_url'>>;
 
-export type ProfileUser = { id: number; name: string; email: string; role: string; phone: string | null; avatar_url: string | null };
+export type ProfileUser = { id: number; name: string; email: string; role: string; phone: string | null; avatar_url: string | null; two_factor_enabled: boolean };
 
 export type ProfilePayload = { name?: string; phone?: string | null };
 
@@ -497,12 +511,24 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             tenant: tenantSlug.value,
         }), 'toast.aiDraftGenerated');
     }
-    async function replyToConversation(id: number, body: string): Promise<void> {
+    async function replyToConversation(id: number, body: string, attachment?: MessageAttachment | null): Promise<void> {
         await mutate(() => apiRequest(`/api/conversations/${id}/reply`, {
             method: 'POST',
             tenant: tenantSlug.value,
-            body: { body },
+            body: { body, attachment: attachment ?? undefined },
         }), 'toast.replySent');
+    }
+
+    async function uploadConversationAttachment(conversationId: number, file: File, type: MessageAttachment['type']): Promise<MessageAttachment> {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+
+        return apiRequest<MessageAttachment>(`/api/conversations/${conversationId}/attachments`, {
+            method: 'POST',
+            tenant: tenantSlug.value,
+            body: formData,
+        });
     }
 
     async function syncChatwoot(): Promise<void> {
@@ -522,12 +548,20 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }), 'toast.planUpdated');
     }
 
-    async function createAiAgent(payload: { name: string; status?: string; handoff_threshold?: number; instructions?: string }): Promise<void> {
-        await mutate(() => apiRequest('/api/ai-agents', {
-            method: 'POST',
-            tenant: tenantSlug.value,
-            body: payload,
-        }), 'toast.agentCreated');
+    async function createAiAgent(payload: { name: string; status?: string; handoff_threshold?: number; instructions?: string; model?: string; channels?: string[] }, documentIds: number[] = []): Promise<void> {
+        await mutate(async () => {
+            const agent = await apiRequest<AiAgent>('/api/ai-agents', {
+                method: 'POST',
+                tenant: tenantSlug.value,
+                body: payload,
+            });
+
+            await Promise.all(documentIds.map((id) => apiRequest(`/api/knowledge-documents/${id}`, {
+                method: 'PATCH',
+                tenant: tenantSlug.value,
+                body: { ai_agent_id: agent.id },
+            })));
+        }, 'toast.agentCreated');
     }
 
     async function updateAiAgent(id: number, payload: AiAgentPayload): Promise<void> {
@@ -536,6 +570,27 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             tenant: tenantSlug.value,
             body: payload,
         }), 'toast.agentUpdated');
+    }
+
+    async function syncAgentKnowledge(agentId: number, documentIds: number[]): Promise<void> {
+        await mutate(async () => {
+            const current = knowledgeDocuments.value.filter((doc) => doc.ai_agent_id === agentId).map((doc) => doc.id);
+            const toAttach = documentIds.filter((id) => ! current.includes(id));
+            const toDetach = current.filter((id) => ! documentIds.includes(id));
+
+            await Promise.all([
+                ...toAttach.map((id) => apiRequest(`/api/knowledge-documents/${id}`, {
+                    method: 'PATCH',
+                    tenant: tenantSlug.value,
+                    body: { ai_agent_id: agentId },
+                })),
+                ...toDetach.map((id) => apiRequest(`/api/knowledge-documents/${id}`, {
+                    method: 'PATCH',
+                    tenant: tenantSlug.value,
+                    body: { ai_agent_id: null },
+                })),
+            ]);
+        }, 'toast.agentUpdated');
     }
 
     async function indexKnowledgeText(payload: { title: string; content: string; ai_agent_id?: number | null }): Promise<void> {
@@ -592,7 +647,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         });
     }
 
-    async function testIntegrationConnection(payload: IntegrationSettingsPayload & { provider: 'dify' | 'chatwoot' }): Promise<IntegrationTestResult> {
+    async function testIntegrationConnection(payload: IntegrationSettingsPayload & { provider: 'dify' | 'chatwoot' | 'telegram' }): Promise<IntegrationTestResult> {
         try {
             const result = await apiRequest<IntegrationTestResult>('/api/integration-settings/test', {
                 method: 'POST',
@@ -621,6 +676,11 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             });
             await refreshDashboard();
             notify(locale.t('toast.settingsSaved'));
+
+            if (integrationSettings.value.telegram_webhook) {
+                const webhook = integrationSettings.value.telegram_webhook;
+                notify(webhook.message, webhook.ok ? 'success' : 'error');
+            }
         } catch (caught) {
             error.value = caught instanceof Error ? caught.message : locale.t('toast.genericError');
             notify(error.value, 'error');
@@ -678,10 +738,12 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         updateTaskStatus,
         generateAiDraft,
         replyToConversation,
+        uploadConversationAttachment,
         syncChatwoot,
         updatePlan,
         createAiAgent,
         updateAiAgent,
+        syncAgentKnowledge,
         indexKnowledgeText,
         uploadKnowledgeFile,
         deleteKnowledgeDocument,

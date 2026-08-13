@@ -15,6 +15,8 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Authorization\RolePages;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
 
 class DashboardData
@@ -22,7 +24,7 @@ class DashboardData
     public function forUser(?User $user): array
     {
         $empty = [
-            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url']),
+            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url', 'two_factor_enabled']),
             'tenant' => null,
             'company' => null,
             'stats' => [],
@@ -51,10 +53,14 @@ class DashboardData
 
         $company = Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->first();
         $companyId = $company?->id;
+        $role = $user?->role;
 
         return [
-            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url']),
-            'tenant' => $tenant->only(['id', 'name', 'slug', 'status', 'trial_ends_at', 'settings']),
+            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url', 'two_factor_enabled']),
+            'tenant' => array_merge(
+                $tenant->only(['id', 'name', 'slug', 'status', 'trial_ends_at']),
+                ['settings' => Arr::except($tenant->settings ?? [], ['integrations'])],
+            ),
             'company' => $company?->only(['id', 'name', 'industry', 'phone', 'email', 'website', 'address', 'timezone', 'working_hours', 'brand_settings', 'logo_url']),
             'stats' => [
                 'Companies' => Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
@@ -70,9 +76,9 @@ class DashboardData
             'messages' => $this->messages($tenant->id),
             'aiAgents' => $this->aiAgents($tenant->id, $companyId),
             'aiRuns' => $this->aiRuns($tenant->id),
-            'knowledgeDocuments' => $this->knowledgeDocuments($tenant->id, $companyId),
-            'auditLogs' => $this->auditLogs($tenant->id),
-            'tenantUsers' => $this->tenantUsers($tenant->id),
+            'knowledgeDocuments' => RolePages::allowed($role, 'knowledge') ? $this->knowledgeDocuments($tenant->id, $companyId) : [],
+            'auditLogs' => RolePages::allowed($role, 'settings') ? $this->auditLogs($tenant->id) : [],
+            'tenantUsers' => RolePages::allowed($role, 'team') ? $this->tenantUsers($tenant->id) : [],
         ];
     }
 
@@ -110,14 +116,14 @@ class DashboardData
     {
         if (! Schema::hasTable('messages')) return [];
 
-        return Message::withoutGlobalScopes()->where('tenant_id', $tenantId)->latest('sent_at')->limit(24)->get(['id', 'conversation_id', 'sender_type', 'sender_name', 'body', 'sent_at'])->reverse()->values()->all();
+        return Message::withoutGlobalScopes()->where('tenant_id', $tenantId)->latest('sent_at')->limit(24)->get(['id', 'conversation_id', 'sender_type', 'sender_name', 'body', 'sent_at', 'meta'])->reverse()->values()->all();
     }
 
     private function aiAgents(int $tenantId, ?int $companyId): array
     {
         if (! $companyId || ! Schema::hasTable('ai_agents')) return [];
 
-        return AiAgent::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('company_id', $companyId)->latest()->limit(5)->get(['id', 'name', 'provider', 'status', 'handoff_threshold', 'instructions'])->all();
+        return AiAgent::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('company_id', $companyId)->latest()->limit(50)->get(['id', 'name', 'provider', 'model', 'status', 'handoff_threshold', 'instructions', 'channels'])->all();
     }
 
     private function aiRuns(int $tenantId): array

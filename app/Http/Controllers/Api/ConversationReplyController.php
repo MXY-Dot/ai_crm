@@ -13,6 +13,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -32,11 +34,24 @@ class ConversationReplyController extends Controller
         }
 
         $data = $request->validate([
-            'body' => ['required', 'string', 'min:1', 'max:4000'],
+            'body' => ['nullable', 'string', 'max:4000'],
+            'attachment' => ['nullable', 'array'],
+            'attachment.url' => ['required_with:attachment', 'string'],
+            'attachment.path' => ['required_with:attachment', 'string'],
+            'attachment.type' => ['required_with:attachment', Rule::in(['photo', 'voice', 'document'])],
+            'attachment.filename' => ['nullable', 'string'],
+            'attachment.mime' => ['nullable', 'string'],
         ]);
 
+        $body = trim((string) ($data['body'] ?? ''));
+        $attachment = $data['attachment'] ?? null;
+
+        if ($body === '' && ! $attachment) {
+            throw ValidationException::withMessages(['body' => 'Message body or attachment is required.']);
+        }
+
         try {
-            [$externalId, $meta] = $this->send($tenant, $conversation->loadMissing('channel'), $data['body'], $chatwoot, $telegram);
+            [$externalId, $meta] = $this->send($tenant, $conversation->loadMissing('channel'), $body, $attachment, $chatwoot, $telegram);
         } catch (RuntimeException $error) {
             throw ValidationException::withMessages(['reply' => $error->getMessage()]);
         }
@@ -46,10 +61,10 @@ class ConversationReplyController extends Controller
             'conversation_id' => $conversation->id,
             'sender_type' => 'operator',
             'sender_name' => $request->user()?->name,
-            'body' => $data['body'],
+            'body' => $body !== '' ? $body : $this->attachmentLabel($attachment),
             'external_id' => $externalId,
             'sent_at' => now(),
-            'meta' => $meta,
+            'meta' => $attachment ? $meta + ['attachment' => $attachment] : $meta,
         ]);
 
         $conversation->forceFill([
@@ -64,11 +79,22 @@ class ConversationReplyController extends Controller
         ], 201);
     }
 
-    private function send(Tenant $tenant, Conversation $conversation, string $body, ChatwootClient $chatwoot, TelegramClient $telegram): array
+    private function send(Tenant $tenant, Conversation $conversation, string $body, ?array $attachment, ChatwootClient $chatwoot, TelegramClient $telegram): array
     {
         if ($conversation->channel?->provider === 'telegram') {
             $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
-            $payload = $telegram->sendMessage($tenant, $chatId, $body);
+
+            $localPath = $attachment ? Storage::disk('public')->path($attachment['path']) : null;
+            $filename = $attachment['filename'] ?? 'file';
+
+            $payload = match ($attachment['type'] ?? null) {
+                'photo' => $telegram->sendPhoto($tenant, $chatId, $localPath, $filename, $body),
+                // Browser-recorded voice notes are webm/opus, which Telegram's format-strict sendVoice
+                // may reject (only .ogg/opus, .mp3, .m4a are documented as supported) — sendDocument
+                // accepts any format, so it is used here to guarantee delivery over a native voice bubble.
+                'voice', 'document' => $telegram->sendDocument($tenant, $chatId, $localPath, $filename, $body),
+                default => $telegram->sendMessage($tenant, $chatId, $body),
+            };
             $messageId = Arr::get($payload, 'result.message_id');
 
             return [
@@ -77,11 +103,22 @@ class ConversationReplyController extends Controller
             ];
         }
 
-        $payload = $chatwoot->sendOutgoingMessage($tenant, (string) $conversation->external_id, $body);
+        $text = $attachment ? trim($body."\n".$attachment['url']) : $body;
+        $payload = $chatwoot->sendOutgoingMessage($tenant, (string) $conversation->external_id, $text);
 
         return [
-            (string) (Arr::get($payload, 'id') ?? Arr::get($payload, 'payload.id') ?? 'outgoing-'.sha1($conversation->id.'|'.$body.'|'.now()->timestamp)),
+            (string) (Arr::get($payload, 'id') ?? Arr::get($payload, 'payload.id') ?? 'outgoing-'.sha1($conversation->id.'|'.$text.'|'.now()->timestamp)),
             ['chatwoot' => $payload, 'direction' => 'outgoing'],
         ];
+    }
+
+    private function attachmentLabel(?array $attachment): string
+    {
+        return match ($attachment['type'] ?? null) {
+            'photo' => '📷 Фото',
+            'voice' => '🎤 Голосовое сообщение',
+            'document' => '📎 '.($attachment['filename'] ?? 'Файл'),
+            default => '',
+        };
     }
 }

@@ -3,7 +3,8 @@ import { computed } from 'vue';
 import type { Lead } from '../../../stores/crmDashboard';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
-import { channelTone, titleCase, timeAgo } from '../../../lib/format';
+import { channelTone, timeAgo } from '../../../lib/format';
+import { sourceLabels } from '../../../lib/statusLabels';
 import { Avatar, AvatarFallback } from '../../ui/avatar';
 import { Badge } from '../../ui/badge';
 
@@ -31,7 +32,7 @@ const initials = computed(() => (props.customerName ?? props.lead.title).slice(0
         <div class="mb-3 flex items-start justify-between gap-2">
             <div class="flex flex-wrap items-center gap-1.5">
                 <Badge :tone="priority.tone">{{ priority.label }}</Badge>
-                <Badge v-if="lead.source" :tone="channelTone(lead.source)">{{ titleCase(lead.source) }}</Badge>
+                <Badge v-if="lead.source" :tone="channelTone(lead.source)">{{ sourceLabels[lead.source] ?? lead.source }}</Badge>
             </div>
             <span v-if="lead.created_at" class="shrink-0 text-[11px] ui-subtle">{{ timeAgo(lead.created_at, locale.locale) }}</span>
         </div>

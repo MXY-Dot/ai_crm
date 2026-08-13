@@ -2,7 +2,8 @@
 import { computed } from 'vue';
 import type { Conversation, Customer, Lead } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
-import { channelTone, titleCase, timeAgo } from '../../../lib/format';
+import { channelTone, timeAgo } from '../../../lib/format';
+import { sourceLabels } from '../../../lib/statusLabels';
 import { Avatar, AvatarFallback } from '../../ui/avatar';
 import { Badge } from '../../ui/badge';
 
@@ -57,7 +58,7 @@ const rows = computed(() => props.customers.map((customer) => ({
                         <p>{{ row.customer.email ?? locale.t('crm.noEmail') }}</p>
                         <p class="text-xs">{{ row.customer.phone ?? locale.t('crm.noPhone') }}</p>
                     </td>
-                    <td class="px-4 py-3"><Badge :tone="channelTone(row.customer.source)">{{ titleCase(row.customer.source) }}</Badge></td>
+                    <td class="px-4 py-3"><Badge :tone="channelTone(row.customer.source)">{{ row.customer.source ? (sourceLabels[row.customer.source] ?? row.customer.source) : '—' }}</Badge></td>
                     <td class="px-4 py-3 ui-subtle">{{ row.leads }}</td>
                     <td class="px-4 py-3 ui-subtle">{{ row.conversations }}</td>
                     <td class="px-4 py-3 ui-subtle">{{ timeAgo(row.customer.created_at, locale.locale) }}</td>

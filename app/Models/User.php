@@ -11,8 +11,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['tenant_id', 'name', 'email', 'password', 'phone', 'role', 'status', 'last_login_at', 'two_factor_enabled', 'avatar_path'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['tenant_id', 'name', 'email', 'password', 'phone', 'role', 'status', 'last_login_at', 'two_factor_enabled', 'two_factor_secret', 'two_factor_recovery_codes', 'avatar_path'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable
 {
     protected $appends = ['avatar_url'];
@@ -53,6 +53,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'password' => 'hashed',
         ];
     }

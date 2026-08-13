@@ -27,6 +27,9 @@ class AiAgentController extends Controller
             'status' => ['sometimes', Rule::in(['active', 'paused', 'disabled'])],
             'handoff_threshold' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'instructions' => ['nullable', 'string', 'max:4000'],
+            'model' => ['nullable', 'string', 'max:60'],
+            'channels' => ['sometimes', 'array'],
+            'channels.*' => [Rule::in(['telegram', 'whatsapp', 'instagram', 'website'])],
         ]);
 
         $agent = AiAgent::query()->create($data + [
@@ -34,9 +37,10 @@ class AiAgentController extends Controller
             'provider' => 'dify',
             'status' => $data['status'] ?? 'active',
             'handoff_threshold' => $data['handoff_threshold'] ?? 70,
+            'channels' => $data['channels'] ?? [],
         ]);
 
-        $audit->record('ai_agent.created', $agent, $agent->only(['name', 'status', 'handoff_threshold', 'instructions']), [], $request);
+        $audit->record('ai_agent.created', $agent, $agent->only(['name', 'status', 'handoff_threshold', 'instructions', 'model', 'channels']), [], $request);
 
         return response()->json($agent, 201);
     }
@@ -50,17 +54,20 @@ class AiAgentController extends Controller
             abort(404);
         }
 
-        $oldValues = $aiAgent->only(['name', 'status', 'handoff_threshold', 'instructions', 'settings']);
+        $oldValues = $aiAgent->only(['name', 'status', 'handoff_threshold', 'instructions', 'model', 'channels', 'settings']);
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
             'status' => ['sometimes', Rule::in(['active', 'paused', 'disabled'])],
             'handoff_threshold' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'instructions' => ['sometimes', 'nullable', 'string', 'max:4000'],
+            'model' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'channels' => ['sometimes', 'array'],
+            'channels.*' => [Rule::in(['telegram', 'whatsapp', 'instagram', 'website'])],
             'settings' => ['sometimes', 'array'],
         ]);
 
         $aiAgent->forceFill($data)->save();
-        $audit->record('ai_agent.updated', $aiAgent, $aiAgent->only(['name', 'status', 'handoff_threshold', 'instructions', 'settings']), $oldValues, $request);
+        $audit->record('ai_agent.updated', $aiAgent, $aiAgent->only(['name', 'status', 'handoff_threshold', 'instructions', 'model', 'channels', 'settings']), $oldValues, $request);
 
         return response()->json($aiAgent->refresh());
     }

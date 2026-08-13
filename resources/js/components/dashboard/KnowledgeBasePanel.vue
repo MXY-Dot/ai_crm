@@ -56,18 +56,20 @@ async function uploadFile(payload: { title: string; file: File }): Promise<void>
 
 <template>
     <div class="space-y-6">
-        <KnowledgeStatsBento :documents="knowledgeDocuments" />
+        <KnowledgeStatsBento data-tour="kb-stats" :documents="knowledgeDocuments" />
 
         <div class="relative">
             <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ui-subtle" />
             <Input v-model="query" class="h-10 pl-9 lg:pl-10" :placeholder="labels.search" />
         </div>
 
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div class="grid gap-4 lg:grid-cols-2" data-tour="kb-add">
             <KnowledgeTextForm :busy="busy" :error="error" :labels="labels" @submit="indexText" />
             <KnowledgeUploadForm :busy="busy" :labels="labels" @submit="uploadFile" />
         </div>
 
-        <KnowledgeSourcesTable :documents="filteredDocuments" />
+        <div data-tour="kb-sources">
+            <KnowledgeSourcesTable :documents="filteredDocuments" />
+        </div>
     </div>
 </template>

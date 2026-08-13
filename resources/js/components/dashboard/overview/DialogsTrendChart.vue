@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { VisArea, VisAxis, VisXYContainer } from '@unovis/vue';
 import type { Conversation } from '../../../stores/crmDashboard';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
+import { ChartContainer, ChartCrosshair, ChartTooltip, ChartTooltipContent, componentToString, type ChartConfig } from '../../ui/chart';
 
 const props = defineProps<{ conversations: Conversation[] }>();
 
-const days = computed(() => {
+type Day = { label: string; fullLabel: string; count: number };
+
+const days = computed<Day[]>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -30,16 +33,9 @@ const days = computed(() => {
     });
 });
 
-const maxCount = computed(() => Math.max(1, ...days.value.map((day) => day.count)));
-
-const markers = computed(() => days.value.map((day, index) => ({
-    ...day,
-    x: (index / (days.value.length - 1)) * 100,
-    y: 100 - (day.count / maxCount.value) * 90,
-})));
-
-const points = computed(() => markers.value.map((marker) => `${marker.x},${marker.y}`).join(' '));
-const areaPoints = computed(() => `0,100 ${points.value} 100,100`);
+const chartConfig: ChartConfig = {
+    count: { label: 'Диалоги', color: 'var(--primary)' },
+};
 </script>
 
 <template>
@@ -48,27 +44,29 @@ const areaPoints = computed(() => `0,100 ${points.value} 100,100`);
             <h3 class="font-display text-base font-semibold ui-text">График диалогов</h3>
             <span class="text-xs ui-subtle">Последние 7 дней</span>
         </div>
-        <div class="relative h-[220px] w-full">
-            <svg class="h-full w-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
-                <line v-for="line in [0, 25, 50, 75, 100]" :key="line" x1="0" :y1="line" x2="100" :y2="line" stroke="var(--border)" stroke-width="0.5" />
-                <polygon :points="areaPoints" fill="var(--primary)" opacity="0.12" />
-                <polyline :points="points" fill="none" stroke="var(--primary)" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
-            </svg>
-            <TooltipProvider :delay-duration="100">
-                <Tooltip v-for="marker in markers" :key="marker.label">
-                    <TooltipTrigger as-child>
-                        <span
-                            class="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 transition hover:scale-125 bg-card border-primary"
-
-                            :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
-                        />
-                    </TooltipTrigger>
-                    <TooltipContent>{{ marker.fullLabel }}: {{ marker.count }} диалогов</TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-        </div>
-        <div class="mt-2 flex justify-between text-xs font-medium uppercase ui-subtle">
-            <span v-for="day in days" :key="day.label">{{ day.label }}</span>
-        </div>
+        <ChartContainer :config="chartConfig" class="h-[220px] w-full">
+            <VisXYContainer :data="days">
+                <VisArea
+                    :x="(d: Day, i: number) => i"
+                    :y="(d: Day) => d.count"
+                    :color="chartConfig.count.color"
+                    :opacity="0.15"
+                    :line="true"
+                    :line-width="2.5"
+                    :line-color="chartConfig.count.color"
+                />
+                <VisAxis
+                    type="x"
+                    :x="(d: Day, i: number) => i"
+                    :tick-line="false"
+                    :domain-line="false"
+                    :grid-line="false"
+                    :tick-format="(i: number) => days[i]?.label ?? ''"
+                />
+                <VisAxis type="y" :tick-format="() => ''" :tick-line="false" :domain-line="false" :grid-line="true" />
+                <ChartTooltip />
+                <ChartCrosshair :template="componentToString(chartConfig, ChartTooltipContent)" :color="[chartConfig.count.color]" />
+            </VisXYContainer>
+        </ChartContainer>
     </div>
 </template>

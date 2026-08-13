@@ -27,6 +27,30 @@ return [
         'webhook_secret' => env('CHATWOOT_WEBHOOK_SECRET'),
     ],
 
+    'groq' => [
+        'api_url' => env('GROQ_API_URL', 'https://api.groq.com/openai/v1'),
+        'api_key' => env('GROQ_API_KEY'),
+        'timeout' => env('GROQ_TIMEOUT', 20),
+    ],
+
+    // Platform-managed LLM provider keys (App\Support\Integrations\PlatformSettings)
+    // — optional .env bootstrap; Super Admin can also set/override these at runtime.
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+    ],
+
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+    ],
+
+    'deepseek' => [
+        'api_key' => env('DEEPSEEK_API_KEY'),
+    ],
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),

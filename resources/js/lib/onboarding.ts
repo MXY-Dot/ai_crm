@@ -52,7 +52,7 @@ export function startOnboarding(onFinished?: () => void): void {
         { element: '[data-tour="search"]', popover: { title: t('onboarding.steps.search.title'), description: t('onboarding.steps.search.text'), side: 'bottom', align: 'start' } },
         { element: '[data-tour="language"]', popover: { title: t('onboarding.steps.language.title'), description: t('onboarding.steps.language.text'), side: 'bottom', align: 'center' } },
         { element: '[data-tour="theme"]', popover: { title: t('onboarding.steps.theme.title'), description: t('onboarding.steps.theme.text'), side: 'bottom', align: 'center' } },
-        { element: '[data-tour="profile"]', popover: { title: t('onboarding.steps.profile.title'), description: t('onboarding.steps.profile.text'), side: 'bottom', align: 'end' } },
+        { element: '[data-tour="profile"]', popover: { title: t('onboarding.steps.profile.title'), description: t('onboarding.steps.profile.text'), side: 'right', align: 'end' } },
         { element: '[data-tour="content"]', popover: { title: t('onboarding.steps.content.title'), description: t('onboarding.steps.content.text'), side: 'top', align: 'start' } },
     ];
 

@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { Lightbulb } from '@lucide/vue';
 import type { Conversation } from '../../../stores/crmDashboard';
-import { titleCase } from '../../../lib/format';
+import { priorityLabels } from '../../../lib/statusLabels';
 import { Progress } from '../../ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
 
@@ -33,7 +33,7 @@ const rows = computed(() => {
                     <TooltipTrigger as-child>
                         <div class="cursor-pointer">
                             <div class="mb-1 flex justify-between text-sm">
-                                <span class="ui-text">{{ titleCase(row.priority) }}</span>
+                                <span class="ui-text">{{ priorityLabels[row.priority] ?? row.priority }}</span>
                                 <span class="font-mono ui-subtle">{{ row.percent }}%</span>
                             </div>
                             <Progress :model-value="row.percent" />

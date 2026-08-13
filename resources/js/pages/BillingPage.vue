@@ -24,14 +24,14 @@ defineOptions({ layout: AppLayout });
             <p class="mt-1 text-sm ui-subtle">Текущий тариф, использование лимитов и доступные планы.</p>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-3">
+        <div class="grid gap-5 lg:grid-cols-3" data-tour="billing-current">
             <CurrentPlanSummary :plan="currentPlan" :tenant-status="tenant?.status ?? 'trial'" :trial-ends-at="tenant?.trial_ends_at ?? null" />
             <div class="lg:col-span-2">
                 <UsageLimitsCard :plan="currentPlan" :conversations-count="conversations.length" :ai-agents-count="aiAgents.length" />
             </div>
         </div>
 
-        <div>
+        <div data-tour="billing-plans">
             <h2 class="mb-3 font-display text-base font-semibold ui-text">Тарифные планы</h2>
             <div class="grid gap-5 md:grid-cols-3">
                 <PlanCard v-for="plan in plans" :key="plan.id" :plan="plan" :current="plan.id === currentPlan.id" :busy="busy" @select="store.updatePlan(plan.id)" />

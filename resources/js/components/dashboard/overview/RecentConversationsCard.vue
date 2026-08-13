@@ -6,8 +6,8 @@ import { Badge } from '../../ui/badge';
 import { Avatar, AvatarFallback } from '../../ui/avatar';
 import type { Conversation } from '../../../stores/crmDashboard';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
-import { badgeTone } from '../inbox/inboxUi';
 import { titleCase } from '../../../lib/format';
+import { conversationStatusLabels, conversationStatusTone, sourceLabels } from '../../../lib/statusLabels';
 
 const props = defineProps<{ conversations: Conversation[] }>();
 const store = useCrmDashboardStore();
@@ -55,12 +55,12 @@ function initials(name: string): string {
                     <td class="px-5 py-3 ui-subtle">
                         <span class="inline-flex items-center gap-1">
                             <component :is="channelIcons[item.channel?.provider ?? ''] ?? MessagesSquare" class="h-4 w-4" />
-                            {{ titleCase(item.channel?.provider) }}
+                            {{ item.channel?.provider ? (sourceLabels[item.channel.provider] ?? item.channel.provider) : '—' }}
                         </span>
                     </td>
                     <td class="max-w-[220px] truncate px-5 py-3 ui-subtle">{{ item.subject }}</td>
                     <td class="px-5 py-3 text-right">
-                        <Badge :tone="badgeTone(item.status)">{{ titleCase(item.status) }}</Badge>
+                        <Badge :tone="conversationStatusTone[item.status] ?? 'neutral'">{{ conversationStatusLabels[item.status] ?? titleCase(item.status) }}</Badge>
                     </td>
                 </tr>
                 <tr v-if="! recent.length">

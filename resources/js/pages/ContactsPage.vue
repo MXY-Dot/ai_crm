@@ -53,7 +53,9 @@ defineOptions({ layout: AppLayout });
             </div>
         </div>
 
-        <ContactsTable :customers="paged" :leads="leads" :conversations="conversations" @select="selectCustomer" />
+        <div data-tour="contacts-table">
+            <ContactsTable :customers="paged" :leads="leads" :conversations="conversations" @select="selectCustomer" />
+        </div>
 
         <div v-if="filtered.length" class="flex flex-wrap items-center justify-between gap-3 text-sm ui-subtle">
             <p>{{ locale.t('contacts.showingPrefix') }} {{ (page - 1) * perPage + 1 }}&ndash;{{ Math.min(page * perPage, filtered.length) }} {{ locale.t('contacts.showingOf') }} {{ filtered.length }}</p>

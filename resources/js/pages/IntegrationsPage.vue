@@ -30,7 +30,7 @@ defineOptions({ layout: AppLayout });
             <p class="mt-2 text-sm ui-subtle">Управляйте подключениями к мессенджерам и виджету на сайте.</p>
         </div>
 
-        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4" data-tour="channels-grid">
             <ChannelCard :icon="Send" name="Telegram" brand="telegram" :status="telegramChannel?.status" :last-synced-at="telegramChannel?.last_synced_at">
                 <TelegramChannelSettings :settings="integrationSettings?.telegram ?? null" :busy="busy" />
             </ChannelCard>

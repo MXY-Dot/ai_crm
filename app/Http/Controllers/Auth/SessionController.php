@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,21 +41,32 @@ class SessionController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
+        $remember = $request->boolean('remember');
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! Auth::attempt($credentials, $remember)) {
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
             ]);
         }
 
+        $user = Auth::user();
+
+        if ($user->two_factor_enabled) {
+            Auth::logout();
+            $request->session()->put('login.id', $user->id);
+            $request->session()->put('login.remember', $remember);
+
+            return response()->json(['two_factor' => true]);
+        }
+
         $request->session()->regenerate();
-        $request->user()?->forceFill(['last_login_at' => now()])->save();
+        $user->forceFill(['last_login_at' => now()])->save();
 
         return redirect()->intended(route('dashboard'));
     }
