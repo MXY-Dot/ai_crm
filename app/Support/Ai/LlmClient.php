@@ -4,8 +4,10 @@ namespace App\Support\Ai;
 
 use App\Models\Tenant;
 use App\Support\Integrations\PlatformSettings;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -95,6 +97,51 @@ class LlmClient
     }
 
     /**
+     * Speech-to-text for an incoming customer voice message, so the AI can actually
+     * understand and answer it instead of just acknowledging "I got a voice note".
+     * Always via Groq's Whisper endpoint specifically — cheap, fast, and Groq is
+     * already the platform's established audio-capable provider (DeepSeek/OpenAI-
+     * text/Anthropic/Google don't factor in here regardless of which one a given
+     * tenant's chat model uses). Auto-detects language, no explicit `language` param
+     * — customers write in Russian/Tajik/English interchangeably. Returns null on any
+     * failure (missing/invalid key, network, empty result) so the caller degrades to
+     * the existing generic "🎤 Голосовое сообщение" placeholder rather than blocking
+     * the message.
+     */
+    public function transcribeAudio(string $absolutePath): ?string
+    {
+        $apiKey = $this->platform->llmApiKey('groq');
+
+        if ($apiKey === '' || ! is_readable($absolutePath)) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(30)->connectTimeout(5)->retry(1, 500)
+                ->withToken($apiKey)
+                ->attach('file', file_get_contents($absolutePath), basename($absolutePath))
+                ->post('https://api.groq.com/openai/v1/audio/transcriptions', [
+                    'model' => 'whisper-large-v3-turbo',
+                    'response_format' => 'json',
+                ]);
+        } catch (Throwable $error) {
+            Log::warning('Voice transcription request failed', ['error' => $error->getMessage()]);
+
+            return null;
+        }
+
+        if (! $response->successful()) {
+            $this->logHttpFailure('groq-whisper', $response);
+
+            return null;
+        }
+
+        $text = trim((string) Arr::get($response->json(), 'text', ''));
+
+        return $text !== '' ? $text : null;
+    }
+
+    /**
      * Single-turn completion. Returns null if the provider isn't configured or the
      * call failed; otherwise an array with the reply text plus best-effort usage
      * data (tokens_in/tokens_out/latency_ms/cost_usd) for the LLM usage/billing view.
@@ -118,7 +165,18 @@ class LlmClient
                 'google' => $this->completeGoogle($apiKey, $model, $systemPrompt, $userPrompt),
                 default => null,
             };
-        } catch (Throwable) {
+        } catch (Throwable $error) {
+            // Was completely silent before — a dead key or a flaky connection to the
+            // provider both degrade identically (customer just gets the dumb local-mvp
+            // fallback) with zero trace of why, which turned a real VPS network issue
+            // into a multi-hour manual investigation to even confirm the key was fine.
+            Log::warning('LLM completion request failed', [
+                'provider' => $provider,
+                'model' => $model,
+                'tenant_id' => $tenant->id,
+                'error' => $error->getMessage(),
+            ]);
+
             return null;
         }
 
@@ -135,6 +193,15 @@ class LlmClient
             'latency_ms' => $latencyMs,
             'cost_usd' => $this->estimateCost($provider, $result['tokens_in'], $result['tokens_out']),
         ];
+    }
+
+    private function logHttpFailure(string $provider, Response $response): void
+    {
+        Log::warning('LLM completion request returned a non-2xx response', [
+            'provider' => $provider,
+            'status' => $response->status(),
+            'body' => Str::limit($response->body(), 500),
+        ]);
     }
 
     private function estimateCost(string $provider, ?int $tokensIn, ?int $tokensOut): ?float
@@ -191,12 +258,21 @@ class LlmClient
     }
 
     /**
+     * Timeout/retry here (and in completeAnthropic()/completeGoogle() below, same
+     * values) is tuned for this VPS's known-flaky international connectivity —
+     * verified live that this exact host+key+endpoint sometimes connects in
+     * under 1s and sometimes hangs the full timeout with zero bytes back, on
+     * consecutive attempts seconds apart (same root cause already diagnosed for
+     * inbound Telegram webhook delays). More, shorter attempts recover faster
+     * than one long one: 3 tries × 15s + 2×500ms sleep ≈ 46s worst case, still
+     * comfortably under ProcessAiReplyJob's own 60s timeout.
+     *
      * @return array{text: ?string, tokens_in: ?int, tokens_out: ?int}|null
      */
     private function completeOpenAiCompatible(string $provider, string $apiKey, string $model, string $systemPrompt, string $userPrompt): ?array
     {
         $baseUrl = self::OPENAI_COMPATIBLE_BASE_URLS[$provider];
-        $response = Http::timeout(20)->connectTimeout(5)->retry(1, 300)->acceptJson()->withToken($apiKey)
+        $response = Http::timeout(15)->connectTimeout(4)->retry(2, 500)->acceptJson()->withToken($apiKey)
             ->post($baseUrl.'/chat/completions', [
                 'model' => $model,
                 'messages' => [
@@ -208,6 +284,8 @@ class LlmClient
             ]);
 
         if (! $response->successful()) {
+            $this->logHttpFailure($provider, $response);
+
             return null;
         }
 
@@ -226,7 +304,7 @@ class LlmClient
      */
     private function completeAnthropic(string $apiKey, string $model, string $systemPrompt, string $userPrompt): ?array
     {
-        $response = Http::timeout(20)->connectTimeout(5)->retry(1, 300)->acceptJson()
+        $response = Http::timeout(15)->connectTimeout(4)->retry(2, 500)->acceptJson()
             ->withHeaders(['x-api-key' => $apiKey, 'anthropic-version' => '2023-06-01'])
             ->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
@@ -239,6 +317,8 @@ class LlmClient
             ]);
 
         if (! $response->successful()) {
+            $this->logHttpFailure('anthropic', $response);
+
             return null;
         }
 
@@ -257,7 +337,7 @@ class LlmClient
      */
     private function completeGoogle(string $apiKey, string $model, string $systemPrompt, string $userPrompt): ?array
     {
-        $response = Http::timeout(20)->connectTimeout(5)->retry(1, 300)->acceptJson()
+        $response = Http::timeout(15)->connectTimeout(4)->retry(2, 500)->acceptJson()
             ->post('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent?key='.urlencode($apiKey), [
                 'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
                 'contents' => [
@@ -267,6 +347,8 @@ class LlmClient
             ]);
 
         if (! $response->successful()) {
+            $this->logHttpFailure('google', $response);
+
             return null;
         }
 

@@ -54,6 +54,24 @@ class TenantIntegrationSettings
     }
 
 
+    /**
+     * Auto-reply has 3 states, not just on/off: 'off' (AI never sends), 'priority'
+     * (AI sends, but yields to an operator who already has the conversation open —
+     * see ConversationTypingController::hasActiveViewer()), 'always' (AI sends
+     * regardless of operator presence). Falls back to the legacy boolean
+     * `auto_reply_enabled` for tenants saved before this 3-state field existed.
+     */
+    public function autoReplyMode(Tenant $tenant): string
+    {
+        $mode = Arr::get($tenant->settings ?? [], 'integrations.chatwoot.auto_reply_mode');
+
+        if (in_array($mode, ['off', 'priority', 'always'], true)) {
+            return $mode;
+        }
+
+        return Arr::get($tenant->settings ?? [], 'integrations.chatwoot.auto_reply_enabled', false) ? 'priority' : 'off';
+    }
+
     public function telegramBotToken(Tenant $tenant): string
     {
         return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.telegram.bot_token'));

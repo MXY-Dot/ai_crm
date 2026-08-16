@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { MicIcon, PaperclipIcon, SendIcon, SquareIcon, XIcon } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
 import type { PendingAttachment } from '@/lib/chat/types';
@@ -48,6 +48,32 @@ function onEnterKey(event: KeyboardEvent): void {
     if (event.shiftKey || event.isComposing) return;
     event.preventDefault();
     submit();
+}
+
+/** Escape backs out of whatever's in progress, most disruptive first: an in-flight recording, then a staged attachment, then a reply-to. */
+function onEscape(): void {
+    if (recording.value) {
+        cancelRecording();
+    } else if (pendingAttachment.value) {
+        clearAttachment();
+    } else if (replyTarget.value) {
+        cancelReply();
+    }
+}
+
+/** Pasting a screenshot/image directly into the composer stages it exactly like a drag-and-drop or file-picker attachment. */
+async function onPaste(event: ClipboardEvent): Promise<void> {
+    const items = event.clipboardData?.items;
+    if (! items) return;
+
+    const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
+    if (! imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (! file) return;
+
+    event.preventDefault();
+    await stageAttachment(file);
 }
 
 /**
@@ -145,14 +171,22 @@ async function onDrop(event: DragEvent): Promise<void> {
     await handleFiles(files);
 }
 
-async function toggleRecording(): Promise<void> {
-    if (recording.value) {
-        mediaRecorder?.stop();
-        return;
-    }
+let recordingCancelled = false;
+const MIN_RECORDING_SECONDS = 1;
+
+/**
+ * Press-and-hold, matching Telegram: mousedown/touchstart starts recording,
+ * releasing sends immediately (no separate "attach then click send" step) —
+ * see beginRecordPress()/endRecordPress() below for the press handlers, and
+ * cancelRecording() for the escape hatch (Escape key or the ✕ shown while
+ * recording), which discards instead of sending.
+ */
+async function startRecording(): Promise<void> {
+    if (recording.value) return;
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     recordedChunks = [];
+    recordingCancelled = false;
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) recordedChunks.push(event.data);
@@ -162,13 +196,19 @@ async function toggleRecording(): Promise<void> {
         recording.value = false;
         if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
 
+        if (recordingCancelled || recordSeconds.value < MIN_RECORDING_SECONDS) {
+            recordedChunks = [];
+            return;
+        }
+
         const blob = new Blob(recordedChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
         if (blob.size === 0) return;
 
         const file = new File([blob], 'voice-message.webm', { type: blob.type });
         uploading.value = true;
         try {
-            pendingAttachment.value = await chat.uploadAttachment(props.conversationId, file, 'voice');
+            const attachment = await chat.uploadAttachment(props.conversationId, file, 'voice');
+            if (attachment) await chat.sendMessage(props.conversationId, '', attachment);
         } finally {
             uploading.value = false;
         }
@@ -179,6 +219,37 @@ async function toggleRecording(): Promise<void> {
     recordSeconds.value = 0;
     recordTimer = setInterval(() => { recordSeconds.value += 1; }, 1000);
 }
+
+function stopRecording(cancel: boolean): void {
+    if (! recording.value || ! mediaRecorder) return;
+    recordingCancelled = cancel;
+    mediaRecorder.stop();
+}
+
+function cancelRecording(): void {
+    stopRecording(true);
+}
+
+function beginRecordPress(event: MouseEvent | TouchEvent): void {
+    event.preventDefault();
+    startRecording();
+    window.addEventListener('mouseup', endRecordPress);
+    window.addEventListener('touchend', endRecordPress);
+    window.addEventListener('touchcancel', endRecordPress);
+}
+
+function endRecordPress(): void {
+    window.removeEventListener('mouseup', endRecordPress);
+    window.removeEventListener('touchend', endRecordPress);
+    window.removeEventListener('touchcancel', endRecordPress);
+    stopRecording(false);
+}
+
+onBeforeUnmount(() => {
+    window.removeEventListener('mouseup', endRecordPress);
+    window.removeEventListener('touchend', endRecordPress);
+    window.removeEventListener('touchcancel', endRecordPress);
+});
 
 watch(() => props.conversationId, () => {
     body.value = '';
@@ -232,7 +303,8 @@ defineExpose({
 
         <div v-if="recording" class="mb-2 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <span class="h-2 w-2 animate-pulse rounded-full bg-destructive" />
-            Запись голосового… {{ recordSeconds }}с
+            <span class="flex-1">Запись голосового… {{ recordSeconds }}с — отпустите, чтобы отправить</span>
+            <button type="button" class="shrink-0 font-medium underline hover:no-underline" @click="cancelRecording">Отмена</button>
         </div>
 
         <div class="flex items-end gap-1 rounded-xl border p-1 transition focus-within:border-primary border-border">
@@ -244,11 +316,13 @@ defineExpose({
                 type="button"
                 variant="ghost"
                 size="icon"
-                class="mb-1 shrink-0"
+                class="mb-1 shrink-0 select-none touch-none"
                 :class="{ 'text-destructive': recording }"
                 :disabled="sending || uploading"
-                :title="recording ? 'Остановить запись' : 'Записать голосовое'"
-                @click="toggleRecording"
+                :title="recording ? 'Отпустите, чтобы отправить (Esc — отмена)' : 'Удерживайте, чтобы записать голосовое'"
+                @mousedown="beginRecordPress"
+                @touchstart="beginRecordPress"
+                @contextmenu.prevent
             >
                 <SquareIcon v-if="recording" class="h-4 w-4" />
                 <MicIcon v-else class="h-4 w-4" />
@@ -262,7 +336,9 @@ defineExpose({
                 maxlength="4000"
                 rows="1"
                 @keydown.enter="onEnterKey"
+                @keydown.esc="onEscape"
                 @input="onInput"
+                @paste="onPaste"
             />
 
             <Button class="mb-1 shrink-0" variant="primary" size="icon" type="submit" :disabled="! canSend" title="Отправить (Enter)">

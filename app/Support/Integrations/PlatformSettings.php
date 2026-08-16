@@ -65,6 +65,27 @@ class PlatformSettings
         $this->set('llm.primary_provider', $provider, encrypt: false);
     }
 
+    /** Maps a provider to a sensible default model — see AiAgentSettingsForm.vue/CreateAgentDialog.vue's MODEL_OPTIONS for the canonical list these strings are drawn from. */
+    private const DEFAULT_MODEL_BY_PROVIDER = [
+        'deepseek' => 'deepseek-chat',
+        'groq' => 'openai/gpt-oss-120b',
+        'openai' => 'gpt-4o-mini',
+        'anthropic' => 'claude-3-5-haiku-latest',
+        'google' => 'gemini-1.5-flash',
+    ];
+
+    /**
+     * A new AI agent with no model chosen used to just sit dumb forever (silently
+     * falling back to the local keyword-matching engine, with no signal to the
+     * tenant that anything was missing) — this is what a brand-new tenant gets by
+     * default, so it has to work with zero manual setup. Defaults to whichever
+     * model matches the platform's current primary provider.
+     */
+    public function defaultModel(): string
+    {
+        return self::DEFAULT_MODEL_BY_PROVIDER[$this->primaryLlmProvider()] ?? self::DEFAULT_MODEL_BY_PROVIDER['groq'];
+    }
+
     public function backupLlmProvider(): ?string
     {
         return $this->get('llm.backup_provider', false);

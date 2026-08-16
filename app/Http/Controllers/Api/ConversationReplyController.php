@@ -115,6 +115,16 @@ class ConversationReplyController extends Controller
             ];
         }
 
+        // A widget conversation has no external platform to push to — same reasoning
+        // as AiWorkflow::autoReply()'s 'website' branch. The created Message row is
+        // the delivery: WidgetController::index() is what the visitor's browser polls.
+        if ($conversation->channel?->provider === 'website') {
+            return [
+                'widget-'.$conversation->id.'-'.Str::random(12),
+                ['direction' => 'outgoing'],
+            ];
+        }
+
         $text = $attachment ? trim($body."\n".$attachment['url']) : $body;
         $payload = $chatwoot->sendOutgoingMessage($tenant, (string) $conversation->external_id, $text);
 

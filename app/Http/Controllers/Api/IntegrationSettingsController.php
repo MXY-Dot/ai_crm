@@ -51,7 +51,7 @@ class IntegrationSettingsController extends Controller
             'chatwoot.account_id' => ['nullable', 'integer', 'min:1'],
             'chatwoot.api_token' => ['nullable', 'string', 'max:255'],
             'chatwoot.webhook_secret' => ['nullable', 'string', 'max:255'],
-            'chatwoot.auto_reply_enabled' => ['nullable', 'boolean'],
+            'chatwoot.auto_reply_mode' => ['nullable', Rule::in(['off', 'priority', 'always'])],
             'telegram.bot_token' => ['nullable', 'string', 'max:255'],
             'telegram.webhook_secret' => ['nullable', 'string', 'max:255'],
         ]);
@@ -81,7 +81,7 @@ class IntegrationSettingsController extends Controller
                 Arr::set($settings, 'integrations.dify.api_key', $this->secrets->encrypt($data['dify']['api_key']));
             }
 
-            foreach (['url', 'account_id', 'auto_reply_enabled'] as $key) {
+            foreach (['url', 'account_id', 'auto_reply_mode'] as $key) {
                 if (array_key_exists($key, $data['chatwoot'] ?? [])) {
                     Arr::set($settings, 'integrations.chatwoot.'.$key, $data['chatwoot'][$key]);
                 }
@@ -165,7 +165,7 @@ class IntegrationSettingsController extends Controller
             'chatwoot.account_id' => ['nullable', 'integer', 'min:1'],
             'chatwoot.api_token' => ['nullable', 'string', 'max:255'],
             'chatwoot.webhook_secret' => ['nullable', 'string', 'max:255'],
-            'chatwoot.auto_reply_enabled' => ['nullable', 'boolean'],
+            'chatwoot.auto_reply_mode' => ['nullable', Rule::in(['off', 'priority', 'always'])],
             'telegram.bot_token' => ['nullable', 'string', 'max:255'],
             'telegram.webhook_secret' => ['nullable', 'string', 'max:255'],
         ]);
@@ -333,7 +333,7 @@ class IntegrationSettingsController extends Controller
                 'webhook_secret_configured' => $payload['chatwoot']['webhook_secret_configured'],
                 'webhook_secret_mask' => $payload['chatwoot']['webhook_secret_mask'],
                 'webhook_url' => $payload['chatwoot']['webhook_url'],
-                'auto_reply_enabled' => $payload['chatwoot']['auto_reply_enabled'] ?? false,
+                'auto_reply_mode' => $payload['chatwoot']['auto_reply_mode'] ?? 'off',
             ],
             'telegram' => [
                 'bot_token_configured' => $payload['telegram']['bot_token_configured'],
@@ -375,7 +375,7 @@ class IntegrationSettingsController extends Controller
                 'webhook_secret_configured' => $chatwootSecret !== '',
                 'webhook_secret_mask' => $this->secrets->mask($chatwootSecret),
                 'webhook_url' => url('/api/chatwoot/webhook?tenant_slug='.$tenant->slug),
-                'auto_reply_enabled' => (bool) Arr::get($settings, 'integrations.chatwoot.auto_reply_enabled', false),
+                'auto_reply_mode' => $this->secrets->autoReplyMode($tenant),
             ],
             'telegram' => [
                 'bot_token_configured' => $telegramToken !== '',

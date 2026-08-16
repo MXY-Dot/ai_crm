@@ -30,12 +30,25 @@ use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\TenantUserController;
 use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\TwoFactorController;
+use App\Http\Controllers\Api\WidgetController;
+use App\Http\Controllers\Api\WidgetSettingsController;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Support\Facades\Route;
 
 Route::post('chatwoot/webhook', ChatwootWebhookController::class)->middleware('throttle:30,1');
 Route::post('telegram/webhook', TelegramWebhookController::class)->middleware('throttle:30,1');
+
+// Public, unauthenticated — a website visitor's browser, not a logged-in User.
+// See WidgetController's docblock for the trust model (site key = public app id).
+Route::prefix('widget/{siteKey}')->middleware('throttle:60,1')->group(function (): void {
+    Route::get('appearance', [WidgetController::class, 'appearance']);
+    Route::post('start', [WidgetController::class, 'start']);
+    Route::post('messages', [WidgetController::class, 'send']);
+    Route::get('messages', [WidgetController::class, 'index']);
+    Route::post('attachments', [WidgetController::class, 'attachment']);
+    Route::post('phone', [WidgetController::class, 'phone']);
+});
 
 Route::middleware(['web', 'auth:web'])->group(function (): void {
     Route::get('me', [ProfileController::class, 'me']);
@@ -91,6 +104,9 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('integration-settings', [IntegrationSettingsController::class, 'update']);
         Route::post('integration-settings/test', [IntegrationSettingsController::class, 'test'])->middleware('throttle:10,1');
         Route::post('chatwoot/sync', ChatwootSyncController::class)->middleware('throttle:10,1');
+        Route::get('widget-settings', [WidgetSettingsController::class, 'show']);
+        Route::patch('widget-settings', [WidgetSettingsController::class, 'update']);
+        Route::post('widget-settings/regenerate-key', [WidgetSettingsController::class, 'regenerateKey']);
         Route::apiResource('tenant-users', TenantUserController::class)->only(['index', 'store', 'update']);
         Route::apiResource('companies', CompanyController::class)->only(['index', 'store', 'show', 'update']);
         Route::post('companies/{company}/logo', [CompanyController::class, 'uploadLogo']);
@@ -106,6 +122,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::get('conversations/{conversation}/messages', [ConversationMessageController::class, 'index']);
         Route::get('conversations/{conversation}/typing', [ConversationTypingController::class, 'index']);
         Route::post('conversations/{conversation}/typing', [ConversationTypingController::class, 'heartbeat'])->middleware('throttle:30,1');
+        Route::post('conversations/{conversation}/viewing', [ConversationTypingController::class, 'viewHeartbeat'])->middleware('throttle:30,1');
         Route::post('conversations/{conversation}/ai-draft', ConversationAiDraftController::class)->middleware('throttle:20,1');
         Route::post('conversations/{conversation}/reply', ConversationReplyController::class)->middleware('throttle:20,1');
         Route::post('conversations/{conversation}/attachments', ConversationAttachmentController::class)->middleware('throttle:20,1');

@@ -69,6 +69,11 @@ export function sendTypingHeartbeat(tenant: string, conversationId: number): Pro
     return apiRequest(`/api/conversations/${conversationId}/typing`, { method: 'POST', tenant });
 }
 
+/** "I have this conversation open" presence — see ConversationTypingController::viewHeartbeat(); distinct from the composer-keystroke typing heartbeat above. */
+export function sendViewingHeartbeat(tenant: string, conversationId: number): Promise<{ ok: boolean }> {
+    return apiRequest(`/api/conversations/${conversationId}/viewing`, { method: 'POST', tenant });
+}
+
 export function getTypers(tenant: string, conversationId: number): Promise<{ typers: Typer[]; ai_generating: boolean }> {
     return apiRequest(`/api/conversations/${conversationId}/typing`, { tenant });
 }

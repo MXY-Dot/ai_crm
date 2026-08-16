@@ -11,8 +11,11 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Chatwoot\ChatwootClient;
+use App\Support\Integrations\PlatformSettings;
+use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\TelegramClient;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class AiWorkflow
@@ -23,16 +26,40 @@ class AiWorkflow
         private readonly LlmClient $llm,
         private readonly ChatwootClient $chatwoot,
         private readonly TelegramClient $telegram,
+        private readonly TenantIntegrationSettings $secrets,
+        private readonly PlatformSettings $platform,
     ) {
     }
 
     public function process(Tenant $tenant, Company $company, Conversation $conversation, Lead $lead, Message $message): array
     {
-        $conversation->loadMissing('channel');
-        $isFirstMessage = $conversation->wasRecentlyCreated;
-        $agent = $this->agent($tenant, $company, $conversation->channel?->provider);
+        $conversation->loadMissing('channel', 'customer');
+        $provider = $conversation->channel?->provider;
+
+        // Phone number is mandatory on Telegram/website before any real AI answer —
+        // every customer message lands here until they give one; each just re-sends
+        // the ask instead of answering. Not spammy in practice: ProcessAiReplyJob's
+        // own "supersededBy" debounce already collapses a burst of ignored messages
+        // down to one job run, so this fires once per burst, not once per message.
+        if (in_array($provider, ['telegram', 'website'], true) && ! $conversation->customer?->phone) {
+            $this->sendSystemMessage($tenant, $conversation, $provider, self::PHONE_REQUEST_TEXT, requestPhone: true);
+
+            return ['agent' => null, 'run' => null, 'task' => null, 'draft_message' => null];
+        }
+
+        // NOT $conversation->wasRecentlyCreated — that Eloquent flag lives only on the
+        // model instance that ran the insert, and this always runs from
+        // ProcessAiReplyJob, which re-fetches the conversation via find() in a
+        // separate process; it would silently be false here every time. Derived from
+        // real DB state instead: true iff no earlier customer message exists.
+        $isFirstMessage = ! Message::withoutGlobalScopes()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', 'customer')
+            ->where('id', '<', $message->id)
+            ->exists();
+        $agent = $this->agent($tenant, $company, $provider);
         if ($isFirstMessage) {
-            $this->requestContact($tenant, $conversation);
+            $this->greetCustomer($tenant, $conversation);
         }
         $this->showTyping($tenant, $conversation, true);
         [$decision, $engine, $usage] = $this->decision($agent, $company, $conversation, $message, $lead, $isFirstMessage);
@@ -91,6 +118,11 @@ class AiWorkflow
                 'status' => 'active',
                 'handoff_threshold' => 70,
                 'instructions' => 'Classify intent, summarize the latest customer message, draft a helpful reply, and decide whether an operator handoff is needed.',
+                // A brand-new tenant (or one whose only agent got deleted) gets a
+                // working model with zero setup — same reasoning as
+                // AiAgentController::store()'s default, mirrored here since this
+                // fallback bypasses that controller entirely.
+                'model' => $this->platform->defaultModel(),
                 'channels' => [],
                 'settings' => ['mode' => config('services.dify.api_key') ? 'dify' : 'local-mvp'],
             ]
@@ -301,40 +333,73 @@ class AiWorkflow
         ]);
     }
 
+    private const DEFAULT_GREETING = 'Здравствуйте! Рады видеть вас снова 👋 Чем можем помочь?';
+
+    private const PHONE_REQUEST_TEXT = 'Поделитесь, пожалуйста, номером телефона, чтобы мы могли связаться с вами по записи 📱';
+
     /**
-     * On a customer's very first message in a brand-new conversation, ask Telegram to
-     * share their phone number via the native "request contact" reply-keyboard button
-     * — so leads land in the CRM with a real phone number instead of just a Telegram
-     * username. Tapping it sends a message back with a `contact` payload, handled by
-     * TelegramWebhookController/ChatwootWebhookHandler::customer() (already reads
-     * `sender.phone_number` and updates the existing customer). Best-effort: never
-     * blocks the actual AI reply if Telegram rejects this or the token is missing.
+     * On a customer's very first message, once we already know their phone (either
+     * this call only happens after process()'s mandatory-phone gate has already
+     * passed, or — same method, same result — they were already a known customer
+     * from a past conversation, see ChatwootWebhookHandler::customer()'s phone/
+     * email/name matching): send a plain welcome-back greeting. Telegram-only
+     * before this; now also covers 'website' widget conversations.
      */
-    private function requestContact(Tenant $tenant, Conversation $conversation): void
+    private function greetCustomer(Tenant $tenant, Conversation $conversation): void
     {
-        if ($conversation->channel?->provider !== 'telegram' || ! $conversation->external_id) {
+        $provider = $conversation->channel?->provider;
+
+        if (! in_array($provider, ['telegram', 'website'], true) || ! $conversation->external_id) {
             return;
         }
 
-        $conversation->loadMissing('customer');
+        $greeting = trim((string) Arr::get($conversation->channel?->settings ?? [], 'welcome_message')) ?: self::DEFAULT_GREETING;
+        $this->sendSystemMessage($tenant, $conversation, $provider, $greeting);
+    }
 
-        if ($conversation->customer?->phone) {
-            return;
+    /**
+     * Sends a message that isn't a reply to anything the customer said — a proactive
+     * greeting or phone nudge — through the channel's native API (Telegram) or, for
+     * the widget (which has no such API; the "channel" is the CRM itself), straight
+     * into the Message table so the widget's own poll picks it up. Persisted as a
+     * real Message row either way so it's visible in the CRM transcript, not just
+     * sent out silently (Telegram's old requestContact() never did this — the ask
+     * only ever showed up in the customer's Telegram app, not here).
+     */
+    private function sendSystemMessage(Tenant $tenant, Conversation $conversation, string $provider, string $body, bool $requestPhone = false): void
+    {
+        $externalId = 'widget-system-'.$conversation->id.'-'.Str::random(8);
+
+        if ($provider === 'telegram') {
+            $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
+
+            try {
+                $payload = $this->telegram->sendMessage(
+                    $tenant,
+                    $chatId,
+                    $body,
+                    replyMarkup: $requestPhone ? [
+                        'keyboard' => [[['text' => '📱 Поделиться номером', 'request_contact' => true]]],
+                        'resize_keyboard' => true,
+                        'one_time_keyboard' => true,
+                    ] : null,
+                );
+            } catch (RuntimeException) {
+                return;
+            }
+
+            $externalId = 'telegram-'.$chatId.'-'.Arr::get($payload, 'result.message_id');
         }
 
-        try {
-            $this->telegram->sendMessage(
-                $tenant,
-                str_replace('telegram-', '', (string) $conversation->external_id),
-                'Поделитесь, пожалуйста, номером телефона, чтобы мы могли связаться с вами по записи 👇',
-                replyMarkup: [
-                    'keyboard' => [[['text' => '📱 Поделиться номером', 'request_contact' => true]]],
-                    'resize_keyboard' => true,
-                    'one_time_keyboard' => true,
-                ],
-            );
-        } catch (RuntimeException) {
-        }
+        Message::withoutGlobalScopes()->create([
+            'tenant_id' => $tenant->id,
+            'conversation_id' => $conversation->id,
+            'sender_type' => 'ai',
+            'body' => $body,
+            'external_id' => $externalId,
+            'sent_at' => now(),
+            'meta' => ['system' => true, 'request_phone' => $requestPhone],
+        ]);
     }
 
     private function showTyping(Tenant $tenant, Conversation $conversation, bool $typing): void
@@ -344,7 +409,9 @@ class AiWorkflow
         }
 
         try {
-            if (in_array($conversation->channel?->provider, ['chatwoot', 'website'], true)) {
+            // 'website' deliberately excluded — a widget conversation has no external
+            // platform to show a typing indicator on (see autoReply()'s matching branch).
+            if ($conversation->channel?->provider === 'chatwoot') {
                 $this->chatwoot->toggleTyping($tenant, (string) $conversation->external_id, $typing);
             }
 
@@ -359,11 +426,13 @@ class AiWorkflow
      * Single switch for every channel — the per-Telegram override that used to live
      * on the Integrations card was removed (it was a second, confusing place to
      * control the same thing as the "Автоответ AI" toggle in the Chat header); this
-     * is now the only place auto-reply is turned on or off.
+     * is now the only place auto-reply is turned on or off. The 3-state distinction
+     * (off/priority/always) only matters for ProcessAiReplyJob's active-viewer gate —
+     * here we only care whether it's off at all.
      */
     private function autoReplyEnabled(Tenant $tenant): bool
     {
-        return (bool) Arr::get($tenant->settings ?? [], 'integrations.chatwoot.auto_reply_enabled', false);
+        return $this->secrets->autoReplyMode($tenant) !== 'off';
     }
 
     private function autoReply(Tenant $tenant, Conversation $conversation, ?Message $draft): void
@@ -372,11 +441,23 @@ class AiWorkflow
             return;
         }
 
-        if (! in_array($conversation->channel?->provider, ['chatwoot', 'website', 'telegram'], true)) {
+        $provider = $conversation->channel?->provider;
+
+        if (! in_array($provider, ['chatwoot', 'website', 'telegram'], true)) {
             return;
         }
 
-        $isTelegram = $conversation->channel?->provider === 'telegram';
+        // A widget conversation has no external platform to push to — the message
+        // row (already created as $draft) is delivered to the browser purely by the
+        // widget polling WidgetController::index(), so "sending" here is a no-op;
+        // just mark the draft as delivered like every other successful branch below.
+        if ($provider === 'website') {
+            $draft->forceFill(['meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true]])->save();
+
+            return;
+        }
+
+        $isTelegram = $provider === 'telegram';
         $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
 
         try {

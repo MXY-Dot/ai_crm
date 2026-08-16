@@ -307,21 +307,6 @@ function findFirstUnhandledAnchor(
   return null
 }
 
-function hasMultipleAnchorsFrom(
-  elements: HTMLElement[],
-  startIndex: number,
-): boolean {
-  let count = 0
-  for (let i = startIndex; i < elements.length; i++) {
-    if (elements[i]?.dataset.scrollAnchor === 'true') {
-      count += 1
-      if (count > 1)
-        return true
-    }
-  }
-  return false
-}
-
 function findLastAnchor(elements: HTMLElement[]): HTMLElement | null {
   for (let i = elements.length - 1; i >= 0; i--) {
     const element = elements[i]
@@ -736,11 +721,13 @@ function createEngine(props: MessageScrollerProviderProps) {
     if (children.length > previousCount) {
       const anchor = findFirstAnchorFrom(children, previousCount)
       if (anchor) {
-        if (
-          autoScroll()
-          && mode === 'following-bottom'
-          && hasMultipleAnchorsFrom(children, previousCount)
-        ) {
+        // The align:'start'+peek positioning below is meant for a turn that grows
+        // in place (token-by-token streaming) — anchoring to where it *started*
+        // instead of chasing a moving bottom. This app never streams; every new
+        // message (customer, operator, AI) always arrives as one complete row, so
+        // while following the bottom, a single new anchor should land exactly like
+        // a burst of several would: fully at the true end, not a peek short of it.
+        if (autoScroll() && mode === 'following-bottom') {
           scrollToEnd({ behavior: 'auto' })
           return
         }

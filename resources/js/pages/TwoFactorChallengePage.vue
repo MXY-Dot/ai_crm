@@ -1,24 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { ShieldCheck } from '@lucide/vue';
 import { authPost } from '@/lib/authClient';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from '@/components/ui/input-otp';
+import { REGEXP_ONLY_DIGITS, REGEXP_ONLY_DIGITS_AND_CHARS } from 'vue-input-otp';
 
-const code = ref('');
+// Recovery codes (see TwoFactorController) are `XXXX-XXXX` — two 4-character
+// groups, letters+digits, joined by a literal dash that isn't part of the
+// typed value itself. Same InputOTP widget as the authenticator code below,
+// just a different pattern (letters allowed, not digits-only) and the dash
+// re-inserted before submit — TwoFactorChallengeController compares against
+// the stored `XXXX-XXXX` string exactly.
+const usingRecoveryCode = ref(false);
+const otpCode = ref('');
+const recoveryCode = ref('');
 const error = ref('');
 const processing = ref(false);
 
+watch(usingRecoveryCode, () => {
+    error.value = '';
+});
+
 async function submit(): Promise<void> {
-    if (processing.value || ! code.value.trim()) return;
+    const code = usingRecoveryCode.value
+        ? `${recoveryCode.value.slice(0, 4)}-${recoveryCode.value.slice(4, 8)}`.toUpperCase()
+        : otpCode.value.trim();
+    const codeReady = usingRecoveryCode.value ? recoveryCode.value.length === 8 : code.length === 6;
+    if (processing.value || ! codeReady) return;
 
     processing.value = true;
     error.value = '';
 
     try {
-        await authPost('/two-factor-challenge', { code: code.value.trim() });
+        await authPost('/two-factor-challenge', { code });
         router.visit('/app');
     } catch (caught) {
         error.value = caught instanceof Error && 'errors' in caught
@@ -36,27 +52,46 @@ async function submit(): Promise<void> {
             <div class="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-primary/30 blur-3xl" />
             <div class="absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
         </div>
-        <Card class="relative w-full max-w-sm border-white/10 bg-zinc-900/70 shadow-2xl shadow-black/40 backdrop-blur-xl" title="Двухфакторная аутентификация" subtitle="Введите код из приложения-аутентификатора или резервный код.">
+        <Card class="relative w-full max-w-sm border-white/10 bg-zinc-900/70 shadow-2xl shadow-black/40 backdrop-blur-xl" title="Двухфакторная аутентификация" :subtitle="usingRecoveryCode ? 'Введите один из резервных кодов, выданных при подключении 2FA.' : 'Введите код из приложения-аутентификатора.'">
             <form class="space-y-4" @submit.prevent="submit">
-                <label class="block">
-                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Код подтверждения</span>
-                    <div class="relative">
-                        <ShieldCheck class="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 ui-subtle" />
-                        <Input
-                            v-model="code"
-                            class="h-11 pl-9 lg:pl-9 text-center font-mono tracking-widest"
-                            inputmode="numeric"
-                            autocomplete="one-time-code"
-                            placeholder="000000"
-                            autofocus
-                            required
-                        />
-                    </div>
+                <div v-if="! usingRecoveryCode" class="flex flex-col items-center gap-1">
+                    <InputOTP v-model="otpCode" :maxlength="6" :pattern="REGEXP_ONLY_DIGITS" autofocus @complete="submit">
+                        <InputOTPGroup>
+                            <InputOTPSlot :index="0" />
+                            <InputOTPSlot :index="1" />
+                            <InputOTPSlot :index="2" />
+                            <InputOTPSlot :index="3" />
+                            <InputOTPSlot :index="4" />
+                            <InputOTPSlot :index="5" />
+                        </InputOTPGroup>
+                    </InputOTP>
                     <span v-if="error" class="mt-1 block text-xs text-destructive">{{ error }}</span>
-                </label>
+                </div>
+
+                <div v-else class="flex flex-col items-center gap-1">
+                    <InputOTP v-model="recoveryCode" :maxlength="8" :pattern="REGEXP_ONLY_DIGITS_AND_CHARS" class="uppercase" autofocus @complete="submit">
+                        <InputOTPGroup>
+                            <InputOTPSlot :index="0" />
+                            <InputOTPSlot :index="1" />
+                            <InputOTPSlot :index="2" />
+                            <InputOTPSlot :index="3" />
+                        </InputOTPGroup>
+                        <InputOTPSeparator />
+                        <InputOTPGroup>
+                            <InputOTPSlot :index="4" />
+                            <InputOTPSlot :index="5" />
+                            <InputOTPSlot :index="6" />
+                            <InputOTPSlot :index="7" />
+                        </InputOTPGroup>
+                    </InputOTP>
+                    <span v-if="error" class="mt-1 block text-xs text-destructive">{{ error }}</span>
+                </div>
+
                 <Button class="w-full" variant="primary" type="submit" :disabled="processing">{{ processing ? 'Проверяем...' : 'Подтвердить' }}</Button>
             </form>
-            <p class="mt-4 text-center text-xs ui-subtle">Нет доступа к приложению? Используйте один из резервных кодов, выданных при подключении 2FA.</p>
+            <button type="button" class="mt-4 block w-full text-center text-xs text-primary hover:underline" @click="usingRecoveryCode = ! usingRecoveryCode">
+                {{ usingRecoveryCode ? 'Ввести код из приложения-аутентификатора' : 'Нет доступа к приложению? Использовать резервный код' }}
+            </button>
         </Card>
     </main>
 </template>

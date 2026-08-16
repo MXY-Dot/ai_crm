@@ -7,6 +7,7 @@ use App\Models\AiAgent;
 use App\Models\Company;
 use App\Models\Tenant;
 use App\Support\Audit\AuditLogger;
+use App\Support\Integrations\PlatformSettings;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ use Illuminate\Validation\Rule;
 
 class AiAgentController extends Controller
 {
-    public function store(Request $request, TenantContext $context, AuditLogger $audit): JsonResponse
+    public function store(Request $request, TenantContext $context, AuditLogger $audit, PlatformSettings $platform): JsonResponse
     {
         $tenant = Tenant::query()->findOrFail($context->id());
         Gate::authorize('update', $tenant);
@@ -31,6 +32,11 @@ class AiAgentController extends Controller
             'channels' => ['sometimes', 'array'],
             'channels.*' => [Rule::in(['telegram', 'whatsapp', 'instagram', 'website'])],
         ]);
+
+        // A brand-new agent with no model picked used to sit silently answering with
+        // the dumb keyword-matching fallback forever — new tenants shouldn't have to
+        // know a model even needs picking for AI to actually work.
+        $data['model'] = $data['model'] ?: $platform->defaultModel();
 
         $agent = AiAgent::query()->create($data + [
             'company_id' => $company->id,

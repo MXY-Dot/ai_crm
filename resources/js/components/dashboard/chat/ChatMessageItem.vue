@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import { BotIcon, CopyIcon, FileTextIcon, MoreHorizontalIcon, PencilIcon, ReplyIcon, RotateCcwIcon, Trash2Icon, XIcon } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
@@ -15,11 +15,23 @@ import { Input } from '@/components/ui/input';
 import { Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader } from '@/components/ui/message';
 import { Spinner } from '@/components/ui/spinner';
 import ImageLightbox from './ImageLightbox.vue';
+import VideoPlayer from './VideoPlayer.vue';
 import VoicePlayer from './VoicePlayer.vue';
 
 const props = defineProps<{ message: ChatMessage; showHeader: boolean; showAvatar: boolean }>();
 const chat = useChatStore();
-const { scrollToMessage } = useMessageScroller();
+const { scrollToEnd, scrollToMessage } = useMessageScroller();
+
+// A newly-mounted bubble with status 'sending' is always this operator's own
+// just-sent optimistic message (see chat.ts sendMessage()) — always snap to the
+// bottom for it, regardless of where the thread was scrolled to. The scroller's
+// own auto-scroll only follows the bottom if the reader was already there; this
+// is the "I just took an action, always show me what I sent" case on top of that.
+onMounted(() => {
+    if (props.message.sender_type === 'operator' && props.message.status === 'sending') {
+        nextTick(() => scrollToEnd());
+    }
+});
 
 const isMine = computed(() => props.message.sender_type === 'operator');
 const isAi = computed(() => props.message.sender_type === 'ai');
@@ -29,7 +41,7 @@ const attachment = computed(() => props.message.meta?.attachment ?? null);
 
 const bodyIsAttachmentPlaceholder = computed(() => {
     if (! attachment.value) return false;
-    return /^(📷|🎤|📎)/.test(props.message.body);
+    return /^(📷|🎤|🎥|📎)/.test(props.message.body);
 });
 
 const bubbleVariant = computed(() => {
@@ -157,6 +169,8 @@ function formatTime(value: string | null): string {
                             <div v-else-if="attachment?.type === 'voice'" class="mt-1 w-56 max-w-full rounded-lg p-1.5">
                                 <VoicePlayer :src="attachment.url" />
                             </div>
+
+                            <VideoPlayer v-else-if="attachment?.type === 'video'" :src="attachment.url" />
                         </template>
                     </BubbleContent>
                 </Bubble>

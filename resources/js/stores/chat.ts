@@ -5,6 +5,7 @@ import * as chatApi from '../lib/chat/api';
 import { createChatRealtimeTransport, type ChatRealtimeTransport } from '../lib/chat/realtime';
 import type { ChatConversation, ChatMessage, PendingAttachment, Typer } from '../lib/chat/types';
 import { useCrmDashboardStore } from './crmDashboard';
+import { useUnreadStore } from './unread';
 
 /**
  * Chat business logic, isolated from both the UI (resources/js/components/dashboard/chat/*)
@@ -16,6 +17,7 @@ import { useCrmDashboardStore } from './crmDashboard';
  */
 export const useChatStore = defineStore('chat', () => {
     const dashboard = useCrmDashboardStore();
+    const unread = useUnreadStore();
     const tenantSlug = (): string | null => dashboard.tenant?.slug ?? null;
     const tenantId = (): number | null => dashboard.tenant?.id ?? null;
 
@@ -43,7 +45,29 @@ export const useChatStore = defineStore('chat', () => {
 
     let realtime: ChatRealtimeTransport | null = null;
     let conversationsPollTimer: number | null = null;
+    let viewHeartbeatTimer: number | null = null;
     const lastTypingSentAt: Record<number, number> = {};
+
+    /**
+     * "I have this conversation open" presence, distinct from sendTyping() below —
+     * fires on its own timer just from the conversation being open, not tied to
+     * composer keystrokes. The backend (ProcessAiReplyJob) uses this to hold the AI
+     * back while an operator is already there with the customer.
+     */
+    function startViewHeartbeat(conversationId: number): void {
+        stopViewHeartbeat();
+        const tenant = tenantSlug();
+        if (! tenant) return;
+
+        const send = (): void => { chatApi.sendViewingHeartbeat(tenant, conversationId).catch(() => {}); };
+        send();
+        viewHeartbeatTimer = window.setInterval(() => { if (! document.hidden) send(); }, 8000);
+    }
+
+    function stopViewHeartbeat(): void {
+        if (viewHeartbeatTimer !== null) window.clearInterval(viewHeartbeatTimer);
+        viewHeartbeatTimer = null;
+    }
 
     function ensureRealtime(): ChatRealtimeTransport {
         if (! realtime) {
@@ -72,6 +96,7 @@ export const useChatStore = defineStore('chat', () => {
         realtime?.stop();
         if (conversationsPollTimer !== null) window.clearInterval(conversationsPollTimer);
         conversationsPollTimer = null;
+        stopViewHeartbeat();
     }
 
     async function loadConversations(opts: { page?: number; silent?: boolean } = {}): Promise<void> {
@@ -107,16 +132,25 @@ export const useChatStore = defineStore('chat', () => {
 
         if (! messagesByConversation[conversationId]) {
             await loadMessages(conversationId);
+        } else {
+            // This conversation was open earlier in the session but wasn't the active/
+            // watched one in between — the WebSocket only pushes into the currently-active
+            // conversation's list (see realtime.ts), so anything sent while we were looking
+            // elsewhere never landed here even though the sidebar badge already knows about
+            // it. Catch up on whatever was missed before showing this thread again.
+            await catchUpMessages(conversationId);
         }
 
         const lastId = messagesByConversation[conversationId]?.at(-1)?.id ?? 0;
         ensureRealtime().watchConversation(conversationId, lastId);
+        startViewHeartbeat(conversationId);
 
         markRead(conversationId);
     }
 
     function unselectConversation(): void {
         if (activeConversationId.value !== null) realtime?.unwatchConversation(activeConversationId.value);
+        stopViewHeartbeat();
         activeConversationId.value = null;
         replyTarget.value = null;
     }
@@ -134,6 +168,23 @@ export const useChatStore = defineStore('chat', () => {
             toast.error(error instanceof Error ? error.message : 'Не удалось загрузить сообщения');
         } finally {
             messagesLoading[conversationId] = false;
+        }
+    }
+
+    /** Fetches anything sent after our last known message for this conversation and merges it in — see selectConversation()'s comment for why this is needed. */
+    async function catchUpMessages(conversationId: number): Promise<void> {
+        const tenant = tenantSlug();
+        const list = messagesByConversation[conversationId];
+        if (! tenant || ! list) return;
+
+        const lastId = list.at(-1)?.id ?? 0;
+        try {
+            const page = await chatApi.getMessages(tenant, conversationId, { after: lastId });
+            for (const message of page.data) {
+                if (! list.some((m) => m.id === message.id)) list.push(message);
+            }
+        } catch {
+            // Best-effort — the next reselect (or the realtime channel, once watching again) retries.
         }
     }
 
@@ -256,7 +307,18 @@ export const useChatStore = defineStore('chat', () => {
         const index = list.findIndex((m) => m.clientId === clientId);
         if (index === -1) return;
 
-        list.splice(index, 1, { ...real, status: 'sent' });
+        // The realtime WebSocket push for this exact message (see applyIncomingMessage)
+        // can land before this HTTP response does — it doesn't recognize the optimistic
+        // entry (different, negative id) and appends it as a second row. If that already
+        // happened, just drop the optimistic placeholder instead of splicing in a duplicate.
+        const alreadyDeliveredViaRealtime = list.some((m) => m.id === real.id && m.clientId !== clientId);
+
+        if (alreadyDeliveredViaRealtime) {
+            list.splice(index, 1);
+        } else {
+            list.splice(index, 1, { ...real, status: 'sent' });
+        }
+
         ensureRealtime().setLastSeenMessageId(conversationId, real.id);
     }
 
@@ -383,11 +445,19 @@ export const useChatStore = defineStore('chat', () => {
         const conversation = conversations.value.find((c) => c.id === conversationId);
         if (! tenant || ! conversation || conversation.unread_count === 0) return;
 
+        const cleared = conversation.unread_count;
         conversation.unread_count = 0;
+        // Drop the sidebar/notification-bell badge (Чаты icon + bell) the instant this
+        // conversation is read, not on its next ~20s poll — the poll still runs after,
+        // as a background reconciliation in case this optimistic subtraction drifted.
+        unread.total = Math.max(0, unread.total - cleared);
+
         try {
             await chatApi.markConversationRead(tenant, conversationId);
         } catch {
             // Non-critical — the next conversations poll will re-sync the real count.
+        } finally {
+            unread.refresh();
         }
     }
 

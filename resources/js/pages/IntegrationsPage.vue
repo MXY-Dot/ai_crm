@@ -6,6 +6,7 @@ import { Globe2 } from '@lucide/vue';
 import ChannelCard from '../components/dashboard/channels/ChannelCard.vue';
 import ChatwootRoutedChannelInfo from '../components/dashboard/channels/ChatwootRoutedChannelInfo.vue';
 import TelegramChannelSettings from '../components/dashboard/channels/TelegramChannelSettings.vue';
+import WidgetChannelSettings from '../components/dashboard/channels/WidgetChannelSettings.vue';
 import InstagramIcon from '../components/icons/InstagramIcon.vue';
 import TelegramIcon from '../components/icons/TelegramIcon.vue';
 import WhatsappIcon from '../components/icons/WhatsappIcon.vue';
@@ -53,10 +54,7 @@ defineOptions({ layout: AppLayout });
             </ChannelCard>
 
             <ChannelCard :icon="Globe2" name="Виджет на сайт" brand="blue" :status="websiteChannel?.status" :last-synced-at="websiteChannel?.last_synced_at">
-                <ChatwootRoutedChannelInfo
-                    :chatwoot="integrationSettings?.chatwoot ?? null"
-                    description="Чат-виджет тоже маршрутизируется через единый инбокс. Используйте тот же вебхук при подключении виджета."
-                />
+                <WidgetChannelSettings />
             </ChannelCard>
         </div>
     </section>

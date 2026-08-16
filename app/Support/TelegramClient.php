@@ -188,6 +188,54 @@ class TelegramClient
         return Arr::get($json, 'result', []);
     }
 
+    /**
+     * Resolves a Telegram `file_id` (from an incoming photo/document/voice/video message)
+     * to the actual file bytes, in two hops as Telegram's API requires: `getFile` first
+     * resolves the `file_id` to a short-lived `file_path`, then the file itself is fetched
+     * from a *different* host (`api.telegram.org/file/...`, not `/bot.../...`). Telegram
+     * caps bot file downloads at 20MB — same limit `ConversationAttachmentController`
+     * already enforces for operator-uploaded attachments, so no separate check is needed
+     * here beyond trusting Telegram's own cap.
+     */
+    public function downloadFile(Tenant $tenant, string $fileId): string
+    {
+        $token = $this->settings->telegramBotToken($tenant);
+
+        if ($token === '') {
+            throw new RuntimeException('Telegram bot token is required.');
+        }
+
+        try {
+            $response = $this->http()->get('https://api.telegram.org/bot'.$token.'/getFile', ['file_id' => $fileId]);
+        } catch (Throwable $error) {
+            throw new RuntimeException('Telegram request failed: '.$error->getMessage(), previous: $error);
+        }
+
+        $json = $response->json();
+
+        if (! $response->successful() || ! Arr::get($json, 'ok', false)) {
+            throw new RuntimeException('Telegram rejected getFile: '.Arr::get($json, 'description', 'HTTP '.$response->status()));
+        }
+
+        $filePath = Arr::get($json, 'result.file_path');
+
+        if (! $filePath) {
+            throw new RuntimeException('Telegram did not return a file_path.');
+        }
+
+        try {
+            $fileResponse = $this->http()->get('https://api.telegram.org/file/bot'.$token.'/'.$filePath);
+        } catch (Throwable $error) {
+            throw new RuntimeException('Telegram file download failed: '.$error->getMessage(), previous: $error);
+        }
+
+        if (! $fileResponse->successful()) {
+            throw new RuntimeException('Telegram file download returned HTTP '.$fileResponse->status().'.');
+        }
+
+        return $fileResponse->body();
+    }
+
     public function setWebhook(Tenant $tenant, string $url, string $secret): array
     {
         $token = $this->settings->telegramBotToken($tenant);

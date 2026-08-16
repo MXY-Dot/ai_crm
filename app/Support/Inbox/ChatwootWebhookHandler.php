@@ -208,6 +208,12 @@ class ChatwootWebhookHandler
                 ->where('external_id', $replyToExternalId)
                 ->value('id')
             : null;
+        $attachment = Arr::get($payload, 'message.attachment');
+        $meta = ['event' => $this->string($payload, ['event'], 'message_created')];
+
+        if ($attachment) {
+            $meta['attachment'] = $attachment;
+        }
 
         return Message::withoutGlobalScopes()->updateOrCreate(
             ['tenant_id' => $tenant->id, 'conversation_id' => $conversation->id, 'external_id' => $externalId],
@@ -217,7 +223,7 @@ class ChatwootWebhookHandler
                 'body' => $body,
                 'reply_to_message_id' => $replyToMessageId,
                 'sent_at' => now(),
-                'meta' => ['event' => $this->string($payload, ['event'], 'message_created')],
+                'meta' => $meta,
             ]
         );
     }

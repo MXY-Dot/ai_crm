@@ -60,7 +60,7 @@ export type Conversation = {
 export type MessageAttachment = {
     url: string;
     path: string;
-    type: 'photo' | 'voice' | 'document';
+    type: 'photo' | 'voice' | 'document' | 'video';
     filename?: string | null;
     mime?: string | null;
 };
@@ -176,7 +176,7 @@ export type IntegrationSettings = {
         webhook_secret_configured: boolean;
         webhook_secret_mask: string | null;
         webhook_url: string;
-        auto_reply_enabled: boolean;
+        auto_reply_mode: 'off' | 'priority' | 'always';
     };
     telegram?: {
         bot_token_configured: boolean;
@@ -207,7 +207,7 @@ export type IntegrationSettingsPayload = {
         account_id?: number | null;
         api_token?: string;
         webhook_secret?: string;
-        auto_reply_enabled?: boolean;
+        auto_reply_mode?: 'off' | 'priority' | 'always';
     };
     telegram?: {
         bot_token?: string;
@@ -223,7 +223,7 @@ export type IntegrationSettingsForm = {
     chatwootAccountId: number | null;
     chatwootApiToken: string;
     chatwootSecret: string;
-    chatwootAutoReply: boolean;
+    chatwootAutoReplyMode: 'off' | 'priority' | 'always';
     telegramBotToken: string;
     telegramSecret: string;
     telegramAutoReply: boolean;
@@ -240,7 +240,7 @@ export function buildIntegrationSettingsPayload(form: IntegrationSettingsForm): 
             account_id: form.chatwootAccountId || null,
             api_token: form.chatwootApiToken || undefined,
             webhook_secret: form.chatwootSecret || undefined,
-            auto_reply_enabled: form.chatwootAutoReply,
+            auto_reply_mode: form.chatwootAutoReplyMode,
         },
         telegram: {
             bot_token: form.telegramBotToken || undefined,
@@ -249,6 +249,26 @@ export function buildIntegrationSettingsPayload(form: IntegrationSettingsForm): 
         },
     };
 }
+
+export type WidgetLauncherIcon = 'chat' | 'message' | 'help';
+
+export type WidgetSettings = {
+    site_key: string;
+    status: string;
+    welcome_message: string | null;
+    color: string;
+    position: 'right' | 'left';
+    launcher_icon: WidgetLauncherIcon;
+    embed_snippet: string;
+    last_synced_at: string | null;
+};
+
+export type WidgetSettingsForm = {
+    welcomeMessage: string;
+    color: string;
+    position: 'right' | 'left';
+    launcherIcon: WidgetLauncherIcon;
+};
 
 export type AiRun = {
     id: number;
@@ -341,6 +361,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const auditLogs = ref(boot.auditLogs ?? []);
     const tenantUsers = ref(boot.tenantUsers ?? []);
     const integrationSettings = ref<IntegrationSettings | null>(null);
+    const widgetSettings = ref<WidgetSettings | null>(null);
     const leadStatus = ref('all');
     const selectedConversationId = ref<number | null>(conversations.value[0]?.id ?? null);
     const selectedCustomerId = ref<number | null>(customers.value[0]?.id ?? null);
@@ -680,6 +701,36 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         });
     }
 
+    async function loadWidgetSettings(): Promise<void> {
+        widgetSettings.value = await apiRequest<WidgetSettings>('/api/widget-settings', {
+            tenant: tenantSlug.value,
+        });
+    }
+
+    async function updateWidgetSettings(form: WidgetSettingsForm): Promise<void> {
+        await mutate(async () => {
+            widgetSettings.value = await apiRequest<WidgetSettings>('/api/widget-settings', {
+                method: 'PATCH',
+                tenant: tenantSlug.value,
+                body: {
+                    welcome_message: form.welcomeMessage || null,
+                    color: form.color,
+                    position: form.position,
+                    launcher_icon: form.launcherIcon,
+                },
+            });
+        }, 'toast.settingsSaved');
+    }
+
+    async function regenerateWidgetKey(): Promise<void> {
+        await mutate(async () => {
+            widgetSettings.value = await apiRequest<WidgetSettings>('/api/widget-settings/regenerate-key', {
+                method: 'POST',
+                tenant: tenantSlug.value,
+            });
+        }, 'toast.settingsSaved');
+    }
+
     async function testIntegrationConnection(payload: IntegrationSettingsPayload & { provider: 'dify' | 'chatwoot' | 'telegram' }): Promise<IntegrationTestResult> {
         try {
             const result = await apiRequest<IntegrationTestResult>('/api/integration-settings/test', {
@@ -740,6 +791,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         auditLogs,
         tenantUsers,
         integrationSettings,
+        widgetSettings,
         leadStatus,
         selectedConversationId,
         selectedCustomerId,
@@ -787,5 +839,8 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         loadIntegrationSettings,
         testIntegrationConnection,
         updateIntegrationSettings,
+        loadWidgetSettings,
+        updateWidgetSettings,
+        regenerateWidgetKey,
     };
 });

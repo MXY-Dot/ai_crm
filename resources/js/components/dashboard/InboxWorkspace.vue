@@ -5,7 +5,6 @@ import { BotIcon } from '@lucide/vue';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useChatStore } from '../../stores/chat';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '../ui/drawer';
-import { Switch } from '../ui/switch';
 import AiDraftPanel from './inbox/AiDraftPanel.vue';
 import ConversationInfo from './inbox/ConversationInfo.vue';
 import ChatComposer from './chat/ChatComposer.vue';
@@ -22,7 +21,16 @@ const aiPanelOpen = ref(false);
 const composerRef = ref<InstanceType<typeof ChatComposer> | null>(null);
 
 const activeConversation = computed(() => chat.activeConversation);
-const autoReplyEnabled = computed(() => integrationSettings.value?.chatwoot.auto_reply_enabled ?? false);
+
+type AutoReplyMode = 'off' | 'priority' | 'always';
+const AUTO_REPLY_MODES: AutoReplyMode[] = ['off', 'priority', 'always'];
+const AUTO_REPLY_LABELS: Record<AutoReplyMode, string> = {
+    off: 'Автоответ AI выключен',
+    priority: 'Автоответ AI — приоритет у оператора',
+    always: 'Автоответ AI — всегда',
+};
+
+const autoReplyMode = computed<AutoReplyMode>(() => integrationSettings.value?.chatwoot.auto_reply_mode ?? 'off');
 
 // Sourced from the legacy tenant-wide bootstrap (same as before this rebuild) — AI-draft
 // generation is a separate feature from the chat rebuild, only kept wired up as-is here.
@@ -41,8 +49,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => chat.dispose());
 
-async function toggleAutoReply(enabled: boolean): Promise<void> {
-    await dashboard.updateIntegrationSettings({ chatwoot: { auto_reply_enabled: enabled } });
+async function cycleAutoReplyMode(): Promise<void> {
+    const nextIndex = (AUTO_REPLY_MODES.indexOf(autoReplyMode.value) + 1) % AUTO_REPLY_MODES.length;
+    await dashboard.updateIntegrationSettings({ chatwoot: { auto_reply_mode: AUTO_REPLY_MODES[nextIndex] } });
 }
 
 function useDraft(body: string): void {
@@ -78,10 +87,32 @@ function goBackToList(): void {
                 <ChatHeader @open-info="infoOpen = true" @open-sidebar="goBackToList" />
 
                 <div class="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
-                    <label class="inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium ui-text border-border">
-                        <Switch :model-value="autoReplyEnabled" :disabled="dashboard.busy" @update:model-value="toggleAutoReply" />
-                        Автоответ AI
-                    </label>
+                    <button
+                        type="button"
+                        class="inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium ui-text border-border transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="dashboard.busy"
+                        :title="AUTO_REPLY_LABELS[autoReplyMode]"
+                        @click="cycleAutoReplyMode"
+                    >
+                        <span
+                            class="relative inline-flex h-[18.4px] w-12 shrink-0 rounded-full border border-transparent transition-colors"
+                            :class="{
+                                'bg-input dark:bg-input/80': autoReplyMode === 'off',
+                                'bg-amber-500': autoReplyMode === 'priority',
+                                'bg-primary': autoReplyMode === 'always',
+                            }"
+                        >
+                            <span
+                                class="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-background shadow-sm transition-all"
+                                :class="{
+                                    'left-0.5': autoReplyMode === 'off',
+                                    'left-1/2 -translate-x-1/2': autoReplyMode === 'priority',
+                                    'right-0.5': autoReplyMode === 'always',
+                                }"
+                            />
+                        </span>
+                        <span class="whitespace-nowrap">{{ AUTO_REPLY_LABELS[autoReplyMode] }}</span>
+                    </button>
                     <button
                         type="button"
                         class="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition hover:bg-muted border-border"

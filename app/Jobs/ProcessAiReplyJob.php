@@ -9,6 +9,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Ai\AiWorkflow;
+use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,10 +41,11 @@ class ProcessAiReplyJob implements ShouldQueue
         private readonly int $conversationId,
         private readonly int $leadId,
         private readonly int $messageId,
+        private readonly int $waitedForMutex = 0,
     ) {
     }
 
-    public function handle(AiWorkflow $workflow): void
+    public function handle(AiWorkflow $workflow, TenantIntegrationSettings $settings): void
     {
         $tenant = Tenant::query()->find($this->tenantId);
         $company = Company::withoutGlobalScopes()->find($this->companyId);
@@ -77,7 +79,41 @@ class ProcessAiReplyJob implements ShouldQueue
             return;
         }
 
+        // An operator already has this conversation open right now — let them handle
+        // it. Checked here (right before generating) rather than earlier, so a message
+        // that arrived while nobody was looking still gets an AI reply as normal, and
+        // this only kicks in for the case that actually matters: staff is already
+        // present with the customer when the message lands. Skipped entirely in
+        // 'always' mode, where the AI replies no matter who's looking at the chat.
+        $autoReplyMode = $settings->autoReplyMode($tenant);
+
+        if ($autoReplyMode !== 'always' && ConversationTypingController::hasActiveViewer($conversation->id)) {
+            return;
+        }
+
         $cacheKey = ConversationTypingController::aiGeneratingCacheKey($conversation->id);
+
+        // The supersededBy check above only looks at messages that existed the
+        // instant THIS job started — it doesn't cover two messages sent close
+        // enough together (a few seconds apart, well within how fast a real
+        // person types a follow-up) that each dispatch+2s-delay lands in a gap
+        // where the other genuinely didn't exist yet. Real bug this fixes: two
+        // such messages both passed that check independently and each produced
+        // its own full reply — visible to the customer as two near-identical
+        // answers back to back. This second gate catches that: if a generation
+        // for this conversation is already in flight, don't start a competing
+        // one — wait for it to finish, since AiWorkflow::process()'s "recent
+        // messages" context will pick up this message anyway once it runs.
+        // Capped at 2 re-dispatches (~10s) so a stuck/slow generation can't
+        // loop forever; after that, proceeds anyway rather than dropping the
+        // message.
+        if (Cache::get($cacheKey) && $this->waitedForMutex < 2) {
+            static::dispatch($this->tenantId, $this->companyId, $this->conversationId, $this->leadId, $this->messageId, $this->waitedForMutex + 1)
+                ->delay(now()->addSeconds(5));
+
+            return;
+        }
+
         Cache::put($cacheKey, true, now()->addSeconds($this->timeout));
 
         try {

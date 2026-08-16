@@ -13,7 +13,9 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp';
 import { PhoneInput } from '../components/ui/phone-input';
+import { REGEXP_ONLY_DIGITS } from 'vue-input-otp';
 
 defineOptions({ layout: AppLayout });
 
@@ -194,10 +196,19 @@ const maskedSecret = computed(() => secretKey.value.replace(/(.{4})/g, '$1 ').tr
                 <p class="text-sm ui-subtle">{{ locale.t('profile.twoFactor.setupHint') }}</p>
                 <div v-if="qrSvg" class="flex justify-center rounded-lg border border-border bg-white p-3" v-html="qrSvg" />
                 <div v-if="secretKey" class="rounded-lg border p-2 text-center font-mono text-sm ui-text border-border">{{ maskedSecret }}</div>
-                <label class="block">
-                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('profile.twoFactor.codeLabel') }}</span>
-                    <Input v-model="confirmCode" class="text-center font-mono tracking-widest" placeholder="000000" inputmode="numeric" />
-                </label>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="mb-1 block self-start text-xs font-semibold uppercase ui-subtle">{{ locale.t('profile.twoFactor.codeLabel') }}</span>
+                    <InputOTP v-model="confirmCode" :maxlength="6" :pattern="REGEXP_ONLY_DIGITS" @complete="confirmTwoFactor">
+                        <InputOTPGroup>
+                            <InputOTPSlot :index="0" />
+                            <InputOTPSlot :index="1" />
+                            <InputOTPSlot :index="2" />
+                            <InputOTPSlot :index="3" />
+                            <InputOTPSlot :index="4" />
+                            <InputOTPSlot :index="5" />
+                        </InputOTPGroup>
+                    </InputOTP>
+                </div>
                 <DialogFooter>
                     <Button variant="primary" :disabled="twoFactorBusy || ! confirmCode.trim()" @click="confirmTwoFactor">{{ locale.t('profile.twoFactor.confirmEnable') }}</Button>
                 </DialogFooter>
