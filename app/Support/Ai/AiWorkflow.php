@@ -312,6 +312,14 @@ class AiWorkflow
             // conversation toward, without a separate LLM call — just a stronger
             // instruction on the same reply-generating request.
             $agent->goal ? 'Your goal for this conversation is to guide the customer toward: '.$agent->goal.'. Keep this in mind when deciding what to suggest next, without being pushy.' : '',
+            // ЭТАП 7.1/7.2 — Personality Engine + Tone Rules.
+            $agent->personaInstruction(),
+            // ЭТАП 7.3 — soft brand-voice nudge only when no explicit persona is set
+            // (a set persona already dictates tone; industry alone is too thin a
+            // signal to force a hard tone rule from).
+            ! $agent->persona && $agent->company?->industry
+                ? 'Calibrate your tone to fit a '.$agent->company->industry.' business, while staying professional.'
+                : '',
             // ЭТАП 9.6 — objection handling: acknowledge the concern, reframe the
             // value, then offer a concrete next step, instead of just answering
             // flatly or immediately deferring to an operator.
@@ -327,6 +335,9 @@ class AiWorkflow
             'Business profile:'."\n".$this->dify->businessProfile($agent),
             'Knowledge base:'."\n".$this->dify->knowledgeContext($agent),
             $isFirstMessage ? "This is the customer's first message in this conversation — begin your reply with a brief natural greeting stating the company name (and phone number if useful), then answer their question." : '',
+            // ЭТАП 7.5/7.6 — only needed once per conversation; recentMessages()
+            // already covers continuity within this same conversation.
+            $isFirstMessage ? $this->dify->customerMemory($conversation) : '',
             // ЭТАП 12.2's own example: a VIP customer gets a warmer, priority tone
             // instead of the generic "передано менеджеру" — the reason string is
             // the same one shown to staff in the VIP customers table.

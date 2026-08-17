@@ -4,6 +4,7 @@ namespace App\Support\Ai;
 
 use App\Models\AiAgent;
 use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\KnowledgeChunk;
 use App\Models\Lead;
 use App\Models\Message;
@@ -124,8 +125,17 @@ class DifyClient
             'Return a helpful customer-facing answer. If the customer asks about something outside the company rules, ask one short clarifying question or hand off to an operator.',
             $agent->model ? 'Preferred AI model for this agent: '.$agent->model.'. If your Dify app routes by model, use it; otherwise ignore this line.' : '',
             $agent->goal ? 'Your goal for this conversation is to guide the customer toward: '.$agent->goal.'. Keep this in mind without being pushy.' : '',
+            // ЭТАП 7.1/7.2 — Personality Engine + Tone Rules.
+            $agent->personaInstruction(),
+            // ЭТАП 7.3 — soft brand-voice nudge only when no explicit persona is set (a
+            // set persona already dictates tone; industry alone is too thin to force a rule from).
+            ! $agent->persona && $agent->company?->industry
+                ? 'Calibrate your tone to fit a '.$agent->company->industry.' business, while staying professional.'
+                : '',
             'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
             $isFirstMessage ? "This is the customer's first message in this conversation. Begin your reply with a brief, natural greeting that states the company name (and phone number if it helps the customer), then answer their question." : '',
+            // ЭТАП 7.5/7.6 — only needed once per conversation, recentMessages() already covers continuity within it.
+            $isFirstMessage ? $this->customerMemory($conversation) : '',
             'Agent instructions: '.$agent->instructions,
             'Lead: '.$lead->title,
             'Conversation: '.$conversation->subject,
@@ -259,6 +269,44 @@ class DifyClient
             ->pluck('content')
             ->map(fn (string $content): string => mb_strimwidth($content, 0, 500, '...'))
             ->implode("\n---\n");
+    }
+
+    /**
+     * ЭТАП 7.5/7.6 — closes the loop on Lead.ai_summary/Conversation.ai_summary,
+     * which were already written on every AI turn (see AiWorkflow::process())
+     * but never read back into a future prompt. Only the customer's most
+     * recent OTHER conversation matters here — recentMessages() already
+     * covers continuity within the current one. Returns '' for a genuinely
+     * new customer (no other conversation, no purchase history) so nothing
+     * gets added to the prompt for the common first-contact case.
+     */
+    public function customerMemory(Conversation $conversation): string
+    {
+        $customer = $conversation->customer ?? Customer::withoutGlobalScopes()->find($conversation->customer_id);
+
+        if (! $customer) {
+            return '';
+        }
+
+        $pastConversation = Conversation::withoutGlobalScopes()
+            ->where('customer_id', $customer->id)
+            ->where('id', '!=', $conversation->id)
+            ->whereNotNull('ai_summary')
+            ->latest('last_message_at')
+            ->first();
+
+        $lines = array_filter([
+            $pastConversation ? 'Summary from an earlier conversation with this customer: '.$pastConversation->ai_summary : '',
+            $customer->purchases_count > 0
+                ? sprintf('Purchase history: %d completed purchase(s), most recent on %s.', $customer->purchases_count, $customer->last_purchase_at?->format('Y-m-d') ?? 'unknown date')
+                : '',
+        ], fn (string $line): bool => trim($line) !== '');
+
+        if ($lines === []) {
+            return '';
+        }
+
+        return "What we already know about this returning customer from earlier contact:\n".implode("\n", $lines);
     }
 
     public function businessProfile(AiAgent $agent): string

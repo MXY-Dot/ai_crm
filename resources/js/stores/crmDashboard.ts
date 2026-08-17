@@ -86,6 +86,7 @@ export type AiAgent = {
     status: string;
     handoff_threshold: number;
     goal: string | null;
+    persona: string | null;
     instructions: string | null;
     channels: string[] | null;
 };
@@ -95,6 +96,7 @@ export type AiAgentPayload = {
     status?: 'active' | 'paused' | 'disabled';
     handoff_threshold?: number;
     goal?: string | null;
+    persona?: string | null;
     instructions?: string | null;
     model?: string | null;
     channels?: string[];

@@ -37,7 +37,15 @@ const GOAL_OPTIONS = [
     { value: 'support', label: 'Поддержка' },
 ];
 
-const form = reactive({ name: '', status: 'active' as 'active' | 'paused' | 'disabled', handoff_threshold: 70, goal: '', goalCustom: '', instructions: '', model: '', modelCustom: '' });
+const PERSONA_OPTIONS = [
+    { value: 'friendly', label: 'Дружелюбный' },
+    { value: 'professional', label: 'Профессиональный' },
+    { value: 'premium', label: 'Премиум' },
+    { value: 'sales', label: 'Продающий' },
+    { value: 'strict', label: 'Строгий' },
+];
+
+const form = reactive({ name: '', status: 'active' as 'active' | 'paused' | 'disabled', handoff_threshold: 70, goal: '', goalCustom: '', persona: '', personaCustom: '', instructions: '', model: '', modelCustom: '' });
 const selectedDocIds = ref<number[]>([]);
 const selectedChannels = ref<string[]>([]);
 
@@ -53,6 +61,14 @@ watch(() => props.agent, (agent) => {
     } else {
         form.goal = goal;
         form.goalCustom = '';
+    }
+    const persona = agent.persona ?? '';
+    if (persona && ! PERSONA_OPTIONS.some((option) => option.value === persona)) {
+        form.persona = '__custom__';
+        form.personaCustom = persona;
+    } else {
+        form.persona = persona;
+        form.personaCustom = '';
     }
     form.instructions = agent.instructions ?? '';
     const model = agent.model ?? '';
@@ -91,11 +107,13 @@ async function save(): Promise<void> {
     // that await would silently send the stale, already-wiped selection to syncAgentKnowledge.
     const documentIds = [...selectedDocIds.value];
     const goal = form.goal === '__custom__' ? form.goalCustom.trim() : form.goal;
+    const persona = form.persona === '__custom__' ? form.personaCustom.trim() : form.persona;
     await store.updateAiAgent(props.agent.id, {
         name: form.name.trim(),
         status: form.status,
         handoff_threshold: Number(form.handoff_threshold),
         goal: goal || null,
+        persona: persona || null,
         instructions: form.instructions.trim(),
         model: model || null,
         channels: selectedChannels.value,
@@ -156,6 +174,17 @@ async function save(): Promise<void> {
                                 <Input v-if="form.goal === '__custom__'" v-model="form.goalCustom" class="mt-2" placeholder="Например: собрать контакты для колл-центра" maxlength="60" />
                             </label>
                         </div>
+                        <label>
+                            <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Личность ассистента</span>
+                            <Select v-model="form.persona">
+                                <SelectTrigger class="w-full"><SelectValue placeholder="Без выраженной личности" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="option in PERSONA_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</SelectItem>
+                                    <SelectItem value="__custom__">Свой текст</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Input v-if="form.persona === '__custom__'" v-model="form.personaCustom" class="mt-2" placeholder="Например: спокойный и терпеливый, объясняет подробно" maxlength="30" />
+                        </label>
                     </div>
                 </div>
 

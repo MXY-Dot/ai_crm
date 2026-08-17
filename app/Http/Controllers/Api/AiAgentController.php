@@ -28,6 +28,7 @@ class AiAgentController extends Controller
             'status' => ['sometimes', Rule::in(['active', 'paused', 'disabled'])],
             'handoff_threshold' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'goal' => ['nullable', 'string', 'max:60'],
+            'persona' => ['nullable', 'string', 'max:30'],
             'instructions' => ['nullable', 'string', 'max:4000'],
             'model' => ['nullable', 'string', 'max:60'],
             'channels' => ['sometimes', 'array'],
@@ -47,7 +48,7 @@ class AiAgentController extends Controller
             'channels' => $data['channels'] ?? [],
         ]);
 
-        $audit->record('ai_agent.created', $agent, $agent->only(['name', 'status', 'handoff_threshold', 'goal', 'instructions', 'model', 'channels']), [], $request);
+        $audit->record('ai_agent.created', $agent, $agent->only(['name', 'status', 'handoff_threshold', 'goal', 'persona', 'instructions', 'model', 'channels']), [], $request);
 
         return response()->json($agent, 201);
     }
@@ -61,12 +62,13 @@ class AiAgentController extends Controller
             abort(404);
         }
 
-        $oldValues = $aiAgent->only(['name', 'status', 'handoff_threshold', 'goal', 'instructions', 'model', 'channels', 'settings']);
+        $oldValues = $aiAgent->only(['name', 'status', 'handoff_threshold', 'goal', 'persona', 'instructions', 'model', 'channels', 'settings']);
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
             'status' => ['sometimes', Rule::in(['active', 'paused', 'disabled'])],
             'handoff_threshold' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'goal' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'persona' => ['sometimes', 'nullable', 'string', 'max:30'],
             'instructions' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'model' => ['sometimes', 'nullable', 'string', 'max:60'],
             'channels' => ['sometimes', 'array'],
@@ -75,7 +77,7 @@ class AiAgentController extends Controller
         ]);
 
         $aiAgent->forceFill($data)->save();
-        $audit->record('ai_agent.updated', $aiAgent, $aiAgent->only(['name', 'status', 'handoff_threshold', 'goal', 'instructions', 'model', 'channels', 'settings']), $oldValues, $request);
+        $audit->record('ai_agent.updated', $aiAgent, $aiAgent->only(['name', 'status', 'handoff_threshold', 'goal', 'persona', 'instructions', 'model', 'channels', 'settings']), $oldValues, $request);
 
         return response()->json($aiAgent->refresh());
     }
