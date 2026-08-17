@@ -12,6 +12,7 @@ import AiAgentSettingsForm from './ai/AiAgentSettingsForm.vue';
 import AiHandoffCenter from './AiHandoffCenter.vue';
 import HelpAssistantPanel from './HelpAssistantPanel.vue';
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue';
+import LanguageExamplesCard from './ai/LanguageExamplesCard.vue';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
@@ -62,6 +63,9 @@ const tabs = computed(() => [
                 <AiAgentList :agents="aiAgents" :ai-runs="aiRuns" :selected-id="selectedAgentId" @select="selectedAgentId = $event" />
                 <AiAgentSettingsForm :agent="selectedAgent" :documents="agentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
                 <AiAgentActivityPanel :agent="selectedAgent" :ai-runs="aiRuns" />
+            </div>
+            <div class="mt-5">
+                <LanguageExamplesCard />
             </div>
         </TabsContent>
 

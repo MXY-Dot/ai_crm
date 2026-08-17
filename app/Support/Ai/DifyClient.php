@@ -124,6 +124,7 @@ class DifyClient
             'Return a helpful customer-facing answer. If the customer asks about something outside the company rules, ask one short clarifying question or hand off to an operator.',
             $agent->model ? 'Preferred AI model for this agent: '.$agent->model.'. If your Dify app routes by model, use it; otherwise ignore this line.' : '',
             $agent->goal ? 'Your goal for this conversation is to guide the customer toward: '.$agent->goal.'. Keep this in mind without being pushy.' : '',
+            'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
             $isFirstMessage ? "This is the customer's first message in this conversation. Begin your reply with a brief, natural greeting that states the company name (and phone number if it helps the customer), then answer their question." : '',
             'Agent instructions: '.$agent->instructions,
             'Lead: '.$lead->title,

@@ -4,6 +4,7 @@ namespace App\Support\Emergency;
 
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\Language\LanguageDetector;
 use Illuminate\Support\Arr;
 
 /**
@@ -22,30 +23,19 @@ class FallbackMessageResolver
         'en' => 'Thanks for your message. Our assistant is temporarily unavailable — an operator will reply shortly.',
     ];
 
+    public function __construct(private readonly LanguageDetector $detector)
+    {
+    }
+
     public function resolve(Tenant $tenant, Message $latestCustomerMessage): string
     {
-        $language = $this->detectLanguage($latestCustomerMessage->body);
+        // This resolver only has ru/tj/en templates — tj_latin (Tajik typed in
+        // Latin script) still gets the tj template, not treated as a 4th language.
+        $detected = $this->detector->detect($latestCustomerMessage->body);
+        $language = $detected === 'tj_latin' ? 'tj' : $detected;
+
         $custom = trim((string) Arr::get($tenant->settings ?? [], 'emergency.fallback_message.'.$language, ''));
 
         return $custom !== '' ? $custom : self::DEFAULTS[$language];
-    }
-
-    /**
-     * Cheap heuristic, not a real language detector: Cyrillic script covers both
-     * Russian and (non-Latin) Tajik, so Tajik-specific letters (ғ ӣ қ ӯ ҳ ҷ, absent
-     * from Russian) are checked first to tell them apart; anything without
-     * Cyrillic at all falls to English/Latin transliteration.
-     */
-    private function detectLanguage(string $text): string
-    {
-        if (preg_match('/[ғӣқӯҳҷ]/ui', $text)) {
-            return 'tj';
-        }
-
-        if (preg_match('/[а-яё]/ui', $text)) {
-            return 'ru';
-        }
-
-        return 'en';
     }
 }

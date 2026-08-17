@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\EmergencySettingsController;
 use App\Http\Controllers\Api\EmergencyStatusController;
 use App\Http\Controllers\Api\IntegrationSettingsController;
 use App\Http\Controllers\Api\KnowledgeDocumentController;
+use App\Http\Controllers\Api\LanguageExampleController;
 use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\NotificationController;
@@ -145,6 +146,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('messages/{message}', [MessageController::class, 'update'])->middleware('throttle:20,1');
         Route::delete('messages/{message}', [MessageController::class, 'destroy'])->middleware('throttle:20,1');
         Route::apiResource('leads', LeadController::class)->only(['index', 'store', 'show', 'update']);
+        Route::apiResource('language-examples', LanguageExampleController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::apiResource('tasks', TaskController::class)->only(['index', 'store', 'show', 'update']);
         Route::post('knowledge-documents/upload', [KnowledgeDocumentController::class, 'upload']);
         Route::post('knowledge-documents/index-text', [KnowledgeDocumentController::class, 'indexText']);

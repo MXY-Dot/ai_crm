@@ -6,9 +6,17 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\Lead;
 use App\Models\Message;
+use App\Support\Language\LanguageDetector;
+use App\Support\Language\TajikTransliterator;
 
 class LocalConversationAnalyzer
 {
+    public function __construct(
+        private readonly LanguageDetector $languageDetector,
+        private readonly TajikTransliterator $transliterator,
+    ) {
+    }
+
     public function analyze(Conversation $conversation, Message $message, Lead $lead, int $handoffThreshold, ?Company $company = null, bool $isFirstMessage = false): AiDecision
     {
         $body = mb_strtolower($message->body);
@@ -27,7 +35,36 @@ class LocalConversationAnalyzer
         );
     }
 
+    /**
+     * ЭТАП 6.5 — this keyword matcher only ever looks for Cyrillic patterns, so
+     * a message in Tajik-Latin transliteration ("salom, zapis kunam mumkin?")
+     * would previously never match anything and fall through to
+     * general_question. If the first pass finds nothing and the text has no
+     * Cyrillic at all, retry once against a best-effort Latin→Cyrillic
+     * transliteration (see TajikTransliterator's own disclaimer) — this never
+     * touches what the customer sees or what gets sent to a real LLM, it only
+     * helps this local fallback classifier specifically.
+     */
     private function intent(string $body): string
+    {
+        $matched = $this->matchIntent($body);
+
+        if ($matched !== 'general_question') {
+            return $matched;
+        }
+
+        if ($this->languageDetector->isLatinOnly($body)) {
+            $retry = $this->matchIntent($this->transliterator->toCyrillic($body));
+
+            if ($retry !== 'general_question') {
+                return $retry;
+            }
+        }
+
+        return 'general_question';
+    }
+
+    private function matchIntent(string $body): string
     {
         if ($this->contains($body, ['refund', 'deposit', 'payment', 'invoice', 'возврат', 'депозит', 'оплат', 'предоплат', 'счет', 'счёт'])) {
             return 'payment_policy';

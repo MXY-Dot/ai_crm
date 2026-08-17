@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\CrmTask;
 use App\Models\Lead;
+use App\Models\LanguageExample;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Chatwoot\ChatwootClient;
@@ -17,6 +18,7 @@ use App\Support\Emergency\EmergencyStateManager;
 use App\Support\Emergency\FallbackMessageResolver;
 use App\Support\Integrations\PlatformSettings;
 use App\Support\Integrations\TenantIntegrationSettings;
+use App\Support\Language\LanguageDetector;
 use App\Support\TelegramClient;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -35,6 +37,7 @@ class AiWorkflow
         private readonly EmergencyStateManager $emergency,
         private readonly FallbackMessageResolver $fallback,
         private readonly AutoAssignmentService $autoAssign,
+        private readonly LanguageDetector $languageDetector,
     ) {
     }
 
@@ -79,7 +82,7 @@ class AiWorkflow
         }
         $this->showTyping($tenant, $conversation, true);
         [$decision, $engine, $usage] = $this->decision($agent, $company, $conversation, $message, $lead, $isFirstMessage);
-        $run = $this->run($tenant, $agent, $conversation, $lead, $decision, $engine, $usage);
+        $run = $this->run($tenant, $agent, $conversation, $lead, $message, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);
         $this->showTyping($tenant, $conversation, false);
@@ -305,6 +308,14 @@ class AiWorkflow
             // value, then offer a concrete next step, instead of just answering
             // flatly or immediately deferring to an operator.
             "If the customer raises a price objection, hesitates (\"I'll think about it\"), or compares you to a competitor, acknowledge their concern genuinely first, briefly reinforce the value or a relevant detail, and end with one concrete, low-pressure next step (e.g. a question, a smaller offer, or an invitation to continue when ready). Don't just repeat the price or dismiss the concern.",
+            // ЭТАП 6.2/6.4/6.5 — customers here often write colloquial Tajik
+            // (Cyrillic), a mix of Tajik and Russian in the same message, or
+            // Tajik typed in Latin transliteration. Treat all of these as normal
+            // input: never ask the customer what language they're writing in or
+            // express confusion about mixed/transliterated text — just respond
+            // naturally, matching their language and register.
+            'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
+            $this->languageExamples($agent->tenant),
             'Business profile:'."\n".$this->dify->businessProfile($agent),
             'Knowledge base:'."\n".$this->dify->knowledgeContext($agent),
             $isFirstMessage ? "This is the customer's first message in this conversation — begin your reply with a brief natural greeting stating the company name (and phone number if useful), then answer their question." : '',
@@ -363,6 +374,33 @@ class AiWorkflow
         $completion['text'] = $this->sanitizeReplyText($completion['text']);
 
         return $completion;
+    }
+
+    /**
+     * ЭТАП 6.3 — tenant-provided reference examples (customer message → good
+     * reply), empty by default: WERO doesn't invent example dialogue content,
+     * companies add their own verified examples via Настройки → AI. No caching —
+     * a handful of rows per tenant, cheap enough per request.
+     */
+    private function languageExamples(?Tenant $tenant): string
+    {
+        if (! $tenant) {
+            return '';
+        }
+
+        $examples = LanguageExample::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->inRandomOrder()
+            ->limit(3)
+            ->get();
+
+        if ($examples->isEmpty()) {
+            return '';
+        }
+
+        $formatted = $examples->map(fn (LanguageExample $example): string => 'Customer: '.$example->customer_message."\nGood reply: ".$example->good_reply)->implode("\n\n");
+
+        return "Example good responses from this company's own past conversations — match this tone and phrasing style where relevant:\n".$formatted;
     }
 
     /**
@@ -431,7 +469,7 @@ class AiWorkflow
     /**
      * @param array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float, used_backup?: bool}|null $usage
      */
-    private function run(Tenant $tenant, AiAgent $agent, Conversation $conversation, Lead $lead, AiDecision $decision, string $engine, ?array $usage): AiRun
+    private function run(Tenant $tenant, AiAgent $agent, Conversation $conversation, Lead $lead, Message $message, AiDecision $decision, string $engine, ?array $usage): AiRun
     {
         return AiRun::withoutGlobalScopes()->create([
             'tenant_id' => $tenant->id,
@@ -457,6 +495,11 @@ class AiWorkflow
                 'handoff_required' => $decision->handoffRequired,
                 'reply_text' => $decision->replyText,
                 'used_backup' => $usage['used_backup'] ?? false,
+                // ЭТАП 6.1 — best-effort tag, not a confident classification (see
+                // LanguageDetector's own docblock). Kept in the existing payload
+                // JSON rather than a new messages column, purely for visibility/
+                // analytics — nothing downstream branches on this value.
+                'detected_language' => $this->languageDetector->detect($message->body),
             ],
         ]);
     }
