@@ -21,6 +21,16 @@ const priority = computed<{ label: string; tone: 'red' | 'amber' | 'green' }>(()
 });
 
 const initials = computed(() => (props.customerName ?? props.lead.title).slice(0, 2).toUpperCase());
+
+// ЭТАП 9.5 — Next Best Action, human-readable labels for AiDecision.nextAction (see LocalConversationAnalyzer/AiWorkflow).
+const NEXT_ACTION_LABELS: Record<string, string> = {
+    suggest_slots: 'Предложить слоты',
+    send_offer: 'Отправить оффер',
+    address_objection: 'Снять возражение',
+    handoff_operator: 'Нужен оператор',
+    draft_reply: 'Черновик готов',
+};
+const nextActionLabel = computed(() => (props.lead.next_action ? NEXT_ACTION_LABELS[props.lead.next_action] ?? null : null));
 </script>
 
 <template>
@@ -41,7 +51,10 @@ const initials = computed(() => (props.customerName ?? props.lead.title).slice(0
         <p v-if="lead.ai_summary" class="mb-3 line-clamp-2 text-xs leading-5 ui-subtle">{{ lead.ai_summary }}</p>
 
         <div class="flex items-center justify-between border-t pt-3 border-border">
-            <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ui-text bg-muted">AI {{ lead.score }}</span>
+            <div class="flex flex-wrap items-center gap-1.5">
+                <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ui-text bg-muted">AI {{ lead.score }}</span>
+                <span v-if="nextActionLabel" class="rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10">{{ nextActionLabel }}</span>
+            </div>
             <Avatar class="size-7">
                 <AvatarFallback class="text-[11px] font-semibold bg-accent text-accent-foreground">{{ initials }}</AvatarFallback>
             </Avatar>

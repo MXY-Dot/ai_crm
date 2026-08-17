@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'company_id', 'customer_id', 'title', 'status', 'source', 'score', 'amount', 'won_at', 'assigned_user_id', 'ai_summary'])]
+#[Fillable(['tenant_id', 'company_id', 'customer_id', 'title', 'status', 'source', 'score', 'next_action', 'amount', 'won_at', 'assigned_user_id', 'ai_summary'])]
 class Lead extends Model
 {
     use BelongsToTenant;

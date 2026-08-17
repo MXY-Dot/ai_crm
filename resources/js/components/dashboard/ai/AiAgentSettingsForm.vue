@@ -31,7 +31,13 @@ const CHANNEL_STYLES: Record<string, string> = {
     chatwoot: 'border-emerald-600/50 bg-emerald-600/15 text-emerald-700 dark:text-emerald-300',
 };
 
-const form = reactive({ name: '', status: 'active' as 'active' | 'paused' | 'disabled', handoff_threshold: 70, instructions: '', model: '', modelCustom: '' });
+const GOAL_OPTIONS = [
+    { value: 'sale', label: 'Продажа' },
+    { value: 'booking', label: 'Запись/бронирование' },
+    { value: 'support', label: 'Поддержка' },
+];
+
+const form = reactive({ name: '', status: 'active' as 'active' | 'paused' | 'disabled', handoff_threshold: 70, goal: '', goalCustom: '', instructions: '', model: '', modelCustom: '' });
 const selectedDocIds = ref<number[]>([]);
 const selectedChannels = ref<string[]>([]);
 
@@ -40,6 +46,14 @@ watch(() => props.agent, (agent) => {
     form.name = agent.name;
     form.status = ['active', 'paused', 'disabled'].includes(agent.status) ? agent.status as typeof form.status : 'active';
     form.handoff_threshold = agent.handoff_threshold;
+    const goal = agent.goal ?? '';
+    if (goal && ! GOAL_OPTIONS.some((option) => option.value === goal)) {
+        form.goal = '__custom__';
+        form.goalCustom = goal;
+    } else {
+        form.goal = goal;
+        form.goalCustom = '';
+    }
     form.instructions = agent.instructions ?? '';
     const model = agent.model ?? '';
     if (model && ! MODEL_OPTIONS.includes(model)) {
@@ -76,10 +90,12 @@ async function save(): Promise<void> {
     // the watcher above that resets selectedDocIds — reading selectedDocIds.value *after*
     // that await would silently send the stale, already-wiped selection to syncAgentKnowledge.
     const documentIds = [...selectedDocIds.value];
+    const goal = form.goal === '__custom__' ? form.goalCustom.trim() : form.goal;
     await store.updateAiAgent(props.agent.id, {
         name: form.name.trim(),
         status: form.status,
         handoff_threshold: Number(form.handoff_threshold),
+        goal: goal || null,
         instructions: form.instructions.trim(),
         model: model || null,
         channels: selectedChannels.value,
@@ -123,10 +139,23 @@ async function save(): Promise<void> {
                             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('ai.instructions') }}</span>
                             <Textarea v-model="form.instructions" class="min-h-28 font-mono" maxlength="4000" />
                         </label>
-                        <label class="max-w-40">
-                            <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('ai.handoffThreshold') }}</span>
-                            <Input v-model.number="form.handoff_threshold" type="number" min="1" max="100" />
-                        </label>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="max-w-40">
+                                <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('ai.handoffThreshold') }}</span>
+                                <Input v-model.number="form.handoff_threshold" type="number" min="1" max="100" />
+                            </label>
+                            <label>
+                                <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Цель ассистента</span>
+                                <Select v-model="form.goal">
+                                    <SelectTrigger class="w-full"><SelectValue placeholder="Без цели" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="option in GOAL_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</SelectItem>
+                                        <SelectItem value="__custom__">Свой текст</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Input v-if="form.goal === '__custom__'" v-model="form.goalCustom" class="mt-2" placeholder="Например: собрать контакты для колл-центра" maxlength="60" />
+                            </label>
+                        </div>
                     </div>
                 </div>
 

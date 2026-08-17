@@ -87,6 +87,7 @@ class AiWorkflow
         $lead->forceFill([
             'score' => $decision->confidence,
             'ai_summary' => $decision->summary,
+            'next_action' => $decision->nextAction,
             'status' => $decision->confidence >= $agent->handoff_threshold ? 'qualified' : $lead->status,
         ])->save();
 
@@ -296,6 +297,14 @@ class AiWorkflow
             "You only discuss this company's own services, booking, pricing and policies. If the customer asks something with no connection to the company at all (general knowledge, trivia, news, other businesses, coding help, or any other off-topic request), do NOT answer that question — do not provide the requested fact or information under any circumstances, even briefly. Instead, politely say that's outside what you can help with here, and steer the conversation back to the company's services. Never answer the off-topic question first and redirect after.",
             "Reply with ONLY the message you want the customer to read — plain conversational text. Never include headers or labels like 'Intent:', 'Summary:', 'Draft reply:' or 'Handoff:', and never analyze the request before answering it; that analysis is done separately and is not part of your output.",
             $agent->instructions ? 'Agent instructions: '.$agent->instructions : '',
+            // ЭТАП 9.3 — AI Goal Engine: shapes what the assistant steers the
+            // conversation toward, without a separate LLM call — just a stronger
+            // instruction on the same reply-generating request.
+            $agent->goal ? 'Your goal for this conversation is to guide the customer toward: '.$agent->goal.'. Keep this in mind when deciding what to suggest next, without being pushy.' : '',
+            // ЭТАП 9.6 — objection handling: acknowledge the concern, reframe the
+            // value, then offer a concrete next step, instead of just answering
+            // flatly or immediately deferring to an operator.
+            "If the customer raises a price objection, hesitates (\"I'll think about it\"), or compares you to a competitor, acknowledge their concern genuinely first, briefly reinforce the value or a relevant detail, and end with one concrete, low-pressure next step (e.g. a question, a smaller offer, or an invitation to continue when ready). Don't just repeat the price or dismiss the concern.",
             'Business profile:'."\n".$this->dify->businessProfile($agent),
             'Knowledge base:'."\n".$this->dify->knowledgeContext($agent),
             $isFirstMessage ? "This is the customer's first message in this conversation — begin your reply with a brief natural greeting stating the company name (and phone number if useful), then answer their question." : '',

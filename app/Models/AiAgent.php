@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'company_id', 'name', 'provider', 'model', 'status', 'handoff_threshold', 'instructions', 'channels', 'settings'])]
+#[Fillable(['tenant_id', 'company_id', 'name', 'provider', 'model', 'status', 'handoff_threshold', 'goal', 'instructions', 'channels', 'settings'])]
 class AiAgent extends Model
 {
     use BelongsToTenant;

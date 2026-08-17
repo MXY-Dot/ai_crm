@@ -24,6 +24,7 @@ export type Lead = {
     status: string;
     source: string | null;
     score: number;
+    next_action: string | null;
     ai_summary: string | null;
     created_at?: string | null;
 };
@@ -82,6 +83,7 @@ export type AiAgent = {
     model: string | null;
     status: string;
     handoff_threshold: number;
+    goal: string | null;
     instructions: string | null;
     channels: string[] | null;
 };
@@ -90,6 +92,7 @@ export type AiAgentPayload = {
     name?: string;
     status?: 'active' | 'paused' | 'disabled';
     handoff_threshold?: number;
+    goal?: string | null;
     instructions?: string | null;
     model?: string | null;
     channels?: string[];
