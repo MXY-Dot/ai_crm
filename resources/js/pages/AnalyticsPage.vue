@@ -26,7 +26,8 @@ type Analytics = {
     sales: SalesAnalytics;
 };
 
-const { openTasks } = storeToRefs(useCrmDashboardStore());
+const dashboard = useCrmDashboardStore();
+const { openTasks, tenant } = storeToRefs(dashboard);
 const locale = useLocaleStore();
 const exportTarget = ref<HTMLElement | null>(null);
 
@@ -36,10 +37,13 @@ const data = ref<Analytics | null>(null);
 const loading = ref(true);
 
 async function load(): Promise<void> {
+    const slug = tenant.value?.slug;
+    if (! slug) return;
+
     loading.value = true;
     try {
         const params = new URLSearchParams({ range: granularity.value, date: anchorDate.value });
-        data.value = await apiRequest<Analytics>(`/api/analytics?${params.toString()}`);
+        data.value = await apiRequest<Analytics>(`/api/analytics?${params.toString()}`, { tenant: slug });
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Не удалось загрузить аналитику');
     } finally {
