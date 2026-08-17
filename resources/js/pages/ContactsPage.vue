@@ -9,6 +9,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import AddContactDialog from '../components/dashboard/contacts/AddContactDialog.vue';
 import ContactsTable from '../components/dashboard/contacts/ContactsTable.vue';
+import DuplicateCustomersCard from '../components/dashboard/contacts/DuplicateCustomersCard.vue';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
@@ -52,6 +53,8 @@ defineOptions({ layout: AppLayout });
                 <div data-tour="contacts-add"><AddContactDialog /></div>
             </div>
         </div>
+
+        <DuplicateCustomersCard />
 
         <div data-tour="contacts-table">
             <ContactsTable :customers="paged" :leads="leads" :conversations="conversations" @select="selectCustomer" />

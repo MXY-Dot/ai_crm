@@ -44,7 +44,7 @@ class VipScoreCalculator
         $thresholds = $this->thresholds($customer->tenant);
         $score = $this->score($purchasesCount, $totalRevenue, $cancellations, $tenureDays, $conversationsCount, $thresholds['revenue_scale']);
         $status = $this->statusFor($score, $purchasesCount, $totalRevenue, $thresholds);
-        $segment = $this->segmentFor($purchasesCount, $status, $lastActivityAt);
+        $segment = $this->segmentFor($purchasesCount, $status, $lastActivityAt, $customer->is_business);
         $reason = $this->reason($purchasesCount, $totalRevenue, $cancellations, $status);
 
         $customer->forceFill([
@@ -122,8 +122,16 @@ class VipScoreCalculator
     }
 
     /** ЭТАП 12.3 — cheap segmentation from the same underlying data, surfaced as one extra field rather than a separate stage/page. */
-    private function segmentFor(int $purchases, string $status, mixed $lastActivityAt): string
+    private function segmentFor(int $purchases, string $status, mixed $lastActivityAt, bool $isBusiness): string
     {
+        // ЭТАП 12.3 — B2B has no automatic signal anywhere in this schema (unlike
+        // VIP, which is derived from real purchase data) — it's purely the
+        // operator's own manual flag, checked first since it's a hard fact about
+        // who the customer is, not a behavior-derived bucket like the others.
+        if ($isBusiness) {
+            return 'b2b';
+        }
+
         if (in_array($status, ['vip', 'top_vip'], true)) {
             return 'vip';
         }

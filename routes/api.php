@@ -129,6 +129,8 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::apiResource('tenant-users', TenantUserController::class)->only(['index', 'store', 'update']);
         Route::apiResource('companies', CompanyController::class)->only(['index', 'store', 'show', 'update']);
         Route::post('companies/{company}/logo', [CompanyController::class, 'uploadLogo']);
+        Route::get('customers/duplicates', [CustomerController::class, 'duplicates']);
+        Route::post('customers/merge', [CustomerController::class, 'merge']);
         Route::apiResource('customers', CustomerController::class)->only(['index', 'store', 'show', 'update']);
         Route::post('ai-agents', [AiAgentController::class, 'store']);
         Route::patch('ai-agents/{aiAgent}', [AiAgentController::class, 'update']);

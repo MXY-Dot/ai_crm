@@ -15,6 +15,8 @@ export type Customer = {
     email: string | null;
     source: string | null;
     created_at?: string | null;
+    segment?: string | null;
+    is_business?: boolean;
 };
 
 export type Lead = {
@@ -281,6 +283,7 @@ export type AiRun = {
     summary: string | null;
     next_action: string | null;
     finished_at: string | null;
+    payload?: { detected_sentiment?: string | null; detected_language?: string | null } | null;
     agent?: { id: number; name: string; provider: string } | null;
     conversation?: { id: number; subject: string } | null;
     lead?: { id: number; title: string } | null;
@@ -471,13 +474,21 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }
     }
 
-    async function createCustomer(payload: { name: string; phone?: string; email?: string; source?: string }): Promise<void> {
+    async function createCustomer(payload: { name: string; phone?: string; email?: string; source?: string; is_business?: boolean }): Promise<void> {
         if (! companyId.value) return;
         await mutate(() => apiRequest('/api/customers', {
             method: 'POST',
             tenant: tenantSlug.value,
             body: { company_id: companyId.value, ...payload },
         }), 'toast.customerCreated');
+    }
+
+    async function updateCustomer(id: number, payload: Partial<{ name: string; phone: string; email: string; is_business: boolean }>): Promise<void> {
+        await mutate(() => apiRequest(`/api/customers/${id}`, {
+            method: 'PATCH',
+            tenant: tenantSlug.value,
+            body: payload,
+        }), 'toast.customerUpdated');
     }
 
     async function createLead(payload: { title: string; source?: string; score?: number; customer_id?: number | null }): Promise<void> {
@@ -816,6 +827,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         openConversation,
         refreshDashboard,
         createCustomer,
+        updateCustomer,
         createLead,
         updateCompany,
         uploadCompanyLogo,

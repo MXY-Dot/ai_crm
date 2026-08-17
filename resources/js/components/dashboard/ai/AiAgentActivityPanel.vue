@@ -16,6 +16,8 @@ function confidenceTone(confidence: number): string {
 
     return 'text-destructive';
 }
+
+const sentimentEmoji: Record<string, string> = { positive: '🙂', negative: '🙁', neutral: '😐' };
 </script>
 
 <template>
@@ -27,7 +29,10 @@ function confidenceTone(confidence: number): string {
         <div class="flex-1 space-y-3 overflow-y-auto p-4">
             <article v-for="run in runs" :key="run.id" class="rounded-lg border p-3 border-border bg-background">
                 <div class="mb-1 flex items-center justify-between gap-2">
-                    <span class="text-xs font-semibold ui-text">{{ (run.intent && (aiIntentLabels[run.intent] ?? run.intent)) ?? run.conversation?.subject ?? 'AI-запуск' }}</span>
+                    <span class="flex items-center gap-1.5 text-xs font-semibold ui-text">
+                        <span v-if="run.payload?.detected_sentiment && run.payload.detected_sentiment !== 'neutral'" :title="run.payload.detected_sentiment">{{ sentimentEmoji[run.payload.detected_sentiment] }}</span>
+                        {{ (run.intent && (aiIntentLabels[run.intent] ?? run.intent)) ?? run.conversation?.subject ?? 'AI-запуск' }}
+                    </span>
                     <span class="font-mono text-[11px] font-semibold" :class="confidenceTone(run.confidence)">{{ run.confidence }}%</span>
                 </div>
                 <p class="text-xs leading-5 ui-subtle">{{ run.summary }}</p>

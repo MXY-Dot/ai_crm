@@ -68,7 +68,7 @@ class DashboardData
                 'Leads' => Lead::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count(),
                 'Open tasks' => CrmTask::withoutGlobalScopes()->where('tenant_id', $tenant->id)->whereIn('status', ['open', 'in_progress'])->count(),
             ],
-            'customers' => Customer::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(500)->get(['id', 'name', 'phone', 'email', 'source', 'created_at']),
+            'customers' => Customer::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(500)->get(['id', 'name', 'phone', 'email', 'source', 'created_at', 'segment', 'is_business']),
             'leads' => Lead::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(500)->get(['id', 'customer_id', 'title', 'status', 'source', 'score', 'ai_summary', 'created_at']),
             'tasks' => CrmTask::withoutGlobalScopes()->where('tenant_id', $tenant->id)->latest()->limit(8)->get(['id', 'lead_id', 'title', 'status', 'priority']),
             'channels' => $this->channels($tenant->id, $companyId),
@@ -135,7 +135,7 @@ class DashboardData
             ->where('tenant_id', $tenantId)
             ->latest('finished_at')
             ->limit(10)
-            ->get(['id', 'ai_agent_id', 'conversation_id', 'lead_id', 'status', 'confidence', 'intent', 'summary', 'next_action', 'finished_at'])
+            ->get(['id', 'ai_agent_id', 'conversation_id', 'lead_id', 'status', 'confidence', 'intent', 'summary', 'next_action', 'finished_at', 'payload'])
             ->all();
     }
 

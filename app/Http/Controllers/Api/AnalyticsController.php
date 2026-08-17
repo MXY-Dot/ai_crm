@@ -74,7 +74,7 @@ class AnalyticsController extends Controller
                 ->whereBetween('finished_at', [$start, $end])
                 ->orderByDesc('finished_at')
                 ->limit(2000)
-                ->get(['id', 'ai_agent_id', 'conversation_id', 'lead_id', 'status', 'confidence', 'intent', 'summary', 'next_action', 'finished_at']),
+                ->get(['id', 'ai_agent_id', 'conversation_id', 'lead_id', 'status', 'confidence', 'intent', 'summary', 'next_action', 'finished_at', 'payload']),
         ];
     }
 

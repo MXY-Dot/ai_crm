@@ -7,11 +7,12 @@ import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/dialog';
 import { Input } from '../../ui/input';
 import { PhoneInput } from '../../ui/phone-input';
+import { Switch } from '../../ui/switch';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const open = ref(false);
-const form = reactive({ name: '', phone: '', email: '' });
+const form = reactive({ name: '', phone: '', email: '', isBusiness: false });
 
 async function submit(): Promise<void> {
     if (! form.name.trim()) return;
@@ -20,9 +21,10 @@ async function submit(): Promise<void> {
         name: form.name.trim(),
         phone: form.phone.trim() || undefined,
         email: form.email.trim() || undefined,
+        is_business: form.isBusiness,
     });
 
-    Object.assign(form, { name: '', phone: '', email: '' });
+    Object.assign(form, { name: '', phone: '', email: '', isBusiness: false });
     open.value = false;
 }
 </script>
@@ -49,6 +51,10 @@ async function submit(): Promise<void> {
                     <label>
                         <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('crm.email') }}</span>
                         <Input v-model="form.email" type="email" />
+                    </label>
+                    <label class="flex items-center justify-between gap-3 rounded-lg border p-3 border-border">
+                        <span class="text-sm font-medium ui-text">{{ locale.t('contacts.isBusiness') }}</span>
+                        <Switch v-model="form.isBusiness" />
                     </label>
                 </div>
                 <DialogFooter>

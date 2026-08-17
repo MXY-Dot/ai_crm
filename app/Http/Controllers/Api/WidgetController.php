@@ -11,6 +11,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\User;
 use App\Support\Ai\LlmClient;
+use App\Support\Customers\CustomerMatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -33,7 +34,7 @@ use Illuminate\Validation\Rule;
  */
 class WidgetController extends Controller
 {
-    public function __construct(private readonly LlmClient $llm)
+    public function __construct(private readonly LlmClient $llm, private readonly CustomerMatcher $customers)
     {
     }
 
@@ -275,9 +276,20 @@ class WidgetController extends Controller
             abort(404);
         }
 
-        Customer::withoutGlobalScopes()
-            ->where('id', $conversation->customer_id)
-            ->update(['phone' => $data['phone']]);
+        // ЭТАП 12.1 — this is the first moment a website-widget visitor is
+        // identified by anything more reliable than "Гость с сайта", so it's the
+        // right point to check whether they're actually the same real person as
+        // an existing Telegram/Chatwoot/earlier-widget customer, rather than
+        // just stamping the phone onto the fresh placeholder row from
+        // createConversation() and leaving two permanent duplicate profiles.
+        $placeholder = Customer::withoutGlobalScopes()->findOrFail($conversation->customer_id);
+        $existing = $this->customers->findByPhone($channel->tenant, $channel->company, $data['phone'], excludeCustomerId: $placeholder->id);
+
+        if ($existing) {
+            $this->customers->mergeInto($existing, $placeholder);
+        } else {
+            $placeholder->update(['phone' => $data['phone']]);
+        }
 
         return response()->json(['ok' => true]);
     }

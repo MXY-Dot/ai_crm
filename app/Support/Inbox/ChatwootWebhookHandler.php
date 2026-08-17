@@ -12,12 +12,17 @@ use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\Customers\CustomerMatcher;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ChatwootWebhookHandler
 {
+    public function __construct(private readonly CustomerMatcher $customers)
+    {
+    }
+
     /**
      * @return array{company: Company, channel: Channel, customer: Customer, lead: Lead, conversation: Conversation, message: Message}
      */
@@ -125,33 +130,7 @@ class ChatwootWebhookHandler
         $email = $this->string($payload, ['sender.email', 'contact.email', 'customer.email']);
         $source = $this->string($payload, ['channel.provider', 'provider'], 'chatwoot');
 
-        $query = Customer::withoutGlobalScopes()
-            ->where('tenant_id', $tenant->id)
-            ->where('company_id', $company->id);
-
-        $customer = null;
-
-        if ($phone) {
-            $customer = (clone $query)->where('phone', $phone)->first();
-        }
-
-        if (! $customer && $email) {
-            $customer = (clone $query)->where('email', $email)->first();
-        }
-
-        if (! $customer) {
-            $customer = (clone $query)->where('name', $name)->first();
-        }
-
-        $data = ['name' => $name, 'phone' => $phone, 'email' => $email, 'source' => $source, 'meta' => ['chatwoot' => true]];
-
-        if ($customer) {
-            $customer->update(array_filter($data, fn ($value) => $value !== null));
-
-            return $customer;
-        }
-
-        return Customer::withoutGlobalScopes()->create(['tenant_id' => $tenant->id, 'company_id' => $company->id] + $data);
+        return $this->customers->findOrCreate($tenant, $company, $name, $phone, $email, $source, ['chatwoot' => true]);
     }
 
     private function lead(Tenant $tenant, Company $company, Customer $customer, array $payload): Lead

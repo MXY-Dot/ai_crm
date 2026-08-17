@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { computed } from 'vue';
 import type { Component } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Mail, MessageSquare, Phone, Target } from '@lucide/vue';
+import { Briefcase, Mail, MessageSquare, Phone, Target } from '@lucide/vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
 import { channelTone, timeAgo } from '../lib/format';
@@ -12,11 +12,17 @@ import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Separator } from '../components/ui/separator';
+import { Switch } from '../components/ui/switch';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
-const { customers, conversations, leads, selectedCustomerId } = storeToRefs(store);
+const { customers, conversations, leads, selectedCustomerId, busy } = storeToRefs(store);
 const customer = computed(() => customers.value.find((item) => item.id === selectedCustomerId.value) ?? customers.value[0] ?? null);
+
+function toggleBusiness(value: boolean): void {
+    if (! customer.value) return;
+    store.updateCustomer(customer.value.id, { is_business: value });
+}
 const customerLeads = computed(() => leads.value.filter((lead) => lead.customer_id === customer.value?.id));
 const customerConversations = computed(() => conversations.value.filter((conversation) => conversation.customer?.id === customer.value?.id));
 
@@ -54,6 +60,7 @@ defineOptions({ layout: AppLayout });
                         <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                             <Badge tone="green">Активный клиент</Badge>
                             <Badge v-if="customer.source" :tone="channelTone(customer.source)">{{ sourceLabels[customer.source] ?? customer.source }}</Badge>
+                            <Badge v-if="customer.segment" tone="neutral">{{ locale.t(`vip.segment.${customer.segment}`) }}</Badge>
                         </div>
                     </div>
                 </div>
@@ -89,6 +96,13 @@ defineOptions({ layout: AppLayout });
                         <p class="text-[10px] font-semibold uppercase ui-subtle">Email</p>
                         <p class="truncate text-sm font-medium ui-text">{{ customer.email ?? 'Не указан' }}</p>
                     </div>
+                </div>
+                <div class="flex items-center justify-between gap-3 rounded-lg border p-3 sm:col-span-2 border-border">
+                    <span class="flex items-center gap-3">
+                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted"><Briefcase class="h-4 w-4 text-primary" /></span>
+                        <span class="text-sm font-medium ui-text">{{ locale.t('contacts.isBusiness') }}</span>
+                    </span>
+                    <Switch :model-value="!!customer.is_business" :disabled="busy" @update:model-value="toggleBusiness" />
                 </div>
             </div>
         </Card>

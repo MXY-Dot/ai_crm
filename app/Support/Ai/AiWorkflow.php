@@ -19,6 +19,7 @@ use App\Support\Emergency\FallbackMessageResolver;
 use App\Support\Integrations\PlatformSettings;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\Language\LanguageDetector;
+use App\Support\Sentiment\SentimentDetector;
 use App\Support\TelegramClient;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -38,6 +39,7 @@ class AiWorkflow
         private readonly FallbackMessageResolver $fallback,
         private readonly AutoAssignmentService $autoAssign,
         private readonly LanguageDetector $languageDetector,
+        private readonly SentimentDetector $sentimentDetector,
     ) {
     }
 
@@ -94,10 +96,16 @@ class AiWorkflow
             'status' => $decision->confidence >= $agent->handoff_threshold ? 'qualified' : $lead->status,
         ])->save();
 
+        // ЭТАП 12.4 — an explicitly negative message bumps priority even when it
+        // didn't match the local analyzer's own 'complaint' intent keywords
+        // (e.g. a real LLM engine answered it, so $decision came from Dify/
+        // direct-llm, not the keyword-based local fallback at all).
+        $sentiment = $this->sentimentDetector->detect($message->body);
+
         $conversation->forceFill([
             'ai_summary' => $decision->summary,
             'status' => $decision->handoffRequired ? 'pending_operator' : $conversation->status,
-            'priority' => $decision->handoffRequired ? 'high' : $conversation->priority,
+            'priority' => ($decision->handoffRequired || $sentiment === 'negative') ? 'high' : $conversation->priority,
         ])->save();
 
         // ЭТАП 16.11 — while this tenant's AI is genuinely down (not just this one
@@ -500,6 +508,9 @@ class AiWorkflow
                 // JSON rather than a new messages column, purely for visibility/
                 // analytics — nothing downstream branches on this value.
                 'detected_language' => $this->languageDetector->detect($message->body),
+                // ЭТАП 12.4 — per-run signal only, never written onto Customer (see
+                // SentimentDetector's own docblock for why).
+                'detected_sentiment' => $this->sentimentDetector->detect($message->body),
             ],
         ]);
     }
