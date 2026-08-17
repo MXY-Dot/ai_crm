@@ -23,6 +23,7 @@ class LeadController extends TenantResourceController
             'status' => ['nullable', Rule::in(['new', 'qualified', 'won', 'lost'])],
             'source' => ['nullable', 'string', 'max:80'],
             'score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
             'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'ai_summary' => ['nullable', 'string'],
         ];

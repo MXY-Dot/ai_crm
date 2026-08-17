@@ -2,6 +2,7 @@
 
 namespace App\Support\Ai;
 
+use App\Models\LlmCallFailure;
 use App\Models\Tenant;
 use App\Support\Ai\Exceptions\ProviderRateLimitedException;
 use App\Support\Emergency\HealthMonitor;
@@ -216,12 +217,14 @@ class LlmClient
             ]);
 
             $this->health->recordFailure('llm:'.$provider, null, 'request_failed', $error->getMessage());
+            LlmCallFailure::create(['tenant_id' => $tenant->id, 'provider' => $provider, 'model' => $model, 'cause' => 'request_failed', 'detail' => $error->getMessage()]);
 
             return null;
         }
 
         if ($result === null || trim((string) $result['text']) === '') {
             $this->health->recordFailure('llm:'.$provider, null, 'empty_or_http_error');
+            LlmCallFailure::create(['tenant_id' => $tenant->id, 'provider' => $provider, 'model' => $model, 'cause' => 'empty_or_http_error']);
 
             return null;
         }

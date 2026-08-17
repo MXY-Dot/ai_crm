@@ -12,6 +12,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Analytics\DateRangeResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -21,13 +22,15 @@ class SuperAdminAnalyticsController extends Controller
 {
     private const LEAD_STATUSES = ['new', 'qualified', 'won', 'lost'];
 
-    private const RANGES = ['day', 'week', 'month'];
-
     private const LLM_PROVIDERS = ['groq', 'openai', 'anthropic', 'google', 'deepseek'];
+
+    public function __construct(private readonly DateRangeResolver $range)
+    {
+    }
 
     public function index(Request $request): JsonResponse
     {
-        [$start, $end, $bucket] = $this->resolveRange($request);
+        [$start, $end, $bucket] = $this->range->resolve($request);
 
         return response()->json([
             'range' => ['start' => $start->toIso8601String(), 'end' => $end->toIso8601String()],
@@ -41,19 +44,6 @@ class SuperAdminAnalyticsController extends Controller
             'team' => $this->team(),
             'top_tenants' => $this->topTenants($start, $end),
         ]);
-    }
-
-    /** @return array{0: Carbon, 1: Carbon, 2: 'hour'|'day'} */
-    private function resolveRange(Request $request): array
-    {
-        $range = in_array($request->query('range'), self::RANGES, true) ? $request->query('range') : 'month';
-        $anchor = $request->query('date') ? Carbon::parse($request->query('date')) : now();
-
-        return match ($range) {
-            'day' => [$anchor->copy()->startOfDay(), $anchor->copy()->endOfDay(), 'hour'],
-            'week' => [$anchor->copy()->startOfWeek(), $anchor->copy()->endOfWeek(), 'day'],
-            default => [$anchor->copy()->startOfMonth(), $anchor->copy()->endOfMonth(), 'day'],
-        };
     }
 
     private function kpis(Carbon $start, Carbon $end): array
@@ -79,29 +69,22 @@ class SuperAdminAnalyticsController extends Controller
                 ->selectRaw('extract(hour from sent_at) as bucket, count(*) as count')
                 ->groupBy('bucket')
                 ->get()
-                ->keyBy(fn ($row) => (int) $row->bucket);
-
-            return collect(range(0, 23))->map(fn (int $hour) => [
-                'date' => $start->copy()->setTime($hour, 0)->toIso8601String(),
-                'label' => sprintf('%02d:00', $hour),
-                'count' => (int) ($rows[$hour]->count ?? 0),
-            ])->values()->all();
+                ->pluck('count', 'bucket')
+                ->mapWithKeys(fn ($count, $hour) => [(int) $hour => (int) $count]);
+        } else {
+            $rows = Message::withoutGlobalScopes()
+                ->whereBetween('sent_at', [$start, $end])
+                ->selectRaw('DATE(sent_at) as day, count(*) as count')
+                ->groupBy('day')
+                ->get()
+                ->pluck('count', 'day')
+                ->mapWithKeys(fn ($count, $day) => [(string) $day => (int) $count]);
         }
 
-        $rows = Message::withoutGlobalScopes()
-            ->whereBetween('sent_at', [$start, $end])
-            ->selectRaw('DATE(sent_at) as day, count(*) as count')
-            ->groupBy('day')
-            ->get()
-            ->keyBy(fn ($row) => (string) $row->day);
-
-        $points = [];
-        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
-            $key = $cursor->format('Y-m-d');
-            $points[] = ['date' => $key, 'label' => $cursor->format('d.m'), 'count' => (int) ($rows[$key]->count ?? 0)];
-        }
-
-        return $points;
+        return array_map(
+            fn (array $point): array => ['date' => $point['date'], 'label' => $point['label'], 'count' => (int) $point['value']],
+            $this->range->fillSeries($start, $end, $bucket, $rows->all()),
+        );
     }
 
     private function leadsFunnel(): array
