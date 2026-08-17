@@ -2,6 +2,7 @@
 
 namespace App\Support\Ai;
 
+use App\Jobs\NotifyVipContactJob;
 use App\Models\AiAgent;
 use App\Models\AiRun;
 use App\Models\Company;
@@ -63,6 +64,15 @@ class AiWorkflow
             ->where('sender_type', 'customer')
             ->where('id', '<', $message->id)
             ->exists();
+        // ЭТАП 12.2 — a VIP customer's first message in a conversation gets bumped
+        // to high priority and a heads-up to staff, same as the spec's own
+        // example ("VIP-клиент написал... Приоритет: высокий"). Once per
+        // conversation (gated on $isFirstMessage), not once per message.
+        if ($isFirstMessage && in_array($conversation->customer?->vip_status, ['vip', 'top_vip'], true)) {
+            $conversation->forceFill(['priority' => 'high'])->save();
+            NotifyVipContactJob::dispatch($tenant->id, $conversation->id);
+        }
+
         $agent = $this->agent($tenant, $company, $provider);
         if ($isFirstMessage) {
             $this->greetCustomer($tenant, $conversation);
@@ -289,6 +299,12 @@ class AiWorkflow
             'Business profile:'."\n".$this->dify->businessProfile($agent),
             'Knowledge base:'."\n".$this->dify->knowledgeContext($agent),
             $isFirstMessage ? "This is the customer's first message in this conversation — begin your reply with a brief natural greeting stating the company name (and phone number if useful), then answer their question." : '',
+            // ЭТАП 12.2's own example: a VIP customer gets a warmer, priority tone
+            // instead of the generic "передано менеджеру" — the reason string is
+            // the same one shown to staff in the VIP customers table.
+            in_array($conversation->customer?->vip_status, ['vip', 'top_vip'], true)
+                ? 'This is a VIP customer ('.$conversation->customer->vip_reason.') — greet them warmly by name if known and treat their request as a priority.'
+                : '',
         ], fn (string $part): bool => trim($part) !== ''));
 
         $userPrompt = implode("\n\n", array_filter([
