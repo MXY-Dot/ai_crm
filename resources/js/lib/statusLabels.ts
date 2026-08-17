@@ -49,6 +49,7 @@ export const aiIntentLabels: Record<string, string> = {
     pricing_request: 'Вопрос о цене',
     payment_policy: 'Вопрос по оплате',
     complaint: 'Жалоба',
+    human_request: 'Запрос оператора',
     general_question: 'Общий вопрос',
 };
 

@@ -307,6 +307,12 @@ class AiWorkflow
             'Answer naturally and helpfully in the same language the customer wrote in. If a question is about the company itself but you don\'t have the specific detail, ask one short clarifying question or say an operator will follow up.',
             "You only discuss this company's own services, booking, pricing and policies. If the customer asks something with no connection to the company at all (general knowledge, trivia, news, other businesses, coding help, or any other off-topic request), do NOT answer that question — do not provide the requested fact or information under any circumstances, even briefly. Instead, politely say that's outside what you can help with here, and steer the conversation back to the company's services. Never answer the off-topic question first and redirect after.",
             "Reply with ONLY the message you want the customer to read — plain conversational text. Never include headers or labels like 'Intent:', 'Summary:', 'Draft reply:' or 'Handoff:', and never analyze the request before answering it; that analysis is done separately and is not part of your output.",
+            // ЭТАП 8.2 — Human Request: the handoff itself is already forced by
+            // LocalConversationAnalyzer's keyword match regardless of what this
+            // model generates, but the customer-facing reply still comes from
+            // here — without this line the AI would just answer the underlying
+            // question and never actually acknowledge the handoff.
+            'If the customer explicitly asks to speak with a human, an operator, or a manager, do not try to resolve their request yourself — acknowledge that you\'re connecting them with a team member and keep your reply short.',
             $agent->instructions ? 'Agent instructions: '.$agent->instructions : '',
             // ЭТАП 9.3 — AI Goal Engine: shapes what the assistant steers the
             // conversation toward, without a separate LLM call — just a stronger

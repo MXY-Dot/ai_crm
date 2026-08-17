@@ -23,7 +23,10 @@ class LocalConversationAnalyzer
         $intent = $this->intent($body);
         $confidence = $this->confidence($body, $intent);
         $nextAction = $this->nextAction($intent, $confidence, $handoffThreshold);
-        $handoffRequired = $confidence < $handoffThreshold || in_array($intent, ['payment_policy', 'complaint'], true);
+        // ЭТАП 8.2 — Human Request: an explicit ask for a person always forces a
+        // handoff, same as payment_policy/complaint already do, regardless of
+        // how confident the AI otherwise is in its own answer.
+        $handoffRequired = $confidence < $handoffThreshold || in_array($intent, ['payment_policy', 'complaint', 'human_request'], true);
 
         return new AiDecision(
             confidence: $confidence,
@@ -66,6 +69,13 @@ class LocalConversationAnalyzer
 
     private function matchIntent(string $body): string
     {
+        // ЭТАП 8.2 — checked first: an explicit request for a human takes
+        // priority over any other keyword match below (e.g. "хочу оператора по
+        // поводу оплаты" should route as human_request, not payment_policy).
+        if ($this->contains($body, ['оператор', 'живого человека', 'реального человека', 'человек, а не бот', 'менеджера', 'представителя', 'human agent', 'real person', 'talk to a human', 'speak to a human', 'speak to someone', 'talk to someone', 'representative'])) {
+            return 'human_request';
+        }
+
         if ($this->contains($body, ['refund', 'deposit', 'payment', 'invoice', 'возврат', 'депозит', 'оплат', 'предоплат', 'счет', 'счёт'])) {
             return 'payment_policy';
         }
@@ -117,6 +127,7 @@ class LocalConversationAnalyzer
             'hesitation' => 70,
             'payment_policy' => 58,
             'complaint' => 52,
+            'human_request' => 50,
             default => 68,
         };
 
@@ -141,7 +152,7 @@ class LocalConversationAnalyzer
             'booking_request' => 'suggest_slots',
             'pricing_request' => 'send_offer',
             'price_objection', 'hesitation', 'competitor_comparison' => 'address_objection',
-            'payment_policy', 'complaint' => 'handoff_operator',
+            'payment_policy', 'complaint', 'human_request' => 'handoff_operator',
             default => 'draft_reply',
         };
     }
@@ -160,6 +171,7 @@ class LocalConversationAnalyzer
             'competitor_comparison' => 'Спасибо, что рассматриваете нас! Расскажите, пожалуйста, что для вас важно при выборе — постараюсь показать, чем мы можем быть полезны.',
             'payment_policy' => 'Спасибо за обращение по вопросу оплаты — передали его оператору, он ответит по деталям в ближайшее время.',
             'complaint' => 'Приносим извинения за неудобства. Ваше обращение передано оператору, он свяжется с вами как можно скорее.',
+            'human_request' => 'Конечно, соединяю вас с оператором — он подключится к диалогу в ближайшее время.',
             default => 'Спасибо за сообщение! Мы получили ваш запрос, оператор ответит на уточняющие вопросы в ближайшее время.',
         };
 
@@ -207,6 +219,7 @@ class LocalConversationAnalyzer
             'competitor_comparison' => 'сравнение с конкурентами',
             'payment_policy' => 'вопрос по оплате',
             'complaint' => 'жалоба',
+            'human_request' => 'запрос оператора',
             default => 'общий вопрос',
         };
     }

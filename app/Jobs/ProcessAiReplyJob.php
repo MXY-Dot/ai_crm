@@ -91,6 +91,17 @@ class ProcessAiReplyJob implements ShouldQueue
             return;
         }
 
+        // ЭТАП 8.3 — Human Takeover: unlike the ephemeral "viewing right now" check
+        // above (which lapses within seconds of the operator navigating away),
+        // this is the operator's own deliberate claim (see
+        // ConversationController::assign() / ChatHeader.vue's "Взять в работу")
+        // and stays in effect until they explicitly release it — see ЭТАП 8.5's
+        // "Вернуть AI" button. An operator who steps away mid-conversation
+        // shouldn't have AI silently start answering their customer again.
+        if ($autoReplyMode !== 'always' && $conversation->assigned_user_id !== null) {
+            return;
+        }
+
         $cacheKey = ConversationTypingController::aiGeneratingCacheKey($conversation->id);
 
         // The supersededBy check above only looks at messages that existed the

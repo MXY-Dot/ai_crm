@@ -123,6 +123,11 @@ class DifyClient
         return implode("\n\n", array_filter([
             'You are the CRM AI assistant for this company. Never identify as DeepSeek, ChatGPT, Dify, or a generic language model. Answer as the company assistant.',
             'Return a helpful customer-facing answer. If the customer asks about something outside the company rules, ask one short clarifying question or hand off to an operator.',
+            // ЭТАП 8.2 — Human Request: if the customer explicitly asks to speak
+            // with a human/operator/manager, acknowledge that and set
+            // handoff_required=true in your JSON response — don't keep trying to
+            // resolve the request yourself.
+            'If the customer explicitly asks to speak with a human, an operator, or a manager (in any language), acknowledge that you\'re connecting them and set handoff_required to true in your response, regardless of how confident you are.',
             $agent->model ? 'Preferred AI model for this agent: '.$agent->model.'. If your Dify app routes by model, use it; otherwise ignore this line.' : '',
             $agent->goal ? 'Your goal for this conversation is to guide the customer toward: '.$agent->goal.'. Keep this in mind without being pushy.' : '',
             // ЭТАП 7.1/7.2 — Personality Engine + Tone Rules.
