@@ -3,12 +3,14 @@
 namespace App\Support\Ai;
 
 use App\Models\Tenant;
+use App\Support\Ai\Exceptions\ProviderRateLimitedException;
 use App\Support\Emergency\HealthMonitor;
 use App\Support\Integrations\PlatformSettings;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -34,6 +36,15 @@ class LlmClient
         'openai' => 'https://api.openai.com/v1',
         'deepseek' => 'https://api.deepseek.com/v1',
         'groq' => 'https://api.groq.com/openai/v1',
+    ];
+
+    /** Provider id → config/services.php block name (google's LLM key lives under 'gemini' — mirrors PlatformSettings::CONFIG_KEYS). */
+    private const CONFIG_KEYS = [
+        'groq' => 'groq',
+        'openai' => 'openai',
+        'anthropic' => 'anthropic',
+        'google' => 'gemini',
+        'deepseek' => 'deepseek',
     ];
 
     /**
@@ -167,6 +178,17 @@ class LlmClient
             return null;
         }
 
+        // Self-imposed ceiling (ЭТАП 15.11) — every provider here is one platform
+        // key shared by all tenants, so a burst across several tenants at once
+        // could otherwise hit the provider's own rate limit. Budget is only spent
+        // on attempts that actually reach this point (after the isOpen() skip
+        // above), not on calls already skipped for other reasons.
+        if ($this->rateLimited($provider)) {
+            Log::info('LLM request skipped — self-imposed rate limit reached', ['provider' => $provider]);
+
+            return null;
+        }
+
         $startedAt = microtime(true);
 
         try {
@@ -176,6 +198,11 @@ class LlmClient
                 'google' => $this->completeGoogle($apiKey, $model, $systemPrompt, $userPrompt),
                 default => null,
             };
+        } catch (ProviderRateLimitedException) {
+            // The provider itself said "slow down" (HTTP 429) — it's working fine,
+            // just telling us to back off. Not a HealthMonitor failure: that would
+            // open the circuit breaker over our own traffic, not an actual outage.
+            return null;
         } catch (Throwable $error) {
             // Was completely silent before — a dead key or a flaky connection to the
             // provider both degrade identically (customer just gets the dumb local-mvp
@@ -210,6 +237,39 @@ class LlmClient
             'latency_ms' => $latencyMs,
             'cost_usd' => $this->estimateCost($provider, $result['tokens_in'], $result['tokens_out']),
         ];
+    }
+
+    private function rateLimited(string $provider): bool
+    {
+        $key = 'llm-rate:'.$provider;
+
+        if (RateLimiter::tooManyAttempts($key, $this->rateLimitPerMinute($provider))) {
+            return true;
+        }
+
+        RateLimiter::hit($key, 60);
+
+        return false;
+    }
+
+    /**
+     * Read-only peek at the same budget rateLimited() enforces — does not consume
+     * it. Lets AiWorkflow tell "every relevant provider is just self-throttled
+     * right now" apart from "actually failing," so a normal traffic burst never
+     * gets treated as a tenant-level AI outage (ЭТАП 16's EmergencyStateManager
+     * would otherwise alert staff and swap in the "we're down" customer message
+     * over what is, in reality, business as usual).
+     */
+    public function isThrottled(string $provider): bool
+    {
+        return RateLimiter::tooManyAttempts('llm-rate:'.$provider, $this->rateLimitPerMinute($provider));
+    }
+
+    private function rateLimitPerMinute(string $provider): int
+    {
+        $configKey = self::CONFIG_KEYS[$provider] ?? null;
+
+        return $configKey ? (int) config("services.{$configKey}.rate_limit", 60) : 60;
     }
 
     private function logHttpFailure(string $provider, Response $response): void
@@ -300,6 +360,10 @@ class LlmClient
                 'max_tokens' => 600,
             ]);
 
+        if ($response->status() === 429) {
+            throw new ProviderRateLimitedException();
+        }
+
         if (! $response->successful()) {
             $this->logHttpFailure($provider, $response);
 
@@ -333,6 +397,10 @@ class LlmClient
                 'temperature' => 0.4,
             ]);
 
+        if ($response->status() === 429) {
+            throw new ProviderRateLimitedException();
+        }
+
         if (! $response->successful()) {
             $this->logHttpFailure('anthropic', $response);
 
@@ -362,6 +430,10 @@ class LlmClient
                 ],
                 'generationConfig' => ['temperature' => 0.4, 'maxOutputTokens' => 600],
             ]);
+
+        if ($response->status() === 429) {
+            throw new ProviderRateLimitedException();
+        }
 
         if (! $response->successful()) {
             $this->logHttpFailure('google', $response);

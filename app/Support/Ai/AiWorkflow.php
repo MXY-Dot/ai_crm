@@ -165,7 +165,8 @@ class AiWorkflow
             && $this->planAllowsProvider($tenant, $llmProvider)
             && ! $this->usageLimitExceeded($tenant);
 
-        $llmCompletion = $this->directLlmReply($agent, $conversation, $message, $isFirstMessage);
+        $selfThrottled = false;
+        $llmCompletion = $this->directLlmReply($agent, $conversation, $message, $isFirstMessage, $selfThrottled);
 
         if ($llmCompletion !== null) {
             $tenant && $this->emergency->recordAiOutcome($tenant, 'direct-llm', $difyConfigured, $llmConfigured);
@@ -173,7 +174,14 @@ class AiWorkflow
             return [$this->withReplyText($local, $llmCompletion['text']), 'direct-llm', $llmCompletion];
         }
 
-        if ($tenant) {
+        // ЭТАП 15.11 — a self-imposed rate-limit skip (LlmClient's own outbound
+        // ceiling, or the provider's HTTP 429) is not an outage: the provider is
+        // fine, WERO just chose not to call it right now. $selfThrottled (set by
+        // directLlmReply() above) is true only when every attempt actually made —
+        // primary, and backup if one was genuinely usable and tried — failed
+        // purely for that reason, never because of a real failure, an open
+        // circuit, or an unconfigured/plan-disallowed backup.
+        if ($tenant && ! $selfThrottled) {
             $this->emergency->recordAiOutcome($tenant, 'local-mvp', $difyConfigured, $llmConfigured);
         }
 
@@ -181,8 +189,8 @@ class AiWorkflow
         // configured but failing) — the customer never sees local-mvp's raw canned
         // text in this case, and the conversation is forced to a human handoff.
         // A tenant that simply never configured anything keeps the normal local-mvp
-        // behavior untouched (not an incident).
-        if ($tenant && ($difyConfigured || $llmConfigured)) {
+        // behavior untouched (not an incident); neither does a self-throttled burst.
+        if ($tenant && ! $selfThrottled && ($difyConfigured || $llmConfigured)) {
             $local = $this->withReplyText($local, $this->fallback->resolve($tenant, $message));
             $local = new AiDecision(
                 confidence: $local->confidence,
@@ -250,25 +258,25 @@ class AiWorkflow
     }
 
     /**
+     * $wasThrottled is set true only when every attempt made (primary, and backup
+     * if one was actually tried) failed purely because of LlmClient's self-imposed
+     * rate limit (ЭТАП 15.11) — never because of a real failure, an open circuit
+     * breaker, or a backup that simply wasn't configured/plan-allowed. Lets
+     * decision() below tell a normal traffic burst apart from a genuine AI outage.
+     *
      * @return array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float}|null
      */
-    private function directLlmReply(AiAgent $agent, Conversation $conversation, Message $message, bool $isFirstMessage): ?array
+    private function directLlmReply(AiAgent $agent, Conversation $conversation, Message $message, bool $isFirstMessage, bool &$wasThrottled = false): ?array
     {
+        $wasThrottled = false;
+
         if (! $agent->model || ! $agent->tenant) {
             return null;
         }
 
-        $provider = $this->llm->providerForModel($agent->model);
+        $primaryProvider = $this->llm->providerForModel($agent->model);
 
-        if (! $provider || $this->llm->apiKey($agent->tenant, $provider) === '') {
-            return null;
-        }
-
-        if (! $this->planAllowsProvider($agent->tenant, $provider)) {
-            return null;
-        }
-
-        if ($this->usageLimitExceeded($agent->tenant)) {
+        if (! $primaryProvider) {
             return null;
         }
 
@@ -288,7 +296,40 @@ class AiWorkflow
             'Customer message:'."\n".$message->body,
         ], fn (string $part): bool => trim($part) !== ''));
 
-        $completion = $this->llm->complete($agent->tenant, $provider, $agent->model, $systemPrompt, $userPrompt);
+        $primaryThrottled = false;
+        $completion = $this->attemptCompletion($agent->tenant, $primaryProvider, $agent->model, $systemPrompt, $userPrompt, $primaryThrottled);
+        $wasThrottled = $primaryThrottled;
+
+        // ЭТАП 15.5 — the primary provider (whichever the agent's own model maps
+        // to) came back empty: either its circuit is open (HealthMonitor), the
+        // call itself failed, or it's self-throttled. Try the platform's
+        // designated backup provider once, with its own default model, before
+        // giving up to local-mvp — same plan gating as the primary, so a
+        // downgraded tenant can't get free access to a premium backup during an
+        // outage.
+        if ($completion === null) {
+            $backupProvider = $this->platform->backupLlmProvider();
+
+            if ($backupProvider && $backupProvider !== $primaryProvider) {
+                $backupModel = $this->platform->defaultModelFor($backupProvider);
+                $backupThrottled = false;
+                $completion = $this->attemptCompletion($agent->tenant, $backupProvider, $backupModel, $systemPrompt, $userPrompt, $backupThrottled);
+
+                if ($completion !== null) {
+                    $completion['used_backup'] = true;
+                }
+
+                // Both the primary and this actually-attempted backup must have
+                // been throttled-only for the overall result to still count as
+                // "just throttled" — if the backup failed for a real reason
+                // (or wasn't throttled but genuinely errored), this is a real gap.
+                $wasThrottled = $primaryThrottled && $backupThrottled;
+            } else {
+                // No usable backup to try at all — whether this counts as
+                // "only throttled" rests entirely on the primary's own outcome.
+                $wasThrottled = $primaryThrottled;
+            }
+        }
 
         if ($completion === null) {
             return null;
@@ -296,7 +337,41 @@ class AiWorkflow
 
         $completion['text'] = $this->sanitizeReplyText($completion['text']);
 
-        return $completion + ['provider' => $provider, 'model' => $agent->model];
+        return $completion;
+    }
+
+    /**
+     * @return array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float}|null
+     */
+    private function attemptCompletion(Tenant $tenant, string $provider, string $model, string $systemPrompt, string $userPrompt, bool &$wasThrottled = false): ?array
+    {
+        $wasThrottled = false;
+
+        if ($this->llm->apiKey($tenant, $provider) === '') {
+            return null;
+        }
+
+        if (! $this->planAllowsProvider($tenant, $provider)) {
+            return null;
+        }
+
+        if ($this->usageLimitExceeded($tenant)) {
+            return null;
+        }
+
+        if ($this->llm->isThrottled($provider)) {
+            $wasThrottled = true;
+
+            return null;
+        }
+
+        $completion = $this->llm->complete($tenant, $provider, $model, $systemPrompt, $userPrompt);
+
+        if ($completion === null) {
+            return null;
+        }
+
+        return $completion + ['provider' => $provider, 'model' => $model];
     }
 
     /**
@@ -329,7 +404,7 @@ class AiWorkflow
     }
 
     /**
-     * @param array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float}|null $usage
+     * @param array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float, used_backup?: bool}|null $usage
      */
     private function run(Tenant $tenant, AiAgent $agent, Conversation $conversation, Lead $lead, AiDecision $decision, string $engine, ?array $usage): AiRun
     {
@@ -356,6 +431,7 @@ class AiWorkflow
                 'model' => $agent->model,
                 'handoff_required' => $decision->handoffRequired,
                 'reply_text' => $decision->replyText,
+                'used_backup' => $usage['used_backup'] ?? false,
             ],
         ]);
     }

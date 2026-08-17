@@ -31,24 +31,33 @@ return [
         'api_url' => env('GROQ_API_URL', 'https://api.groq.com/openai/v1'),
         'api_key' => env('GROQ_API_KEY'),
         'timeout' => env('GROQ_TIMEOUT', 20),
+        // Outbound requests/minute WERO allows itself to send to this provider,
+        // across every tenant combined (see LlmClient's rate limiter, ЭТАП 15.11)
+        // — a self-imposed ceiling to avoid a multi-tenant burst tripping the
+        // provider's own rate limit, not a claim about their real published limit.
+        'rate_limit' => env('GROQ_RATE_LIMIT_PER_MINUTE', 60),
     ],
 
     // Platform-managed LLM provider keys (App\Support\Integrations\PlatformSettings)
     // — optional .env bootstrap; Super Admin can also set/override these at runtime.
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
+        'rate_limit' => env('OPENAI_RATE_LIMIT_PER_MINUTE', 60),
     ],
 
     'anthropic' => [
         'api_key' => env('ANTHROPIC_API_KEY'),
+        'rate_limit' => env('ANTHROPIC_RATE_LIMIT_PER_MINUTE', 50),
     ],
 
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
+        'rate_limit' => env('GEMINI_RATE_LIMIT_PER_MINUTE', 60),
     ],
 
     'deepseek' => [
         'api_key' => env('DEEPSEEK_API_KEY'),
+        'rate_limit' => env('DEEPSEEK_RATE_LIMIT_PER_MINUTE', 60),
     ],
 
     'google' => [

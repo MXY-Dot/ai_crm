@@ -83,7 +83,15 @@ class PlatformSettings
      */
     public function defaultModel(): string
     {
-        return self::DEFAULT_MODEL_BY_PROVIDER[$this->primaryLlmProvider()] ?? self::DEFAULT_MODEL_BY_PROVIDER['groq'];
+        return $this->defaultModelFor($this->primaryLlmProvider());
+    }
+
+    /** Same lookup as defaultModel(), parameterized — used by AiWorkflow to pick a
+     * model when retrying against the backup provider (ЭТАП 15.5), which isn't
+     * necessarily the platform's current primary. */
+    public function defaultModelFor(string $provider): string
+    {
+        return self::DEFAULT_MODEL_BY_PROVIDER[$provider] ?? self::DEFAULT_MODEL_BY_PROVIDER['groq'];
     }
 
     public function backupLlmProvider(): ?string
