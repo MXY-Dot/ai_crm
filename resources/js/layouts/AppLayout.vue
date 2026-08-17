@@ -4,6 +4,7 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import { storeToRefs } from 'pinia';
 import { LogOut, Menu } from '@lucide/vue';
 import AppSidebar from '@/components/dashboard/AppSidebar.vue';
+import EmergencyBanner from '@/components/dashboard/EmergencyBanner.vue';
 import EmptyState from '@/components/dashboard/EmptyState.vue';
 import GlobalSearch from '@/components/dashboard/GlobalSearch.vue';
 import LanguageSwitcher from '@/components/dashboard/LanguageSwitcher.vue';
@@ -19,11 +20,13 @@ import { type Bootstrap, useCrmDashboardStore } from '@/stores/crmDashboard';
 import { useLocaleStore } from '@/stores/locale';
 import { useThemeStore } from '@/stores/theme';
 import { useUnreadStore } from '@/stores/unread';
+import { useEmergencyStore } from '@/stores/emergency';
 
 const page = usePage<{ bootstrap: Bootstrap }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const unread = useUnreadStore();
+const emergency = useEmergencyStore();
 useThemeStore();
 const { tenant, company, hasData, user } = storeToRefs(store);
 const activePage = computed(() => pageFromPath(new URL(page.url, window.location.origin).pathname));
@@ -38,6 +41,7 @@ watch(hasData, (value) => {
     if (! value) return;
 
     unread.start();
+    emergency.start();
 
     nextTick(() => {
         if (! hasSeenOnboarding()) {
@@ -74,6 +78,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     if (dashboardRefreshTimer !== null) window.clearInterval(dashboardRefreshTimer);
     unread.stop();
+    emergency.stop();
 });
 
 const logoutProcessing = ref(false);
@@ -116,6 +121,9 @@ function toggleSidebar(): void {
             />
 
             <main class="h-full min-w-0 flex-1 overflow-y-auto pb-20 lg:pb-0">
+                <div v-if="emergency.mode === 'emergency'" class="px-4 pt-3 sm:px-6 lg:px-8">
+                    <EmergencyBanner />
+                </div>
                 <header class="sticky top-0 z-10 border-b px-4 py-3 backdrop-blur sm:px-6 lg:px-8 lg:py-4 border-border bg-card/92">
                     <!-- Desktop / tablet header -->
                     <div class="hidden lg:flex lg:flex-col lg:gap-4 xl:flex-row xl:items-center xl:justify-between">

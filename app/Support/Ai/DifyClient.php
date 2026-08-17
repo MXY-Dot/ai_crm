@@ -7,6 +7,8 @@ use App\Models\Conversation;
 use App\Models\KnowledgeChunk;
 use App\Models\Lead;
 use App\Models\Message;
+use App\Models\Tenant;
+use App\Support\Emergency\HealthMonitor;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
@@ -14,8 +16,10 @@ use Throwable;
 
 class DifyClient
 {
-    public function __construct(private readonly TenantIntegrationSettings $secrets)
-    {
+    public function __construct(
+        private readonly TenantIntegrationSettings $secrets,
+        private readonly HealthMonitor $health,
+    ) {
     }
 
     public function decide(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage = false): ?AiDecision
@@ -26,6 +30,15 @@ class DifyClient
         $timeout = (int) Arr::get($settings, 'integrations.dify.timeout', config('services.dify.timeout', 12));
 
         if ($baseUrl === '' || $apiKey === '') {
+            return null;
+        }
+
+        $tenantId = $agent->tenant_id;
+
+        // Circuit breaker (ЭТАП 16.1/16.2): this tenant's Dify instance already
+        // tripped FAILURE_THRESHOLD consecutive failures — skip the call and go
+        // straight to the direct-LLM/local-mvp fallback chain in AiWorkflow.
+        if ($this->health->isOpen('dify:'.$tenantId, $tenantId)) {
             return null;
         }
 
@@ -50,15 +63,57 @@ class DifyClient
                     'response_mode' => 'blocking',
                     'user' => 'tenant-'.$agent->tenant_id.'-conversation-'.$conversation->id,
                 ]);
-        } catch (Throwable) {
+        } catch (Throwable $error) {
+            $this->health->recordFailure('dify:'.$tenantId, $tenantId, 'connection_failed', $error->getMessage());
+
             return null;
         }
 
         if (! $response->successful()) {
+            $this->health->recordFailure('dify:'.$tenantId, $tenantId, 'http_'.$response->status(), mb_strimwidth($response->body(), 0, 300, '...'));
+
             return null;
         }
 
+        $this->health->recordSuccess('dify:'.$tenantId, $tenantId);
+
         return $this->decisionFrom($response->json(), $agent, $conversation, $message, $lead);
+    }
+
+    /**
+     * Trivial connection test, same request shape as
+     * IntegrationSettingsController::testDify() — used only by
+     * ActiveHealthProbe::probeDifyRecovery() to attempt closing a tripped circuit;
+     * never called from the live message path. Deliberately does not touch
+     * HealthMonitor itself — the caller records the outcome, since a probe success
+     * needs to count toward SUCCESS_THRESHOLD the same way a real decide() success
+     * would, and a probe failure shouldn't re-open an already-open incident.
+     */
+    public function ping(Tenant $tenant): bool
+    {
+        $baseUrl = $this->secrets->difyUrl($tenant);
+        $apiKey = $this->secrets->difyApiKey($tenant);
+
+        if ($baseUrl === '' || $apiKey === '') {
+            return false;
+        }
+
+        try {
+            $response = Http::timeout(8)
+                ->connectTimeout(4)
+                ->acceptJson()
+                ->withToken($apiKey)
+                ->post($baseUrl.'/chat-messages', [
+                    'inputs' => ['connection_test' => true],
+                    'query' => 'WERO health check. Reply with ok.',
+                    'response_mode' => 'blocking',
+                    'user' => 'tenant-'.$tenant->id.'-health-probe',
+                ]);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $response->successful();
     }
 
     private function query(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage): string

@@ -11,6 +11,9 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Chatwoot\ChatwootClient;
+use App\Support\Emergency\AutoAssignmentService;
+use App\Support\Emergency\EmergencyStateManager;
+use App\Support\Emergency\FallbackMessageResolver;
 use App\Support\Integrations\PlatformSettings;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\TelegramClient;
@@ -28,6 +31,9 @@ class AiWorkflow
         private readonly TelegramClient $telegram,
         private readonly TenantIntegrationSettings $secrets,
         private readonly PlatformSettings $platform,
+        private readonly EmergencyStateManager $emergency,
+        private readonly FallbackMessageResolver $fallback,
+        private readonly AutoAssignmentService $autoAssign,
     ) {
     }
 
@@ -80,6 +86,13 @@ class AiWorkflow
             'priority' => $decision->handoffRequired ? 'high' : $conversation->priority,
         ])->save();
 
+        // ЭТАП 16.11 — while this tenant's AI is genuinely down (not just this one
+        // handoff), new conversations go straight to a human instead of waiting on
+        // the normal confidence-threshold handoff path above.
+        if ($this->emergency->isEmergency($tenant)) {
+            $this->autoAssign->assignIfNeeded($tenant, $conversation);
+        }
+
         return [
             'agent' => $agent->fresh(),
             'run' => $run->fresh(['agent', 'conversation', 'lead']),
@@ -131,17 +144,54 @@ class AiWorkflow
 
     private function decision(AiAgent $agent, Company $company, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage): array
     {
+        $tenant = $agent->tenant;
+        $difyConfigured = $tenant !== null
+            && $this->secrets->difyUrl($tenant) !== ''
+            && $this->secrets->difyApiKey($tenant) !== '';
+
         $decision = $this->dify->decide($agent, $conversation, $message, $lead, $isFirstMessage);
 
         if ($decision) {
+            $tenant && $this->emergency->recordAiOutcome($tenant, 'dify', $difyConfigured, false);
+
             return [$decision, 'dify', null];
         }
 
         $local = $this->localAnalyzer->analyze($conversation, $message, $lead, $agent->handoff_threshold, $company, $isFirstMessage);
+
+        $llmProvider = $agent->model ? $this->llm->providerForModel($agent->model) : null;
+        $llmConfigured = $tenant !== null && $llmProvider !== null
+            && $this->llm->apiKey($tenant, $llmProvider) !== ''
+            && $this->planAllowsProvider($tenant, $llmProvider)
+            && ! $this->usageLimitExceeded($tenant);
+
         $llmCompletion = $this->directLlmReply($agent, $conversation, $message, $isFirstMessage);
 
         if ($llmCompletion !== null) {
+            $tenant && $this->emergency->recordAiOutcome($tenant, 'direct-llm', $difyConfigured, $llmConfigured);
+
             return [$this->withReplyText($local, $llmCompletion['text']), 'direct-llm', $llmCompletion];
+        }
+
+        if ($tenant) {
+            $this->emergency->recordAiOutcome($tenant, 'local-mvp', $difyConfigured, $llmConfigured);
+        }
+
+        // Genuine outage (Dify and/or the assigned model's provider actually
+        // configured but failing) — the customer never sees local-mvp's raw canned
+        // text in this case, and the conversation is forced to a human handoff.
+        // A tenant that simply never configured anything keeps the normal local-mvp
+        // behavior untouched (not an incident).
+        if ($tenant && ($difyConfigured || $llmConfigured)) {
+            $local = $this->withReplyText($local, $this->fallback->resolve($tenant, $message));
+            $local = new AiDecision(
+                confidence: $local->confidence,
+                intent: $local->intent,
+                summary: $local->summary,
+                nextAction: 'handoff_operator',
+                handoffRequired: true,
+                replyText: $local->replyText,
+            );
         }
 
         return [$local, 'local-mvp', null];

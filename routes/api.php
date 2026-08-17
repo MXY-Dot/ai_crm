@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\ConversationMessageController;
 use App\Http\Controllers\Api\ConversationReplyController;
 use App\Http\Controllers\Api\ConversationTypingController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\EmergencySettingsController;
+use App\Http\Controllers\Api\EmergencyStatusController;
 use App\Http\Controllers\Api\IntegrationSettingsController;
 use App\Http\Controllers\Api\KnowledgeDocumentController;
 use App\Http\Controllers\Api\LeadController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SuperAdminAnalyticsController;
 use App\Http\Controllers\Api\SuperAdminBillingController;
 use App\Http\Controllers\Api\SuperAdminCompanyController;
+use App\Http\Controllers\Api\SuperAdminIncidentController;
 use App\Http\Controllers\Api\SuperAdminLlmProviderController;
 use App\Http\Controllers\Api\SuperAdminOverviewController;
 use App\Http\Controllers\Api\SuperAdminSupportController;
@@ -97,12 +100,19 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('support/tickets/{ticket}/messages', [SuperAdminSupportController::class, 'storeMessage']);
         Route::patch('support/tickets/{ticket}/status', [SuperAdminSupportController::class, 'updateStatus']);
         Route::post('announcements', [SuperAdminSupportController::class, 'announce']);
+        Route::get('incidents', [SuperAdminIncidentController::class, 'index']);
+        Route::get('incidents/{incident}', [SuperAdminIncidentController::class, 'show']);
     });
 
     Route::middleware(ResolveTenant::class)->group(function (): void {
         Route::get('integration-settings', [IntegrationSettingsController::class, 'show']);
         Route::patch('integration-settings', [IntegrationSettingsController::class, 'update']);
         Route::post('integration-settings/test', [IntegrationSettingsController::class, 'test'])->middleware('throttle:10,1');
+        Route::get('emergency/status', [EmergencyStatusController::class, 'index']);
+        Route::patch('emergency/override', [EmergencyStatusController::class, 'override']);
+        Route::get('emergency/incidents/{incident}/missed', [EmergencyStatusController::class, 'missed']);
+        Route::get('emergency-settings', [EmergencySettingsController::class, 'show']);
+        Route::patch('emergency-settings', [EmergencySettingsController::class, 'update']);
         Route::post('chatwoot/sync', ChatwootSyncController::class)->middleware('throttle:10,1');
         Route::get('widget-settings', [WidgetSettingsController::class, 'show']);
         Route::patch('widget-settings', [WidgetSettingsController::class, 'update']);

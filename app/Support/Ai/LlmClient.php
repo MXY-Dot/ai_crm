@@ -3,6 +3,7 @@
 namespace App\Support\Ai;
 
 use App\Models\Tenant;
+use App\Support\Emergency\HealthMonitor;
 use App\Support\Integrations\PlatformSettings;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
@@ -49,8 +50,10 @@ class LlmClient
         'groq' => ['in' => 0.15, 'out' => 0.75],
     ];
 
-    public function __construct(private readonly PlatformSettings $platform)
-    {
+    public function __construct(
+        private readonly PlatformSettings $platform,
+        private readonly HealthMonitor $health,
+    ) {
     }
 
     public function providerForModel(string $model): ?string
@@ -156,6 +159,14 @@ class LlmClient
             return null;
         }
 
+        // Circuit breaker (ЭТАП 16.1/16.2): a provider that's already tripped
+        // FAILURE_THRESHOLD consecutive failures is skipped entirely — no point
+        // spending the request timeout confirming what the last 3 calls already
+        // showed. Only ActiveHealthProbe's dedicated recovery check calls back in.
+        if ($this->health->isOpen('llm:'.$provider)) {
+            return null;
+        }
+
         $startedAt = microtime(true);
 
         try {
@@ -177,12 +188,18 @@ class LlmClient
                 'error' => $error->getMessage(),
             ]);
 
+            $this->health->recordFailure('llm:'.$provider, null, 'request_failed', $error->getMessage());
+
             return null;
         }
 
         if ($result === null || trim((string) $result['text']) === '') {
+            $this->health->recordFailure('llm:'.$provider, null, 'empty_or_http_error');
+
             return null;
         }
+
+        $this->health->recordSuccess('llm:'.$provider, null);
 
         $latencyMs = (int) round((microtime(true) - $startedAt) * 1000);
 
