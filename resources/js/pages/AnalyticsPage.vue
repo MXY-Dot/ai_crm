@@ -13,6 +13,7 @@ import LoadHeatmap from '../components/dashboard/analytics/LoadHeatmap.vue';
 import MessageLoadDonut from '../components/dashboard/analytics/MessageLoadDonut.vue';
 import PriorityBreakdown from '../components/dashboard/analytics/PriorityBreakdown.vue';
 import SalesAnalyticsPanel, { type SalesAnalytics } from '../components/dashboard/analytics/SalesAnalyticsPanel.vue';
+import SlaPanel, { type Sla } from '../components/dashboard/analytics/SlaPanel.vue';
 import DialogsTrendChart from '../components/dashboard/overview/DialogsTrendChart.vue';
 import DateRangeFilter, { type DateRangeGranularity } from '../components/dashboard/DateRangeFilter.vue';
 import { Skeleton } from '../components/ui/skeleton';
@@ -24,6 +25,7 @@ type Analytics = {
     ai_performance: AiPerformance;
     llm_usage: LlmUsageRow[];
     sales: SalesAnalytics;
+    sla: Sla;
 };
 
 const dashboard = useCrmDashboardStore();
@@ -88,6 +90,7 @@ defineOptions({ layout: AppLayout });
             </div>
 
             <AiPerformancePanel :data="data?.ai_performance ?? null" :loading="loading" />
+            <SlaPanel :data="data?.sla ?? null" :loading="loading" />
             <LlmUsagePanel :data="data?.llm_usage ?? null" :loading="loading" />
             <SalesAnalyticsPanel :data="data?.sales ?? null" :loading="loading" />
         </div>

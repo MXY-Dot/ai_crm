@@ -157,6 +157,18 @@ class ConversationController extends Controller
         return response()->json($conversation->fresh()->load('assignedUser:id,name'));
     }
 
+    /** ЭТАП 13.6 — the first thing that has ever actually written Conversation.status = 'closed'; the label already existed in the frontend with nothing behind it. */
+    public function resolve(Conversation $conversation, TenantContext $context): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('update', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        $conversation->forceFill(['status' => 'closed', 'resolved_at' => now()])->save();
+
+        return response()->json($conversation->fresh(['channel', 'customer', 'lead']));
+    }
+
     /** Personal pin — see the `pins()` migration/model docblock. Purely per-user, no effect on `assigned_user_id`. */
     public function pin(Conversation $conversation, TenantContext $context, Request $request): JsonResponse
     {

@@ -137,6 +137,10 @@ class DifyClient
             ! $agent->persona && $agent->company?->industry
                 ? 'Calibrate your tone to fit a '.$agent->company->industry.' business, while staying professional.'
                 : '',
+            // ЭТАП 13.5 — Working Hours.
+            $agent->company && ! $agent->company->isWithinWorkingHours()
+                ? 'You are currently replying outside business hours ('.($agent->company->working_hours['summary'] ?? '').'). Keep helping with general questions, but let the customer know a team member will follow up further once business hours resume if their request needs a person.'
+                : '',
             'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
             $isFirstMessage ? "This is the customer's first message in this conversation. Begin your reply with a brief, natural greeting that states the company name (and phone number if it helps the customer), then answer their question." : '',
             // ЭТАП 7.5/7.6 — only needed once per conversation, recentMessages() already covers continuity within it.

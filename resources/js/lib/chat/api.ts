@@ -56,6 +56,11 @@ export function assignConversation(tenant: string, conversationId: number, userI
     return apiRequest(`/api/conversations/${conversationId}/assignment`, { method: 'PATCH', tenant, body: { assigned_user_id: userId } });
 }
 
+/** ЭТАП 13.6 — marks status='closed' + resolved_at, for SLA reporting. */
+export function resolveConversation(tenant: string, conversationId: number): Promise<ChatConversation> {
+    return apiRequest(`/api/conversations/${conversationId}/resolve`, { method: 'POST', tenant });
+}
+
 /** Personal "pin to top of my list" — independent of assignConversation(), see the backend docblock. */
 export function pinConversation(tenant: string, conversationId: number): Promise<{ ok: boolean; is_pinned: boolean }> {
     return apiRequest(`/api/conversations/${conversationId}/pin`, { method: 'POST', tenant });

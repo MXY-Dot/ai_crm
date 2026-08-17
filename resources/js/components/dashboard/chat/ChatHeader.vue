@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Info, Menu, UserCheck, UserX } from '@lucide/vue';
+import { CheckCircle2, Info, Menu, UserCheck, UserX } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
 import { useCrmDashboardStore } from '@/stores/crmDashboard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -29,6 +29,13 @@ function claim(): void {
 
 function release(): void {
     if (conversation.value) chat.setAssignee(conversation.value.id, false);
+}
+
+// ЭТАП 13.6 — first real writer of status='closed'; nothing set it before this.
+const isClosed = computed(() => conversation.value?.status === 'closed');
+
+function resolve(): void {
+    if (conversation.value) chat.resolveConversation(conversation.value.id);
 }
 
 const isRecentlyActive = computed(() => {
@@ -62,14 +69,20 @@ const typingLabel = computed(() => {
             </div>
             <Badge v-if="conversation.priority === 'high'" tone="amber">Высокий приоритет</Badge>
             <Badge v-if="conversation.assigned_user" tone="blue">Ведёт: {{ conversation.assigned_user.name }}</Badge>
+            <Badge v-if="isClosed" tone="green">Закрыт</Badge>
         </div>
         <div class="flex shrink-0 items-center gap-2">
-            <Button v-if="isAssignedToMe" variant="outline" size="sm" @click="release">
-                <UserX class="h-4 w-4" />Вернуть AI
-            </Button>
-            <Button v-else-if="! isAssignedToOther" variant="outline" size="sm" @click="claim">
-                <UserCheck class="h-4 w-4" />Взять в работу
-            </Button>
+            <template v-if="! isClosed">
+                <Button v-if="isAssignedToMe" variant="outline" size="sm" @click="release">
+                    <UserX class="h-4 w-4" />Вернуть AI
+                </Button>
+                <Button v-else-if="! isAssignedToOther" variant="outline" size="sm" @click="claim">
+                    <UserCheck class="h-4 w-4" />Взять в работу
+                </Button>
+                <Button variant="outline" size="sm" @click="resolve">
+                    <CheckCircle2 class="h-4 w-4" />Закрыть диалог
+                </Button>
+            </template>
             <Button variant="outline" size="icon" aria-label="Информация о диалоге" title="Информация о диалоге" @click="$emit('open-info')">
                 <Info class="h-4 w-4" />
             </Button>

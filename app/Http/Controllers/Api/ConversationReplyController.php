@@ -81,6 +81,7 @@ class ConversationReplyController extends Controller
             'last_message_at' => now(),
             'assigned_user_id' => $conversation->assigned_user_id ?? $request->user()->id,
         ])->save();
+        $conversation->markFirstResponse();
 
         return response()->json([
             'ok' => true,

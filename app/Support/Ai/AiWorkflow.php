@@ -326,6 +326,11 @@ class AiWorkflow
             ! $agent->persona && $agent->company?->industry
                 ? 'Calibrate your tone to fit a '.$agent->company->industry.' business, while staying professional.'
                 : '',
+            // ЭТАП 13.5 — Working Hours: still help where you can outside business
+            // hours, just set the right expectation for anything needing a human.
+            $agent->company && ! $agent->company->isWithinWorkingHours()
+                ? 'You are currently replying outside business hours ('.($agent->company->working_hours['summary'] ?? '').'). Keep helping with general questions, but let the customer know a team member will follow up further once business hours resume if their request needs a person.'
+                : '',
             // ЭТАП 9.6 — objection handling: acknowledge the concern, reframe the
             // value, then offer a concrete next step, instead of just answering
             // flatly or immediately deferring to an operator.
@@ -675,6 +680,7 @@ class AiWorkflow
         // just mark the draft as delivered like every other successful branch below.
         if ($provider === 'website') {
             $draft->forceFill(['meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true]])->save();
+            $conversation->markFirstResponse();
 
             return;
         }
@@ -705,6 +711,7 @@ class AiWorkflow
             'external_id' => $externalId,
             'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $conversation->channel?->provider => $payload],
         ])->save();
+        $conversation->markFirstResponse();
     }
 
     private function handoffTask(Tenant $tenant, Company $company, Lead $lead, Conversation $conversation, AiDecision $decision): CrmTask

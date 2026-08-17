@@ -8,14 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'company_id', 'channel_id', 'customer_id', 'lead_id', 'assigned_user_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'ai_summary'])]
+#[Fillable(['tenant_id', 'company_id', 'channel_id', 'customer_id', 'lead_id', 'assigned_user_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'first_response_at', 'resolved_at', 'ai_summary'])]
 class Conversation extends Model
 {
     use BelongsToTenant;
 
     protected function casts(): array
     {
-        return ['last_message_at' => 'datetime'];
+        return ['last_message_at' => 'datetime', 'first_response_at' => 'datetime', 'resolved_at' => 'datetime'];
     }
 
     public function channel(): BelongsTo
@@ -51,5 +51,13 @@ class Conversation extends Model
     public function pins(): HasMany
     {
         return $this->hasMany(ConversationPin::class);
+    }
+
+    /** ЭТАП 13.6 — captured once, from wherever a reply actually goes out (AiWorkflow::autoReply() or ConversationReplyController). */
+    public function markFirstResponse(): void
+    {
+        if ($this->first_response_at === null) {
+            $this->forceFill(['first_response_at' => now()])->save();
+        }
     }
 }

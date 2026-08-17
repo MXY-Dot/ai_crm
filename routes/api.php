@@ -137,6 +137,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::get('conversations', [ConversationController::class, 'index']);
         Route::get('conversations/unread-total', [ConversationController::class, 'unreadTotal']);
         Route::patch('conversations/{conversation}/assignment', [ConversationController::class, 'assign']);
+        Route::post('conversations/{conversation}/resolve', [ConversationController::class, 'resolve']);
         Route::post('conversations/{conversation}/pin', [ConversationController::class, 'pin']);
         Route::delete('conversations/{conversation}/pin', [ConversationController::class, 'unpin']);
         Route::post('conversations/{conversation}/read', [ConversationController::class, 'markRead']);

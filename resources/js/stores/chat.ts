@@ -415,6 +415,20 @@ export const useChatStore = defineStore('chat', () => {
         }
     }
 
+    /** ЭТАП 13.6 — closes the conversation for SLA purposes; no undo in the UI (matches the backend, which has no "reopen"). */
+    async function resolveConversation(conversationId: number): Promise<void> {
+        const tenant = tenantSlug();
+        const conversation = conversations.value.find((c) => c.id === conversationId);
+        if (! tenant || ! conversation) return;
+
+        try {
+            const updated = await chatApi.resolveConversation(tenant, conversationId);
+            conversation.status = updated.status;
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Не удалось закрыть диалог');
+        }
+    }
+
     /**
      * Personal "pin to top of my own list" — like Telegram's chat pinning. Every
      * operator has their own independent pins on the same shared conversations;
@@ -506,6 +520,7 @@ export const useChatStore = defineStore('chat', () => {
         uploadAttachment,
         markRead,
         setAssignee,
+        resolveConversation,
         togglePin,
         sendTyping,
         setReplyTarget,

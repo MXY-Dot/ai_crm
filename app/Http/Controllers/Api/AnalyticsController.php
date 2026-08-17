@@ -51,6 +51,7 @@ class AnalyticsController extends Controller
             'ai_performance' => $this->aiPerformance($start, $end),
             'llm_usage' => $this->llmUsage($start, $end),
             'sales' => $this->sales($start, $end, $bucket),
+            'sla' => $this->sla($start, $end),
         ]);
     }
 
@@ -229,6 +230,36 @@ class AnalyticsController extends Controller
                 fn (array $point): array => ['date' => $point['date'], 'label' => $point['label'], 'amount' => round($point['value'], 2)],
                 $this->range->fillSeries($start, $end, $bucket, $trendRows->all()),
             ),
+        ];
+    }
+
+    /**
+     * ЭТАП 13.6 — real measured numbers only, no invented SLA target/threshold.
+     * "Time to first response" is approximated as first_response_at minus the
+     * conversation's own created_at (its earliest customer contact) — close
+     * enough without a dedicated "which customer message started the clock"
+     * field, which doesn't exist and isn't worth a new column for this.
+     */
+    private function sla(Carbon $start, Carbon $end): array
+    {
+        $responded = Conversation::query()
+            ->whereNotNull('first_response_at')
+            ->whereBetween('first_response_at', [$start, $end])
+            ->selectRaw('avg(extract(epoch from (first_response_at - created_at))) as avg_seconds')
+            ->value('avg_seconds');
+
+        $resolved = Conversation::query()
+            ->whereNotNull('resolved_at')
+            ->whereBetween('resolved_at', [$start, $end]);
+
+        $avgResolutionSeconds = (clone $resolved)
+            ->selectRaw('avg(extract(epoch from (resolved_at - created_at))) as avg_seconds')
+            ->value('avg_seconds');
+
+        return [
+            'avg_first_response_minutes' => $responded !== null ? round($responded / 60, 1) : null,
+            'avg_resolution_hours' => $avgResolutionSeconds !== null ? round($avgResolutionSeconds / 3600, 1) : null,
+            'resolved_count' => (clone $resolved)->count(),
         ];
     }
 }
