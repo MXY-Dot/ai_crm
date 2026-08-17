@@ -44,8 +44,15 @@ class DifyClient
         }
 
         try {
+            // ЭТАП 4 — matches LlmClient's own retry(2, 500) on its provider calls:
+            // this VPS's connectivity is known-flaky (see LlmClient docblock), and
+            // Dify was the one AI-stack call with zero retry on a dropped
+            // connection. Only fires on a connection-level exception (no
+            // ->throw()), so a real Dify response — success or error — is never
+            // retried and can't produce a duplicate answer.
             $response = Http::timeout($timeout)
                 ->connectTimeout(4)
+                ->retry(2, 500)
                 ->acceptJson()
                 ->withToken($apiKey)
                 ->post($baseUrl.'/chat-messages', [
