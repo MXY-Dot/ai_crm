@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Middleware\EnsurePageAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
+use App\Models\Channel;
 use App\Models\Tenant;
 use App\Support\Dashboard\DashboardData;
 use Illuminate\Http\Request;
@@ -25,6 +26,10 @@ Route::get('/chatwoot-vite/assets/{asset}', function (string $asset) {
         ->header('Content-Type', $response->header('Content-Type', 'text/javascript'))
         ->header('Cache-Control', 'no-store');
 })->where('asset', '[A-Za-z0-9_.\/-]+');
+
+Route::get('/widget-test', fn () => view('widget-test', [
+    'siteKey' => Channel::withoutGlobalScopes()->where('provider', 'website')->whereNotNull('external_id')->value('external_id'),
+]));
 
 Route::get('/', fn () => Inertia::render('HomePage'))->name('home');
 

@@ -14,6 +14,10 @@
     <h1>Тестовая страница Gravity Beauty Studio</h1>
     <p>Это обычная HTML-страница, изображающая сайт клиента. В правом нижнем углу должен появиться зелёный пузырёк чата — это и есть виджет WERO.</p>
     <p>Нажмите на него, напишите сообщение — оно должно появиться в CRM в разделе «Чаты», а через пару секунд прийти автоответ от AI (если автоответ включён).</p>
-    <script src="https://201.24.124.144/widget.js" data-site-key="H9UyxpzcOJEam9M5o301MTPh" async></script>
+    @if($siteKey)
+        <script src="{{ rtrim(config('app.url'), '/') }}/widget.js" data-site-key="{{ $siteKey }}" async></script>
+    @else
+        <p><strong>Виджет не настроен</strong> — не найден активный website-канал.</p>
+    @endif
 </body>
 </html>
