@@ -521,6 +521,7 @@ export const useChatStore = defineStore('chat', () => {
         totalUnread,
         replyTarget,
         messagesLoading,
+        messagesMeta,
         loadingOlder,
         init,
         dispose,
