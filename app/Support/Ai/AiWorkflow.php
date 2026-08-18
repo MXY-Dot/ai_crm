@@ -16,6 +16,7 @@ use App\Support\Chatwoot\ChatwootClient;
 use App\Support\Emergency\AutoAssignmentService;
 use App\Support\Emergency\EmergencyStateManager;
 use App\Support\Emergency\FallbackMessageResolver;
+use App\Support\Inbox\ConversationStatus;
 use App\Support\Integrations\PlatformSettings;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\Language\LanguageDetector;
@@ -105,9 +106,21 @@ class AiWorkflow
         // direct-llm, not the keyword-based local fallback at all).
         $sentiment = $this->sentimentDetector->detect($message->body);
 
+        $detectedLanguage = $this->languageDetector->detect($message->body);
+        if ($detectedLanguage && $conversation->customer && $conversation->customer->language !== $detectedLanguage) {
+            $conversation->customer->forceFill(['language' => $detectedLanguage])->save();
+        }
+
+        // ЭТАП 3.7 — only labels with a real backing signal (AiRun.intent already
+        // classifies these); no invented 'hot_lead'/'delivery' label with nothing
+        // behind it — see Conversation::addLabel() for the manual-add counterpart.
+        if (in_array($decision->intent, ['complaint', 'payment_policy'], true)) {
+            $conversation->addLabel($decision->intent === 'complaint' ? 'complaint' : 'payment');
+        }
+
         $conversation->forceFill([
             'ai_summary' => $decision->summary,
-            'status' => $decision->handoffRequired ? 'pending_operator' : $conversation->status,
+            'status' => $decision->handoffRequired ? ConversationStatus::PENDING_OPERATOR : $conversation->status,
             'priority' => ($decision->handoffRequired || $sentiment === 'negative') ? 'high' : $conversation->priority,
         ])->save();
 

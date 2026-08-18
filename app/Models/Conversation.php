@@ -8,14 +8,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'company_id', 'channel_id', 'customer_id', 'lead_id', 'assigned_user_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'first_response_at', 'resolved_at', 'ai_summary'])]
+#[Fillable(['tenant_id', 'company_id', 'channel_id', 'customer_id', 'lead_id', 'assigned_user_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'first_response_at', 'resolved_at', 'ai_summary', 'labels'])]
 class Conversation extends Model
 {
     use BelongsToTenant;
 
     protected function casts(): array
     {
-        return ['last_message_at' => 'datetime', 'first_response_at' => 'datetime', 'resolved_at' => 'datetime'];
+        return ['last_message_at' => 'datetime', 'first_response_at' => 'datetime', 'resolved_at' => 'datetime', 'labels' => 'array'];
+    }
+
+    /** ЭТАП 3.7 — merges a new label in (dedup, order-preserving), used by both AI auto-labeling and manual add. */
+    public function addLabel(string $label): void
+    {
+        $this->labels = array_values(array_unique([...($this->labels ?? []), $label]));
     }
 
     public function channel(): BelongsTo

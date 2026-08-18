@@ -123,7 +123,7 @@ class DashboardData
             ->where('company_id', $companyId)
             ->latest('last_message_at')
             ->limit(12)
-            ->get(['id', 'channel_id', 'customer_id', 'lead_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'ai_summary'])
+            ->get(['id', 'channel_id', 'customer_id', 'lead_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'ai_summary', 'labels'])
             ->all();
     }
 

@@ -30,6 +30,17 @@ class ChatwootWebhookController extends Controller
             return response()->json(['ok' => true, 'ignored' => true, 'reason' => 'system_message']);
         }
 
+        // ЭТАП 3.9 — only message_created/message_updated actually carry a message
+        // body; every other Chatwoot event type (conversation_status_changed,
+        // assignee_changed, label_added, contact_updated, etc.) used to hit
+        // handle() -> message()'s "body required" guard and 422. Route those to the
+        // lightweight conversation-sync path instead of guessing at handle()'s way.
+        if (! in_array($payload['event'] ?? 'message_created', ['message_created', 'message_updated'], true)) {
+            $result = $handler->handleConversationEvent($tenant, $payload);
+
+            return response()->json(['ok' => true] + $result);
+        }
+
         $result = $handler->handle($tenant, $payload, $senderType === 'customer');
 
         return response()->json(['ok' => true] + $result, ! empty($result['duplicate']) ? 200 : 201);

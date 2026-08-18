@@ -37,6 +37,19 @@ class ChatwootClient
             'typing_status' => $typing ? 'on' : 'off',
         ]);
     }
+
+    /** ЭТАП 3.10 — pushes WERO's own resolve() action back to Chatwoot; see ConversationController::resolve(). */
+    public function resolveConversation(Tenant $tenant, string $conversationId): void
+    {
+        $this->request($tenant, 'post', 'conversations/'.$conversationId.'/toggle_status', ['status' => 'resolved']);
+    }
+
+    /** ЭТАП 3.10 — pushes WERO's own label list back to Chatwoot; see ConversationController::labels(). */
+    public function setLabels(Tenant $tenant, string $conversationId, array $labels): void
+    {
+        $this->request($tenant, 'post', 'conversations/'.$conversationId.'/labels', ['labels' => $labels]);
+    }
+
     private function request(Tenant $tenant, string $method, string $path, array $body = []): array
     {
         $settings = $this->settings($tenant);

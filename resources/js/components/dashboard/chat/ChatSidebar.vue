@@ -14,6 +14,7 @@ import SearchInput from '@/components/dashboard/SearchInput.vue';
 import InstagramIcon from '@/components/icons/InstagramIcon.vue';
 import TelegramIcon from '@/components/icons/TelegramIcon.vue';
 import WhatsappIcon from '@/components/icons/WhatsappIcon.vue';
+import { conversationLabelText, conversationLabelTone, label as labelText } from '@/lib/statusLabels';
 
 const chat = useChatStore();
 
@@ -68,6 +69,10 @@ function isRecentlyActive(conversation: ChatConversation): boolean {
     if (! conversation.last_message_at) return false;
 
     return Date.now() - new Date(conversation.last_message_at).getTime() < 5 * 60 * 1000;
+}
+
+function labelTone(value: string): 'green' | 'blue' | 'amber' | 'neutral' {
+    return conversationLabelTone[value] ?? 'neutral';
 }
 </script>
 
@@ -140,6 +145,11 @@ function isRecentlyActive(conversation: ChatConversation): boolean {
                                                 {{ conversation.unread_count > 99 ? '99+' : conversation.unread_count }}
                                             </Badge>
                                         </span>
+                                    </div>
+                                    <div v-if="conversation.labels?.length" class="mt-1 flex flex-wrap gap-1">
+                                        <Badge v-for="l in conversation.labels" :key="l" :tone="labelTone(l)" class="px-1.5 py-0 text-[10px]">
+                                            {{ labelText(conversationLabelText, l, l) }}
+                                        </Badge>
                                     </div>
                                 </div>
                             </button>

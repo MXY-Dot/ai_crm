@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Chatwoot\ChatwootClient;
+use App\Support\Inbox\ConversationStatus;
 use App\Support\TelegramClient;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -77,7 +78,7 @@ class ConversationReplyController extends Controller
         // sidebar who's already on it, without hard-blocking a second operator from
         // also replying if they want to (no enforcement beyond this soft claim).
         $conversation->forceFill([
-            'status' => 'open',
+            'status' => ConversationStatus::OPEN,
             'last_message_at' => now(),
             'assigned_user_id' => $conversation->assigned_user_id ?? $request->user()->id,
         ])->save();

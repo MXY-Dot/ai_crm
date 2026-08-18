@@ -72,6 +72,7 @@ export type Conversation = {
     priority: string;
     last_message_at: string | null;
     ai_summary: string | null;
+    labels?: string[] | null;
     channel?: { id: number; provider: string; name: string } | null;
     customer?: { id: number; name: string } | null;
     lead?: { id: number; title: string } | null;

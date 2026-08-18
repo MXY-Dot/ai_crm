@@ -61,6 +61,17 @@ export const aiNextActionLabels: Record<string, string> = {
     draft_reply: 'подготовить черновик ответа',
 };
 
+/** ЭТАП 3.7 — only 'complaint'/'payment' are auto-set by AI (real intent signal behind them); anything else is a manually-typed label, shown as-is. */
+export const conversationLabelText: Record<string, string> = {
+    complaint: 'Жалоба',
+    payment: 'Оплата',
+};
+
+export const conversationLabelTone: Record<string, 'green' | 'blue' | 'amber' | 'neutral'> = {
+    complaint: 'amber',
+    payment: 'blue',
+};
+
 export function label(map: Record<string, string>, value: string | null | undefined, fallback?: string): string {
     if (! value) return fallback ?? '—';
     return map[value] ?? fallback ?? value;

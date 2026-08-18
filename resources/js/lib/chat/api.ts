@@ -61,6 +61,11 @@ export function resolveConversation(tenant: string, conversationId: number): Pro
     return apiRequest(`/api/conversations/${conversationId}/resolve`, { method: 'POST', tenant });
 }
 
+/** ЭТАП 3.7 — replaces the full label list (AI auto-labels + manual ones together). */
+export function setConversationLabels(tenant: string, conversationId: number, labels: string[]): Promise<ChatConversation> {
+    return apiRequest(`/api/conversations/${conversationId}/labels`, { method: 'PATCH', tenant, body: { labels } });
+}
+
 /** Personal "pin to top of my list" — independent of assignConversation(), see the backend docblock. */
 export function pinConversation(tenant: string, conversationId: number): Promise<{ ok: boolean; is_pinned: boolean }> {
     return apiRequest(`/api/conversations/${conversationId}/pin`, { method: 'POST', tenant });

@@ -79,6 +79,38 @@ class ChatwootWebhookHandler
         ];
     }
 
+    /**
+     * ЭТАП 3.9 — Chatwoot event types with no message body (conversation_status_changed,
+     * conversation_resolved, assignee_changed, label_added/removed, contact_updated,
+     * etc.) used to funnel through handle() -> message(), which threw a 422 the moment
+     * body was empty. This is the lightweight counterpart for those: sync what's
+     * actually documented (conversation.status) on an existing conversation, and
+     * otherwise just acknowledge — never guesses at undocumented payload shapes.
+     */
+    public function handleConversationEvent(Tenant $tenant, array $payload): array
+    {
+        $company = $this->company($tenant);
+        $externalId = $this->externalConversationId($payload);
+
+        $conversation = Conversation::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('company_id', $company->id)
+            ->where('external_id', $externalId)
+            ->first();
+
+        if (! $conversation) {
+            return ['ignored' => true, 'reason' => 'conversation_not_found'];
+        }
+
+        $status = Arr::get($payload, 'conversation.status');
+
+        if ($status) {
+            $conversation->forceFill(['status' => ConversationStatus::fromChatwoot((string) $status)])->save();
+        }
+
+        return ['ignored' => false, 'conversation' => $conversation->fresh(['channel', 'customer', 'lead'])];
+    }
+
     private function duplicateResult(Channel $channel, Customer $customer, Lead $lead, Conversation $conversation, Message $message): array
     {
         $latestRun = AiRun::withoutGlobalScopes()
@@ -162,7 +194,7 @@ class ChatwootWebhookHandler
                 'customer_id' => $customer->id,
                 'lead_id' => $lead->id,
                 'subject' => $subject,
-                'status' => $this->string($payload, ['conversation.status'], 'open'),
+                'status' => ConversationStatus::fromChatwoot($this->string($payload, ['conversation.status'], 'open')),
                 'priority' => $this->string($payload, ['conversation.priority'], 'normal'),
                 'last_message_at' => now(),
                 'ai_summary' => $this->string($payload, ['ai.summary', 'conversation.ai_summary']),

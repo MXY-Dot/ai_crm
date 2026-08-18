@@ -6,7 +6,7 @@ use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['tenant_id', 'company_id', 'name', 'phone', 'email', 'source', 'tags', 'meta', 'vip_score', 'vip_status', 'vip_reason', 'segment', 'purchases_count', 'total_revenue', 'last_purchase_at', 'vip_calculated_at', 'is_business', 'city', 'birth_year'])]
+#[Fillable(['tenant_id', 'company_id', 'name', 'phone', 'email', 'source', 'tags', 'meta', 'vip_score', 'vip_status', 'vip_reason', 'segment', 'purchases_count', 'total_revenue', 'last_purchase_at', 'vip_calculated_at', 'is_business', 'city', 'birth_year', 'language'])]
 class Customer extends Model
 {
     use BelongsToTenant;

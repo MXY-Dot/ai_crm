@@ -429,6 +429,24 @@ export const useChatStore = defineStore('chat', () => {
         }
     }
 
+    /** ЭТАП 3.7 — replaces the full label list; optimistic like setAssignee, rolled back on failure. */
+    async function setLabels(conversationId: number, labels: string[]): Promise<void> {
+        const tenant = tenantSlug();
+        const conversation = conversations.value.find((c) => c.id === conversationId);
+        if (! tenant || ! conversation) return;
+
+        const previous = conversation.labels ?? [];
+        conversation.labels = labels;
+
+        try {
+            const updated = await chatApi.setConversationLabels(tenant, conversationId, labels);
+            conversation.labels = updated.labels ?? [];
+        } catch (error) {
+            conversation.labels = previous;
+            toast.error(error instanceof Error ? error.message : 'Не удалось изменить лейблы');
+        }
+    }
+
     /**
      * Personal "pin to top of my own list" — like Telegram's chat pinning. Every
      * operator has their own independent pins on the same shared conversations;
@@ -521,6 +539,7 @@ export const useChatStore = defineStore('chat', () => {
         markRead,
         setAssignee,
         resolveConversation,
+        setLabels,
         togglePin,
         sendTyping,
         setReplyTarget,

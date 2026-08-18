@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { CheckCircle2, Info, Menu, UserCheck, UserX } from '@lucide/vue';
+import { computed, ref } from 'vue';
+import { CheckCircle2, Info, Menu, Tag, UserCheck, UserX, X } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
 import { useCrmDashboardStore } from '@/stores/crmDashboard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { conversationLabelText, conversationLabelTone, label as labelText } from '@/lib/statusLabels';
 
 defineEmits<{ 'open-info': []; 'open-sidebar': [] }>();
 
@@ -49,6 +52,28 @@ const typingLabel = computed(() => {
 
     return typers.length === 1 ? `${typers[0].name} печатает…` : `${typers.length} операторов печатают…`;
 });
+
+// ЭТАП 3.7 — freeform manual labels, layered on top of AI auto-labels (both live
+// in the same Conversation.labels array, see AiWorkflow::process()).
+function labelTone(value: string): 'green' | 'blue' | 'amber' | 'neutral' {
+    return conversationLabelTone[value] ?? 'neutral';
+}
+
+const newLabel = ref('');
+
+function addLabel(): void {
+    const value = newLabel.value.trim();
+    if (! value || ! conversation.value) return;
+
+    chat.setLabels(conversation.value.id, [...(conversation.value.labels ?? []), value]);
+    newLabel.value = '';
+}
+
+function removeLabel(value: string): void {
+    if (! conversation.value) return;
+
+    chat.setLabels(conversation.value.id, (conversation.value.labels ?? []).filter((l) => l !== value));
+}
 </script>
 
 <template>
@@ -70,6 +95,12 @@ const typingLabel = computed(() => {
             <Badge v-if="conversation.priority === 'high'" tone="amber">Высокий приоритет</Badge>
             <Badge v-if="conversation.assigned_user" tone="blue">Ведёт: {{ conversation.assigned_user.name }}</Badge>
             <Badge v-if="isClosed" tone="green">Закрыт</Badge>
+            <Badge v-for="l in conversation.labels" :key="l" :tone="labelTone(l)" class="gap-1">
+                {{ labelText(conversationLabelText, l, l) }}
+                <button type="button" class="opacity-60 hover:opacity-100" :aria-label="`Убрать лейбл ${l}`" @click="removeLabel(l)">
+                    <X class="h-3 w-3" />
+                </button>
+            </Badge>
         </div>
         <div class="flex shrink-0 items-center gap-2">
             <template v-if="! isClosed">
@@ -83,6 +114,17 @@ const typingLabel = computed(() => {
                     <CheckCircle2 class="h-4 w-4" />Закрыть диалог
                 </Button>
             </template>
+            <Popover>
+                <PopoverTrigger as-child>
+                    <Button variant="outline" size="icon" aria-label="Лейблы диалога" title="Лейблы диалога">
+                        <Tag class="h-4 w-4" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-56">
+                    <p class="mb-2 text-xs font-semibold uppercase ui-subtle">Добавить лейбл</p>
+                    <Input v-model="newLabel" placeholder="Например: доставка" @keyup.enter="addLabel" />
+                </PopoverContent>
+            </Popover>
             <Button variant="outline" size="icon" aria-label="Информация о диалоге" title="Информация о диалоге" @click="$emit('open-info')">
                 <Info class="h-4 w-4" />
             </Button>

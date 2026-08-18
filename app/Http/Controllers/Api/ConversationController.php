@@ -11,11 +11,15 @@ use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
+use App\Support\Chatwoot\ChatwootClient;
+use App\Support\Inbox\ConversationStatus;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 /**
  * Dedicated conversation list endpoint for the chat UI — search + real pagination,
@@ -40,6 +44,7 @@ class ConversationController extends Controller
         }
 
         $search = trim((string) $request->query('search', ''));
+        $label = trim((string) $request->query('label', ''));
 
         $query = Conversation::withoutGlobalScopes()
             ->with(['channel:id,provider,name', 'customer:id,name,phone', 'lead:id,title', 'assignedUser:id,name'])
@@ -52,6 +57,10 @@ class ConversationController extends Controller
                     ->orWhere('ai_summary', 'ilike', "%{$search}%")
                     ->orWhereHas('customer', fn ($c) => $c->where('name', 'ilike', "%{$search}%")->orWhere('phone', 'ilike', "%{$search}%"));
             });
+        }
+
+        if ($label !== '') {
+            $query->whereJsonContains('labels', $label);
         }
 
         $userId = (int) $request->user()->id;
@@ -162,15 +171,58 @@ class ConversationController extends Controller
     }
 
     /** ЭТАП 13.6 — the first thing that has ever actually written Conversation.status = 'closed'; the label already existed in the frontend with nothing behind it. */
-    public function resolve(Conversation $conversation, TenantContext $context): JsonResponse
+    public function resolve(Conversation $conversation, TenantContext $context, ChatwootClient $chatwoot): JsonResponse
     {
         $tenant = Tenant::query()->findOrFail($context->id());
         Gate::authorize('update', $tenant);
         abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
 
-        $conversation->forceFill(['status' => 'closed', 'resolved_at' => now()])->save();
+        $conversation->forceFill(['status' => ConversationStatus::CLOSED, 'resolved_at' => now()])->save();
+
+        $this->pushToChatwoot($tenant, $conversation->loadMissing('channel'), fn () => $chatwoot->resolveConversation($tenant, (string) $conversation->external_id));
 
         return response()->json($conversation->fresh(['channel', 'customer', 'lead']));
+    }
+
+    /** ЭТАП 3.7 — freeform operator-managed labels on a conversation; see Conversation::addLabel() for the AI-side auto-add counterpart. */
+    public function labels(Request $request, Conversation $conversation, TenantContext $context, AuditLogger $audit, ChatwootClient $chatwoot): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('update', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        $data = $request->validate(['labels' => ['required', 'array'], 'labels.*' => ['string', 'max:60']]);
+        $labels = array_values(array_unique($data['labels']));
+
+        $previous = $conversation->labels;
+        $conversation->forceFill(['labels' => $labels])->save();
+        $audit->record('conversation.labels_updated', $conversation, ['labels' => $labels], ['labels' => $previous], $request);
+
+        $this->pushToChatwoot($tenant, $conversation->loadMissing('channel'), fn () => $chatwoot->setLabels($tenant, (string) $conversation->external_id, $labels));
+
+        return response()->json($conversation->fresh(['channel', 'customer', 'lead']));
+    }
+
+    /**
+     * ЭТАП 3.10 — best-effort push-back to Chatwoot, only for channels actually
+     * routed through it (see ЭТАП 2 — whatsapp/instagram/facebook go via Chatwoot,
+     * telegram/website never do and have no Chatwoot-side conversation at all).
+     * Unlike ConversationReplyController::send() (where a failed send means the
+     * customer never got a reply, and must surface), the WERO-side action here
+     * already succeeded and is the source of truth — a failed push (guaranteed
+     * right now, since no tenant has Chatwoot configured) is logged, not thrown.
+     */
+    private function pushToChatwoot(Tenant $tenant, Conversation $conversation, callable $push): void
+    {
+        if (! in_array($conversation->channel?->provider, ['whatsapp', 'instagram', 'facebook'], true) || ! $conversation->external_id) {
+            return;
+        }
+
+        try {
+            $push();
+        } catch (RuntimeException $error) {
+            Log::warning('Chatwoot push-back failed', ['tenant_id' => $tenant->id, 'conversation_id' => $conversation->id, 'error' => $error->getMessage()]);
+        }
     }
 
     /** Personal pin — see the `pins()` migration/model docblock. Purely per-user, no effect on `assigned_user_id`. */
