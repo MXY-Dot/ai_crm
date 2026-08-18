@@ -96,6 +96,15 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('companies/{tenant}/status', [SuperAdminCompanyController::class, 'updateStatus']);
         Route::patch('companies/{tenant}/plan', [SuperAdminCompanyController::class, 'updatePlan']);
         Route::delete('companies/{tenant}', [SuperAdminCompanyController::class, 'destroy']);
+        Route::get('companies/{tenant}/vip-customers', [SuperAdminCompanyController::class, 'vipCustomers']);
+        Route::post('companies/{tenant}/vip-customers/recalculate', [SuperAdminCompanyController::class, 'recalculateVip'])->middleware('throttle:5,1');
+        Route::get('companies/{tenant}/vip-settings', [SuperAdminCompanyController::class, 'vipSettings']);
+        Route::patch('companies/{tenant}/vip-settings', [SuperAdminCompanyController::class, 'updateVipSettings']);
+        Route::get('companies/{tenant}/campaigns', [SuperAdminCompanyController::class, 'campaigns']);
+        Route::get('companies/{tenant}/emergency-settings', [SuperAdminCompanyController::class, 'emergencySettings']);
+        Route::patch('companies/{tenant}/emergency-settings', [SuperAdminCompanyController::class, 'updateEmergencySettings']);
+        Route::get('companies/{tenant}/emergency-status', [SuperAdminCompanyController::class, 'emergencyStatus']);
+        Route::patch('companies/{tenant}/emergency-override', [SuperAdminCompanyController::class, 'updateEmergencyOverride']);
         Route::get('users', [SuperAdminUserController::class, 'index']);
         Route::post('users', [SuperAdminUserController::class, 'store']);
         Route::get('users/{user}', [SuperAdminUserController::class, 'show']);

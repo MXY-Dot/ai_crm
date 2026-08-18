@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,11 +17,15 @@ use Illuminate\Support\Facades\Gate;
  * revenue, OR Score above N, OR a combination). Stored in
  * tenants.settings.vip.* — same lockForUpdate read-modify-write pattern as
  * EmergencySettingsController::update()/IntegrationSettingsController::update().
+ *
+ * VIP moved to super_admin-only — Tenant's own policy stays untouched (it's
+ * shared with unrelated tenant settings), so the role check lives here instead.
  */
 class VipSettingsController extends Controller
 {
     public function show(TenantContext $context): JsonResponse
     {
+        abort_unless(auth()->user()?->role === User::ROLE_SUPER_ADMIN, 403);
         $tenant = $this->tenant($context);
         Gate::authorize('view', $tenant);
 
@@ -29,6 +34,7 @@ class VipSettingsController extends Controller
 
     public function update(Request $request, TenantContext $context): JsonResponse
     {
+        abort_unless(auth()->user()?->role === User::ROLE_SUPER_ADMIN, 403);
         $tenant = $this->tenant($context);
         Gate::authorize('update', $tenant);
 

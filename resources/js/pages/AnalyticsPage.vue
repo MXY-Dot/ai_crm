@@ -8,12 +8,10 @@ import { apiRequest } from '../lib/apiClient';
 import AiPerformancePanel, { type AiPerformance } from '../components/dashboard/analytics/AiPerformancePanel.vue';
 import AnalyticsExportMenu from '../components/dashboard/analytics/AnalyticsExportMenu.vue';
 import AnalyticsKpis from '../components/dashboard/analytics/AnalyticsKpis.vue';
-import LlmUsagePanel, { type LlmUsageRow } from '../components/dashboard/analytics/LlmUsagePanel.vue';
 import LoadHeatmap from '../components/dashboard/analytics/LoadHeatmap.vue';
 import MessageLoadDonut from '../components/dashboard/analytics/MessageLoadDonut.vue';
 import PriorityBreakdown from '../components/dashboard/analytics/PriorityBreakdown.vue';
 import SalesAnalyticsPanel, { type SalesAnalytics } from '../components/dashboard/analytics/SalesAnalyticsPanel.vue';
-import SlaPanel, { type Sla } from '../components/dashboard/analytics/SlaPanel.vue';
 import DialogsTrendChart from '../components/dashboard/overview/DialogsTrendChart.vue';
 import DateRangeFilter, { type DateRangeGranularity } from '../components/dashboard/DateRangeFilter.vue';
 import { Skeleton } from '../components/ui/skeleton';
@@ -23,9 +21,7 @@ import { useLocaleStore } from '../stores/locale';
 type Analytics = {
     raw: { conversations: Conversation[]; messages: Message[]; ai_runs: AiRun[] };
     ai_performance: AiPerformance;
-    llm_usage: LlmUsageRow[];
     sales: SalesAnalytics;
-    sla: Sla;
 };
 
 const dashboard = useCrmDashboardStore();
@@ -90,8 +86,6 @@ defineOptions({ layout: AppLayout });
             </div>
 
             <AiPerformancePanel :data="data?.ai_performance ?? null" :loading="loading" />
-            <SlaPanel :data="data?.sla ?? null" :loading="loading" />
-            <LlmUsagePanel :data="data?.llm_usage ?? null" :loading="loading" />
             <SalesAnalyticsPanel :data="data?.sales ?? null" :loading="loading" />
         </div>
     </section>

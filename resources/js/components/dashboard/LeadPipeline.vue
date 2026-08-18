@@ -7,7 +7,7 @@ import { useLocaleStore } from '../../stores/locale';
 import LeadKanbanColumn from './leads/LeadKanbanColumn.vue';
 
 const props = defineProps<{ selectedId?: number | null; leads?: Lead[] }>();
-const emit = defineEmits<{ select: [lead: Lead]; addLead: [] }>();
+const emit = defineEmits<{ select: [lead: Lead] }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { leads: allLeads, customers } = storeToRefs(store);
@@ -30,12 +30,9 @@ function selectLead(lead: Lead): void {
 
 <template>
     <div class="rounded-xl border border-border bg-card">
-        <div class="flex items-center justify-between border-b p-4 border-border">
-            <div>
-                <h2 class="font-display text-base font-semibold ui-text">{{ locale.t('leads.title') }}</h2>
-                <p class="text-sm ui-subtle">{{ locale.t('leads.subtitle') }}</p>
-            </div>
-            <button class="rounded-lg px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground" @click="emit('addLead')">+ {{ locale.t('leads.title') }}</button>
+        <div class="border-b p-4 border-border">
+            <h2 class="font-display text-base font-semibold ui-text">{{ locale.t('leads.title') }}</h2>
+            <p class="text-sm ui-subtle">{{ locale.t('leads.subtitle') }}</p>
         </div>
         <div v-if="sourceLeads.length" class="flex gap-4 overflow-x-auto p-4">
             <LeadKanbanColumn

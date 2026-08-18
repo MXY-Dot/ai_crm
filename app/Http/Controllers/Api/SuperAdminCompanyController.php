@@ -13,6 +13,7 @@ use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -324,5 +325,80 @@ class SuperAdminCompanyController extends Controller
         $audit->record('tenant.plan_updated', $tenant, ['plan' => $data['plan']], ['plan' => $previousPlan], $request, tenantId: $tenant->id);
 
         return response()->json($tenant->fresh());
+    }
+
+    /**
+     * VIP customers and Campaigns are super_admin-only now (see RolePages) and
+     * no longer reachable via the tenant's own sidebar. Rather than duplicate
+     * VipCustomerController/VipSettingsController/CampaignController's logic,
+     * these just point TenantContext at the company being viewed and delegate —
+     * same query/authorization path a tenant owner would have hit, just aimed
+     * at an arbitrary company instead of the caller's own.
+     */
+    public function vipCustomers(Tenant $tenant, TenantContext $context, VipCustomerController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->index();
+    }
+
+    public function recalculateVip(Tenant $tenant, TenantContext $context, VipCustomerController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return app()->call([$controller, 'recalculate']);
+    }
+
+    public function vipSettings(Tenant $tenant, TenantContext $context, VipSettingsController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->show($context);
+    }
+
+    public function updateVipSettings(Request $request, Tenant $tenant, TenantContext $context, VipSettingsController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->update($request, $context);
+    }
+
+    public function campaigns(Tenant $tenant, TenantContext $context, CampaignController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->index();
+    }
+
+    /**
+     * Аварийный режим moved to super_admin-only, off the tenant's own Каналы
+     * page — same TenantContext delegation as VIP/Campaigns above.
+     */
+    public function emergencySettings(Tenant $tenant, TenantContext $context, EmergencySettingsController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->show($context);
+    }
+
+    public function updateEmergencySettings(Request $request, Tenant $tenant, TenantContext $context, EmergencySettingsController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->update($request, $context);
+    }
+
+    public function emergencyStatus(Tenant $tenant, TenantContext $context, EmergencyStatusController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->index($context);
+    }
+
+    public function updateEmergencyOverride(Request $request, Tenant $tenant, TenantContext $context, EmergencyStatusController $controller): JsonResponse
+    {
+        $context->set($tenant);
+
+        return $controller->override($request, $context);
     }
 }

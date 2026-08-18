@@ -17,8 +17,7 @@ use Throwable;
 /**
  * All 5 direct LLM providers are platform-managed here (see PlatformSettings) —
  * tenants never bring their own key, they just pick a model their plan allows
- * (AiWorkflow::PLAN_PROVIDERS) and WERO's own account is billed. Dify is shown
- * read-only (status only, its own .env-managed key, untouched by this screen).
+ * (AiWorkflow::PLAN_PROVIDERS) and WERO's own account is billed.
  *
  * Every provider card also carries its own 30-day usage stats and a 14-day daily
  * request trend, so the admin can see spend/tokens without leaving WERO to check

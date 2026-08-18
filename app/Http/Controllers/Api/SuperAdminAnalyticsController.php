@@ -9,6 +9,7 @@ use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\KnowledgeDocument;
 use App\Models\Lead;
+use App\Models\LlmCallFailure;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
@@ -39,6 +40,7 @@ class SuperAdminAnalyticsController extends Controller
             'leads_funnel' => $this->leadsFunnel(),
             'ai' => $this->aiPerformance($start, $end),
             'llm_usage' => $this->llmUsage($start, $end),
+            'sla' => $this->sla($start, $end),
             'channels' => $this->channels($start, $end),
             'knowledge' => $this->knowledge(),
             'team' => $this->team(),
@@ -122,18 +124,58 @@ class SuperAdminAnalyticsController extends Controller
         $rows = AiRun::withoutGlobalScopes()
             ->whereNotNull('provider')
             ->whereBetween('created_at', [$start, $end])
-            ->selectRaw('provider, count(*) as requests, sum(tokens_in) as tokens_in, sum(tokens_out) as tokens_out, sum(cost_usd) as cost_usd')
+            ->selectRaw('provider, count(*) as requests, sum(tokens_in) as tokens_in, sum(tokens_out) as tokens_out, sum(cost_usd) as cost_usd, avg(latency_ms) as avg_latency_ms')
             ->groupBy('provider')
             ->get()
             ->keyBy('provider');
 
-        return collect(self::LLM_PROVIDERS)->map(fn (string $provider): array => [
-            'provider' => $provider,
-            'requests' => (int) ($rows[$provider]->requests ?? 0),
-            'tokens_in' => (int) ($rows[$provider]->tokens_in ?? 0),
-            'tokens_out' => (int) ($rows[$provider]->tokens_out ?? 0),
-            'cost_usd' => round((float) ($rows[$provider]->cost_usd ?? 0), 4),
-        ])->values()->all();
+        $failures = LlmCallFailure::withoutGlobalScopes()
+            ->whereBetween('created_at', [$start, $end])
+            ->selectRaw('provider, count(*) as errors')
+            ->groupBy('provider')
+            ->get()
+            ->pluck('errors', 'provider');
+
+        return collect(self::LLM_PROVIDERS)->map(function (string $provider) use ($rows, $failures): array {
+            $requests = (int) ($rows[$provider]->requests ?? 0);
+            $errors = (int) ($failures[$provider] ?? 0);
+            $attempts = $requests + $errors;
+
+            return [
+                'provider' => $provider,
+                'requests' => $requests,
+                'tokens_in' => (int) ($rows[$provider]->tokens_in ?? 0),
+                'tokens_out' => (int) ($rows[$provider]->tokens_out ?? 0),
+                'cost_usd' => round((float) ($rows[$provider]->cost_usd ?? 0), 4),
+                'avg_latency_ms' => (int) round((float) ($rows[$provider]->avg_latency_ms ?? 0)),
+                'errors' => $errors,
+                'error_rate' => $attempts > 0 ? round($errors / $attempts * 100, 1) : 0.0,
+            ];
+        })->values()->all();
+    }
+
+    /** Platform-wide mirror of AnalyticsController::sla() — same measured-only approach, no invented SLA target. */
+    private function sla(Carbon $start, Carbon $end): array
+    {
+        $responded = Conversation::withoutGlobalScopes()
+            ->whereNotNull('first_response_at')
+            ->whereBetween('first_response_at', [$start, $end])
+            ->selectRaw('avg(extract(epoch from (first_response_at - created_at))) as avg_seconds')
+            ->value('avg_seconds');
+
+        $resolved = Conversation::withoutGlobalScopes()
+            ->whereNotNull('resolved_at')
+            ->whereBetween('resolved_at', [$start, $end]);
+
+        $avgResolutionSeconds = (clone $resolved)
+            ->selectRaw('avg(extract(epoch from (resolved_at - created_at))) as avg_seconds')
+            ->value('avg_seconds');
+
+        return [
+            'avg_first_response_minutes' => $responded !== null ? round($responded / 60, 1) : null,
+            'avg_resolution_hours' => $avgResolutionSeconds !== null ? round($avgResolutionSeconds / 3600, 1) : null,
+            'resolved_count' => (clone $resolved)->count(),
+        ];
     }
 
     private function channels(Carbon $start, Carbon $end): array

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Support\Tenancy\TenantContext;
 use App\Support\Vip\VipScoreCalculator;
 use Illuminate\Http\JsonResponse;
@@ -15,11 +16,15 @@ use Illuminate\Support\Facades\Gate;
  * ЭТАП 12.2 — the "VIP-клиенты" admin section. Customer rows already carry the
  * cached scoring output (see VipScoreCalculator), so this is a plain read + one
  * manual-recalculate action, not a heavy aggregation endpoint.
+ *
+ * VIP moved to super_admin-only — Customer's own policy stays untouched (it's
+ * shared with the regular Contacts page), so the role check lives here instead.
  */
 class VipCustomerController extends Controller
 {
     public function index(): JsonResponse
     {
+        abort_unless(auth()->user()?->role === User::ROLE_SUPER_ADMIN, 403);
         Gate::authorize('viewAny', Customer::class);
 
         $customers = Customer::query()
@@ -57,6 +62,7 @@ class VipCustomerController extends Controller
 
     public function recalculate(TenantContext $context, VipScoreCalculator $calculator): JsonResponse
     {
+        abort_unless(auth()->user()?->role === User::ROLE_SUPER_ADMIN, 403);
         Gate::authorize('viewAny', Customer::class);
 
         $tenant = Tenant::query()->findOrFail($context->id());

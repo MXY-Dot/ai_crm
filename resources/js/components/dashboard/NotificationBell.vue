@@ -131,7 +131,7 @@ async function sendAnnouncement(): Promise<void> {
                 <Bell class="h-4 w-4" />
                 <span
                     v-if="combinedUnread > 0"
-                    class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold bg-destructive text-destructive-foreground"
+                    class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold bg-primary text-primary-foreground"
                 >{{ badgeLabel }}</span>
             </Button>
         </DropdownMenuTrigger>

@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import type { Component } from 'vue';
-import { Activity, Brain, CheckCircle2, Cpu, DollarSign, PlugZap, Radio, RefreshCw, Save, Workflow, Zap } from '@lucide/vue';
+import { Activity, Brain, CheckCircle2, Cpu, DollarSign, PlugZap, Radio, RefreshCw, Save, Zap } from '@lucide/vue';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import KpiCard from '@/components/dashboard/KpiCard.vue';
@@ -11,7 +11,6 @@ import ProviderTrendChart from '@/components/dashboard/ai/ProviderTrendChart.vue
 import ClaudeIcon from '@/components/icons/ClaudeIcon.vue';
 import GoogleIcon from '@/components/icons/GoogleIcon.vue';
 import OpenAiIcon from '@/components/icons/OpenAiIcon.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,7 +25,6 @@ type TopTenant = { tenant_id: number; name: string; requests_30d: number; cost_u
 
 type Overview = {
     providers: ProviderRow[];
-    dify: { configured: boolean; key_mask: string | null };
     primary_provider: string;
     backup_provider: string | null;
     usage: { top_tenants: TopTenant[]; requests_this_month: number };
@@ -208,7 +206,7 @@ const totalRequests30d = computed(() => (data.value?.providers ?? []).reduce((su
         </div>
     </div>
 
-    <div v-if="data" class="grid gap-4 lg:grid-cols-2">
+    <div v-if="data">
         <div class="rounded-xl border border-border bg-card p-5">
             <h3 class="mb-4 font-display text-base font-semibold ui-text">Основной / резервный провайдер</h3>
             <p class="mb-3 text-sm ui-subtle">Приоритет провайдера для будущего автоматического fallback (переключение при сбое — отдельный этап). Пока это только сохранённый выбор.</p>
@@ -236,16 +234,6 @@ const totalRequests30d = computed(() => (data.value?.providers ?? []).reduce((su
             <Button variant="primary" size="sm" class="mt-4" :disabled="savingPrimary" @click="savePrimary">Сохранить выбор</Button>
         </div>
 
-        <div class="rounded-xl border border-border bg-card p-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h3 class="flex items-center gap-2 font-display text-base font-semibold ui-text"><Workflow class="h-4 w-4 text-primary" />Dify (AI-оркестрация)</h3>
-                    <p class="mt-1 text-sm ui-subtle">Статус платформенного ключа AI-оркестрации — настраивается на сервере, не из этого экрана.</p>
-                    <p v-if="data.dify.key_mask" class="mt-1 font-mono text-xs ui-subtle">Текущий: {{ data.dify.key_mask }}</p>
-                </div>
-                <Badge :tone="data.dify.configured ? 'green' : 'red'">{{ data.dify.configured ? 'Подключён' : 'Не настроен' }}</Badge>
-            </div>
-        </div>
     </div>
 
     <div v-if="data && data.usage.top_tenants.length" class="rounded-xl border border-border bg-card p-5">

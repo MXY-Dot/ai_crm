@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, Building2, CreditCard, Cpu, LayoutDashboard, LifeBuoy, LogOut, Menu, ShieldAlert, Users } from '@lucide/vue';
+import { BarChart3, Building2, CreditCard, Crown, Cpu, LayoutDashboard, LifeBuoy, LogOut, Menu, ShieldAlert, Users } from '@lucide/vue';
 import LanguageSwitcher from '@/components/dashboard/LanguageSwitcher.vue';
 import NotificationBell from '@/components/dashboard/NotificationBell.vue';
 import Sidebar, { type SidebarUser } from '@/components/dashboard/Sidebar.vue';
@@ -19,6 +19,7 @@ const navItems = [
     { href: '/super-admin/overview', label: 'Обзор', icon: LayoutDashboard },
     { href: '/super-admin/analytics', label: 'Аналитика', icon: BarChart3 },
     { href: '/super-admin/companies', label: 'Компании', icon: Building2 },
+    { href: '/super-admin/vip', label: 'VIP-клиенты', icon: Crown },
     { href: '/super-admin/users', label: 'Пользователи', icon: Users },
     { href: '/super-admin/billing', label: 'Биллинг', icon: CreditCard },
     { href: '/super-admin/llm-providers', label: 'LLM-провайдеры', icon: Cpu },

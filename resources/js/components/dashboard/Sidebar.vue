@@ -109,13 +109,13 @@ function itemClass(activeHref: string, href: string): string {
                                     <component :is="item.icon" class="h-4 w-4" />
                                     <span
                                         v-if="collapsed && item.badge"
-                                        class="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full px-0.5 text-[9px] font-bold bg-destructive text-destructive-foreground"
+                                        class="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full px-0.5 text-[9px] font-bold bg-primary text-primary-foreground"
                                     >{{ item.badge > 9 ? '9+' : item.badge }}</span>
                                 </span>
                                 <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ item.label }}</span>
                                 <span
                                     v-if="!collapsed && item.badge"
-                                    class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-bold bg-destructive text-destructive-foreground"
+                                    class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-bold bg-primary text-primary-foreground"
                                 >{{ item.badge > 99 ? '99+' : item.badge }}</span>
                             </Link>
                         </TooltipTrigger>

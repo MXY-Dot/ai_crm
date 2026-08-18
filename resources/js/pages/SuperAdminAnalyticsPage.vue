@@ -8,6 +8,8 @@ import { apiRequest } from '@/lib/apiClient';
 import { planById } from '@/lib/plans';
 import DateRangeFilter, { type DateRangeGranularity } from '@/components/dashboard/DateRangeFilter.vue';
 import KpiCard from '@/components/dashboard/KpiCard.vue';
+import LlmUsagePanel, { type LlmUsageRow } from '@/components/dashboard/analytics/LlmUsagePanel.vue';
+import SlaPanel, { type Sla } from '@/components/dashboard/analytics/SlaPanel.vue';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -34,7 +36,8 @@ type Analytics = {
         avg_confidence: number;
         handoff_rate: number;
     };
-    llm_usage: { provider: string; requests: number; tokens_in: number; tokens_out: number; cost_usd: number }[];
+    llm_usage: LlmUsageRow[];
+    sla: Sla;
     channels: { provider: string; total: number; active: number; messages_30d: number }[];
     knowledge: { indexed: number; queued: number; failed: number };
     team: { by_role: { owner: number; manager: number; operator: number }; active: number; invited: number; disabled: number };
@@ -286,6 +289,8 @@ function exportCsv(): void {
             </div>
         </div>
 
+        <SlaPanel :data="data.sla" :loading="loading" />
+
         <div class="rounded-xl border border-border bg-card p-5">
             <div class="mb-1 flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -355,6 +360,8 @@ function exportCsv(): void {
                 </div>
             </div>
         </div>
+
+        <LlmUsagePanel :data="data.llm_usage" :loading="loading" />
 
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="rounded-xl border border-border bg-card p-5">

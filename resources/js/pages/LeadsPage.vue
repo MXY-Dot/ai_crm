@@ -79,7 +79,7 @@ defineOptions({ layout: AppLayout });
             </DialogContent>
         </Dialog>
         <div data-tour="leads-board">
-            <LeadPipeline v-if="view === 'kanban'" :leads="filteredLeads" :selected-id="selectedLeadId" @select="store.openLead($event.id)" @add-lead="showLeadForm = true" />
+            <LeadPipeline v-if="view === 'kanban'" :leads="filteredLeads" :selected-id="selectedLeadId" @select="store.openLead($event.id)" />
             <LeadListTable v-else :leads="filteredLeads" :customers="customers" @select="store.openLead($event.id)" />
         </div>
     </section>

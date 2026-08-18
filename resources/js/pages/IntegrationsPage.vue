@@ -2,10 +2,9 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Globe2, ShieldAlert } from '@lucide/vue';
+import { Globe2 } from '@lucide/vue';
 import ChannelCard from '../components/dashboard/channels/ChannelCard.vue';
 import ChatwootRoutedChannelInfo from '../components/dashboard/channels/ChatwootRoutedChannelInfo.vue';
-import EmergencyModeCard from '../components/dashboard/channels/EmergencyModeCard.vue';
 import TelegramChannelSettings from '../components/dashboard/channels/TelegramChannelSettings.vue';
 import WidgetChannelSettings from '../components/dashboard/channels/WidgetChannelSettings.vue';
 import FacebookIcon from '../components/icons/FacebookIcon.vue';
@@ -13,10 +12,8 @@ import InstagramIcon from '../components/icons/InstagramIcon.vue';
 import TelegramIcon from '../components/icons/TelegramIcon.vue';
 import WhatsappIcon from '../components/icons/WhatsappIcon.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
-import { useEmergencyStore } from '../stores/emergency';
 
 const store = useCrmDashboardStore();
-const emergency = useEmergencyStore();
 const { channels, integrationSettings, busy } = storeToRefs(store);
 
 const telegramChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('telegram')) ?? null);
@@ -67,22 +64,6 @@ defineOptions({ layout: AppLayout });
 
             <ChannelCard :icon="Globe2" name="Виджет на сайт" brand="blue" :status="websiteChannel?.status" :last-synced-at="websiteChannel?.last_synced_at">
                 <WidgetChannelSettings />
-            </ChannelCard>
-        </div>
-
-        <div>
-            <h2 class="font-display text-2xl font-bold ui-text">Аварийный режим</h2>
-            <p class="mt-2 text-sm ui-subtle">Что видит клиент и кто получает уведомление, если AI перестаёт отвечать.</p>
-        </div>
-
-        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            <ChannelCard
-                :icon="ShieldAlert"
-                name="Аварийный режим"
-                brand="blue"
-                :status="emergency.mode === 'emergency' ? 'error' : 'connected'"
-            >
-                <EmergencyModeCard />
             </ChannelCard>
         </div>
     </section>
