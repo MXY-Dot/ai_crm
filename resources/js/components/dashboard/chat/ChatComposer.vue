@@ -307,17 +307,17 @@ defineExpose({
             <button type="button" class="shrink-0 font-medium underline hover:no-underline" @click="cancelRecording">Отмена</button>
         </div>
 
-        <div class="flex items-end gap-1 rounded-xl border p-1 transition focus-within:border-primary border-border">
+        <div class="flex items-end gap-1 rounded-full border p-1 transition focus-within:border-primary border-border">
             <input ref="fileInput" type="file" multiple class="hidden" @change="onFilesChosen">
-            <Button type="button" variant="ghost" size="icon" class="mb-1 shrink-0" :disabled="sending || uploading || recording" title="Прикрепить файл" @click="pickFiles">
+            <Button type="button" variant="ghost" size="icon" class="mb-1 shrink-0 rounded-full hover:bg-primary/10 hover:text-primary" :disabled="sending || uploading || recording" title="Прикрепить файл" @click="pickFiles">
                 <PaperclipIcon class="h-4 w-4" />
             </Button>
             <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                class="mb-1 shrink-0 select-none touch-none"
-                :class="{ 'text-destructive': recording }"
+                class="mb-1 shrink-0 select-none touch-none rounded-full hover:bg-primary/10 hover:text-primary"
+                :class="recording ? 'text-destructive animate-record-pulse' : ''"
                 :disabled="sending || uploading"
                 :title="recording ? 'Отпустите, чтобы отправить (Esc — отмена)' : 'Удерживайте, чтобы записать голосовое'"
                 @mousedown="beginRecordPress"
@@ -341,7 +341,7 @@ defineExpose({
                 @paste="onPaste"
             />
 
-            <Button class="mb-1 shrink-0" variant="primary" size="icon" type="submit" :disabled="! canSend" title="Отправить (Enter)">
+            <Button class="mb-1 shrink-0 rounded-full" variant="primary" size="icon" type="submit" :disabled="! canSend" title="Отправить (Enter)">
                 <SendIcon class="h-4 w-4" />
             </Button>
         </div>

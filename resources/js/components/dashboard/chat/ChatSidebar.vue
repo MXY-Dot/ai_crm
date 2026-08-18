@@ -41,6 +41,18 @@ function channelIcon(conversation: ChatConversation) {
     return channelIcons[conversation.channel?.provider ?? ''] ?? TelegramIcon;
 }
 
+const channelRingColors: Record<string, string> = {
+    telegram: 'ring-[var(--brand-telegram)]/50',
+    whatsapp: 'ring-[var(--brand-whatsapp)]/50',
+    instagram: 'ring-[var(--brand-instagram-to)]/50',
+    website: 'ring-[var(--brand-website)]/50',
+    web: 'ring-[var(--brand-website)]/50',
+};
+
+function channelRing(conversation: ChatConversation): string {
+    return channelRingColors[conversation.channel?.provider ?? ''] ?? 'ring-border';
+}
+
 function displayName(conversation: ChatConversation): string {
     return conversation.customer?.name ?? conversation.subject;
 }
@@ -89,18 +101,18 @@ function labelTone(value: string): 'green' | 'blue' | 'amber' | 'neutral' {
 
             <p v-else-if="! chat.conversations.length" class="p-6 text-center text-sm ui-subtle">Диалоги не найдены</p>
 
-            <ul v-else>
+            <ul class="space-y-0.5 p-2">
                 <li v-for="conversation in chat.conversations" :key="conversation.id">
                     <ContextMenu>
                         <ContextMenuTrigger as-child>
                             <button
                                 type="button"
-                                class="group flex w-full items-start gap-3 border-b p-3 text-left transition border-border/60 hover:bg-muted"
-                                :class="chat.activeConversationId === conversation.id ? 'bg-muted' : ''"
+                                class="group flex w-full items-start gap-3 rounded-xl border-l-2 border-transparent p-3 text-left transition-all hover:-translate-y-0.5 hover:bg-muted hover:shadow-sm"
+                                :class="chat.activeConversationId === conversation.id ? 'border-l-primary bg-primary/5' : ''"
                                 @click="chat.selectConversation(conversation.id)"
                             >
                                 <div class="relative shrink-0">
-                                    <Avatar class="size-10">
+                                    <Avatar class="size-10 ring-2 ring-offset-2 ring-offset-card" :class="channelRing(conversation)">
                                         <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial(conversation) }}</AvatarFallback>
                                     </Avatar>
                                     <Tooltip>

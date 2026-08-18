@@ -86,7 +86,7 @@ function removeLabel(value: string): void {
                 <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial }}</AvatarFallback>
             </Avatar>
             <div class="min-w-0">
-                <p class="truncate text-sm font-semibold ui-text">{{ displayName }}</p>
+                <p class="truncate font-display text-sm font-semibold ui-text">{{ displayName }}</p>
                 <p class="truncate text-xs ui-subtle">
                     <span v-if="typingLabel" class="text-primary">{{ typingLabel }}</span>
                     <span v-else>{{ isRecentlyActive ? 'Активен(на) недавно' : conversation.channel?.name ?? '' }}</span>

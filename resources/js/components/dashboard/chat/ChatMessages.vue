@@ -117,14 +117,24 @@ function onLoadOlder(): void {
                     </template>
 
                     <Marker v-if="chat.activeAiGenerating" role="status" class="mt-1">
-                        <MarkerContent class="shimmer">
-                            <BotIcon class="mr-1 inline size-3.5 align-[-2px]" />WERO AI генерирует ответ…
+                        <MarkerContent class="shimmer flex items-center gap-1.5">
+                            <BotIcon class="inline size-3.5 align-[-2px]" />WERO AI генерирует ответ
+                            <span class="inline-flex items-center gap-0.5">
+                                <span class="size-1 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+                                <span class="size-1 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+                                <span class="size-1 animate-bounce rounded-full bg-current" />
+                            </span>
                         </MarkerContent>
                     </Marker>
 
                     <Marker v-else-if="chat.activeTypers.length" role="status" class="mt-1">
-                        <MarkerContent class="shimmer">
-                            {{ chat.activeTypers.length === 1 ? `${chat.activeTypers[0].name} печатает…` : 'Несколько операторов печатают…' }}
+                        <MarkerContent class="shimmer flex items-center gap-1.5">
+                            {{ chat.activeTypers.length === 1 ? `${chat.activeTypers[0].name} печатает` : 'Несколько операторов печатают' }}
+                            <span class="inline-flex items-center gap-0.5">
+                                <span class="size-1 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+                                <span class="size-1 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+                                <span class="size-1 animate-bounce rounded-full bg-current" />
+                            </span>
                         </MarkerContent>
                     </Marker>
 

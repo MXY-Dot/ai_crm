@@ -33,6 +33,11 @@ onMounted(() => {
     }
 });
 
+// Only genuinely fresh messages (just sent/received) get the entrance
+// animation — history loaded by scrolling up mounts these same components too,
+// but with old sent_at timestamps, so this naturally excludes them.
+const isFresh = Boolean(props.message.sent_at && Date.now() - new Date(props.message.sent_at).getTime() < 10000);
+
 const isMine = computed(() => props.message.sender_type === 'operator');
 const isAi = computed(() => props.message.sender_type === 'ai');
 const align = computed<'start' | 'end'>(() => (isMine.value || isAi.value ? 'end' : 'start'));
@@ -106,7 +111,7 @@ function formatTime(value: string | null): string {
 </script>
 
 <template>
-    <Message :align="align" class="group/item">
+    <Message :align="align" class="group/item" :class="{ 'animate-fade-up': isFresh }">
         <MessageAvatar v-if="showAvatar">
             <Avatar class="size-7">
                 <AvatarFallback class="text-xs font-semibold" :class="isAi ? 'bg-accent text-accent-foreground' : 'bg-primary/10 text-primary'">

@@ -158,6 +158,26 @@ summary,
     animation: wero-fade-up 320ms ease-out both;
 }
 
+/* AI-authored chat bubbles get a slow, quiet glow — the one place "AI vs
+   operator" needs to read at a glance without a label. */
+@keyframes wero-ai-glow {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 35%, transparent); }
+    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 0%, transparent); }
+}
+
+[data-slot='bubble'][data-variant='tinted'] [data-slot='bubble-content'] {
+    animation: wero-ai-glow 3s ease-in-out infinite;
+}
+
+@keyframes wero-record-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--destructive) 45%, transparent); }
+    50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--destructive) 0%, transparent); }
+}
+
+.animate-record-pulse {
+    animation: wero-record-pulse 1.4s ease-in-out infinite;
+}
+
 .ui-surface { background: var(--card); color: var(--card-foreground); border-color: var(--border); }
 .ui-muted { background: color-mix(in srgb, var(--muted) 72%, transparent); border-color: var(--border); }
 .ui-text { color: var(--foreground); }
