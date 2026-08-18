@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('emergency:probe')->everyTwoMinutes()->withoutOverlapping();
 Schedule::command('vip:recalculate')->daily()->withoutOverlapping();
 Schedule::command('conversations:follow-up')->hourly()->withoutOverlapping();
+Schedule::command('customers:post-service-follow-up')->daily()->withoutOverlapping();

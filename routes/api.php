@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ConversationMessageController;
 use App\Http\Controllers\Api\ConversationReplyController;
 use App\Http\Controllers\Api\ConversationTypingController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\CustomerFeedbackController;
 use App\Http\Controllers\Api\EmergencySettingsController;
 use App\Http\Controllers\Api\EmergencyStatusController;
 use App\Http\Controllers\Api\IntegrationSettingsController;
@@ -132,6 +133,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::get('customers/duplicates', [CustomerController::class, 'duplicates']);
         Route::post('customers/merge', [CustomerController::class, 'merge']);
         Route::apiResource('customers', CustomerController::class)->only(['index', 'store', 'show', 'update']);
+        Route::post('customer-feedback', [CustomerFeedbackController::class, 'store']);
         Route::post('ai-agents', [AiAgentController::class, 'store']);
         Route::patch('ai-agents/{aiAgent}', [AiAgentController::class, 'update']);
         Route::get('conversations', [ConversationController::class, 'index']);

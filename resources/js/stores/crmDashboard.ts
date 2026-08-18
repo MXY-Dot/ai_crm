@@ -17,6 +17,22 @@ export type Customer = {
     created_at?: string | null;
     segment?: string | null;
     is_business?: boolean;
+    city?: string | null;
+    birth_year?: number | null;
+    vip_score?: number | null;
+    vip_status?: string | null;
+    vip_reason?: string | null;
+    purchases_count?: number | null;
+    total_revenue?: number | null;
+    last_purchase_at?: string | null;
+};
+
+export type CustomerFeedback = {
+    id: number;
+    customer_id: number;
+    satisfaction: 'positive' | 'neutral' | 'negative';
+    notes: string | null;
+    created_at: string;
 };
 
 export type Lead = {
@@ -489,12 +505,20 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }), 'toast.customerCreated');
     }
 
-    async function updateCustomer(id: number, payload: Partial<{ name: string; phone: string; email: string; is_business: boolean }>): Promise<void> {
+    async function updateCustomer(id: number, payload: Partial<{ name: string; phone: string; email: string; is_business: boolean; city: string | null; birth_year: number | null }>): Promise<void> {
         await mutate(() => apiRequest(`/api/customers/${id}`, {
             method: 'PATCH',
             tenant: tenantSlug.value,
             body: payload,
         }), 'toast.customerUpdated');
+    }
+
+    async function recordCustomerFeedback(payload: { customer_id: number; lead_id?: number | null; conversation_id?: number | null; satisfaction: 'positive' | 'neutral' | 'negative'; notes?: string }): Promise<void> {
+        await mutate(() => apiRequest('/api/customer-feedback', {
+            method: 'POST',
+            tenant: tenantSlug.value,
+            body: payload,
+        }), 'toast.feedbackRecorded');
     }
 
     async function createLead(payload: { title: string; source?: string; score?: number; customer_id?: number | null }): Promise<void> {
@@ -843,6 +867,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         refreshDashboard,
         createCustomer,
         updateCustomer,
+        recordCustomerFeedback,
         createLead,
         updateCompany,
         uploadCompanyLogo,

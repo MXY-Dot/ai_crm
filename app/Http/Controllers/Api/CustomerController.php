@@ -29,6 +29,8 @@ class CustomerController extends TenantResourceController
             'tags' => ['nullable', 'array'],
             'meta' => ['nullable', 'array'],
             'is_business' => ['nullable', 'boolean'],
+            'city' => ['nullable', 'string', 'max:120'],
+            'birth_year' => ['nullable', 'integer', 'min:1920', 'max:'.(now()->year - 10)],
         ];
     }
 
