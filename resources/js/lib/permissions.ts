@@ -7,7 +7,7 @@ export type Role = 'super_admin' | 'owner' | 'manager' | 'operator';
  * Mirrored in app/Support/Authorization/RolePages.php — keep both in sync.
  */
 const OWNER_ONLY: DashboardPage[] = ['billing', 'settings'];
-const MANAGER_PLUS: DashboardPage[] = ['ai', 'knowledge', 'analytics', 'integrations', 'marketplace', 'team', 'vip'];
+const MANAGER_PLUS: DashboardPage[] = ['ai', 'knowledge', 'analytics', 'integrations', 'marketplace', 'team', 'vip', 'campaigns'];
 
 export function canAccessPage(role: Role | string | undefined | null, page: DashboardPage): boolean {
     if (! role) return false;

@@ -14,7 +14,7 @@ class RolePages
     public const OWNER_ONLY = ['billing', 'settings'];
 
     /** Owner + manager (and super_admin). Operators are blocked. */
-    public const MANAGER_PLUS = ['ai', 'knowledge', 'analytics', 'integrations', 'marketplace', 'team', 'vip'];
+    public const MANAGER_PLUS = ['ai', 'knowledge', 'analytics', 'integrations', 'marketplace', 'team', 'vip', 'campaigns'];
 
     public static function allowed(?string $role, string $page): bool
     {

@@ -69,6 +69,8 @@ Route::middleware(['auth', EnsurePageAccess::class])->group(function () use ($da
         $dashboardPage($request, $dashboard, 'ContactsPage'))->name('contacts');
     Route::get('/vip', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'VipCustomersPage'))->name('vip');
+    Route::get('/campaigns', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'CampaignsPage'))->name('campaigns');
     Route::get('/ai', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'AiPage'))->name('ai');
     Route::get('/knowledge', fn (Request $request, DashboardData $dashboard) =>
