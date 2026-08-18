@@ -12,6 +12,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -207,7 +208,7 @@ class SuperAdminCompanyController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([
             'company_name' => ['required', 'string', 'max:160'],
@@ -254,10 +255,12 @@ class SuperAdminCompanyController extends Controller
             return $tenant;
         });
 
+        $audit->record('tenant.created', $tenant, ['name' => $tenant->name, 'slug' => $tenant->slug, 'status' => $tenant->status], [], $request, tenantId: $tenant->id);
+
         return response()->json($tenant->fresh(), 201);
     }
 
-    public function destroy(Request $request, Tenant $tenant): JsonResponse
+    public function destroy(Request $request, Tenant $tenant, AuditLogger $audit): JsonResponse
     {
         $company = Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->first();
         $expectedName = $company?->name ?? $tenant->name;
@@ -268,26 +271,35 @@ class SuperAdminCompanyController extends Controller
 
         abort_unless($data['confirm_name'] === $expectedName, 422, 'Название компании не совпадает. Удаление отменено.');
 
+        $tenantId = $tenant->id;
+        $tenantName = $tenant->name;
+
         DB::transaction(function () use ($tenant) {
             User::query()->where('tenant_id', $tenant->id)->delete();
             $tenant->delete();
         });
 
+        // ЭТАП 10.4 — the single most irreversible Super Admin action in the
+        // app (whole tenant + users, permanently) was entirely unaudited before.
+        $audit->record('tenant.deleted', Tenant::class, [], ['id' => $tenantId, 'name' => $tenantName], $request, tenantId: $tenantId);
+
         return response()->json(['message' => 'Компания и все связанные данные удалены']);
     }
 
-    public function updateStatus(Request $request, Tenant $tenant): JsonResponse
+    public function updateStatus(Request $request, Tenant $tenant, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([
             'status' => ['required', Rule::in(['trial', 'active', 'paused', 'blocked'])],
         ]);
 
+        $previousStatus = $tenant->status;
         $tenant->update(['status' => $data['status']]);
+        $audit->record('tenant.status_updated', $tenant, ['status' => $data['status']], ['status' => $previousStatus], $request, tenantId: $tenant->id);
 
         return response()->json($tenant->fresh());
     }
 
-    public function updatePlan(Request $request, Tenant $tenant): JsonResponse
+    public function updatePlan(Request $request, Tenant $tenant, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([
             'plan' => ['required', Rule::in(['starter', 'pro', 'business'])],
@@ -300,12 +312,16 @@ class SuperAdminCompanyController extends Controller
         // Telegram token saved between this request's read and its write vanishes).
         // lockForUpdate() inside a transaction serializes concurrent writers so the
         // merge always starts from the latest committed data.
+        $previousPlan = Arr::get($tenant->settings ?? [], 'billing.plan');
+
         DB::transaction(function () use ($tenant, $data) {
             $locked = Tenant::query()->lockForUpdate()->findOrFail($tenant->id);
             $settings = $locked->settings ?? [];
             Arr::set($settings, 'billing.plan', $data['plan']);
             $locked->update(['settings' => $settings]);
         });
+
+        $audit->record('tenant.plan_updated', $tenant, ['plan' => $data['plan']], ['plan' => $previousPlan], $request, tenantId: $tenant->id);
 
         return response()->json($tenant->fresh());
     }

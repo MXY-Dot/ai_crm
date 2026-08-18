@@ -9,6 +9,7 @@ use App\Models\Conversation;
 use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -135,7 +136,7 @@ class SuperAdminUserController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([
             'tenant_id' => ['required', 'exists:tenants,id'],
@@ -154,10 +155,12 @@ class SuperAdminUserController extends Controller
             'password' => Hash::make($data['password'] ?? str()->password(16)),
         ]);
 
+        $audit->record('user.created', $user, ['name' => $user->name, 'email' => $user->email, 'role' => $user->role], [], $request, tenantId: $user->tenant_id);
+
         return response()->json($user->only(['id', 'name', 'email', 'role', 'status']), 201);
     }
 
-    public function updateStatus(Request $request, User $user): JsonResponse
+    public function updateStatus(Request $request, User $user, AuditLogger $audit): JsonResponse
     {
         abort_if($user->id === $request->user()?->id, 422, 'Нельзя изменить статус собственной учётной записи');
 
@@ -165,15 +168,19 @@ class SuperAdminUserController extends Controller
             'status' => ['required', Rule::in(['active', 'invited', 'disabled'])],
         ]);
 
+        $previousStatus = $user->status;
         $user->update(['status' => $data['status']]);
+        $audit->record('user.status_updated', $user, ['status' => $data['status']], ['status' => $previousStatus], $request, tenantId: $user->tenant_id);
 
         return response()->json($user->refresh()->only(['id', 'status']));
     }
 
-    public function resetPassword(Request $request, User $user): JsonResponse
+    public function resetPassword(Request $request, User $user, AuditLogger $audit): JsonResponse
     {
         $password = str()->password(16);
         $user->update(['password' => Hash::make($password)]);
+        // Deliberately never logs the password itself — only that a reset happened.
+        $audit->record('user.password_reset', $user, [], [], $request, tenantId: $user->tenant_id);
 
         return response()->json(['password' => $password]);
     }

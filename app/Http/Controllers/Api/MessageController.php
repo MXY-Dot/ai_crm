@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\Audit\AuditLogger;
 use App\Support\TelegramClient;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +26,7 @@ use Illuminate\Validation\ValidationException;
  */
 class MessageController extends Controller
 {
-    public function update(Request $request, Message $message, TenantContext $context, TelegramClient $telegram): JsonResponse
+    public function update(Request $request, Message $message, TenantContext $context, TelegramClient $telegram, AuditLogger $audit): JsonResponse
     {
         $tenant = Tenant::query()->findOrFail($context->id());
         Gate::authorize('update', $tenant);
@@ -41,6 +42,7 @@ class MessageController extends Controller
 
         $data = $request->validate(['body' => ['required', 'string', 'max:4000']]);
         $body = trim($data['body']);
+        $previousBody = $message->body;
 
         $message->loadMissing('conversation.channel');
         $telegramSynced = null;
@@ -54,11 +56,12 @@ class MessageController extends Controller
         }
 
         $message->forceFill(['body' => $body, 'edited_at' => now()])->save();
+        $audit->record('message.updated', $message, ['body' => $body], ['body' => $previousBody], $request);
 
         return response()->json(['ok' => true, 'message' => $message->fresh()->load('replyTo'), 'telegram_synced' => $telegramSynced]);
     }
 
-    public function destroy(Message $message, TenantContext $context, TelegramClient $telegram): JsonResponse
+    public function destroy(Request $request, Message $message, TenantContext $context, TelegramClient $telegram, AuditLogger $audit): JsonResponse
     {
         $tenant = Tenant::query()->findOrFail($context->id());
         Gate::authorize('update', $tenant);
@@ -70,6 +73,7 @@ class MessageController extends Controller
 
         $message->loadMissing('conversation.channel');
         $telegramSynced = null;
+        $previousBody = $message->body;
 
         if ($message->conversation->channel?->provider === 'telegram' && $message->external_id) {
             [$chatId, $telegramMessageId] = $this->parseTelegramExternalId($message->external_id);
@@ -80,6 +84,7 @@ class MessageController extends Controller
         }
 
         $message->forceFill(['deleted_at' => now(), 'body' => ''])->save();
+        $audit->record('message.deleted', $message, [], ['body' => $previousBody], $request);
 
         return response()->json(['ok' => true, 'message' => $message->fresh(), 'telegram_synced' => $telegramSynced]);
     }

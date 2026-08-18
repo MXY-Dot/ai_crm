@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AiRun;
 use App\Models\Tenant;
 use App\Support\Ai\LlmClient;
+use App\Support\Audit\AuditLogger;
 use App\Support\Integrations\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -83,13 +84,15 @@ class SuperAdminLlmProviderController extends Controller
         ]);
     }
 
-    public function updateKey(Request $request, string $provider): JsonResponse
+    public function updateKey(Request $request, string $provider, AuditLogger $audit): JsonResponse
     {
         $this->validateProvider($provider);
 
         $data = $request->validate(['api_key' => ['required', 'string', 'max:255']]);
 
         $this->platform->setLlmApiKey($provider, $data['api_key']);
+        // Never logs the raw key — only its mask, same as the response below.
+        $audit->record('platform_llm_key.updated', 'PlatformSettings', ['provider' => $provider, 'key_mask' => $this->platform->mask($data['api_key'])], [], $request);
 
         return response()->json(['ok' => true, 'provider' => $provider, 'key_mask' => $this->platform->mask($data['api_key'])]);
     }
@@ -113,15 +116,17 @@ class SuperAdminLlmProviderController extends Controller
         return response()->json(['ok' => true, 'provider' => $provider, 'models' => $models]);
     }
 
-    public function updatePrimary(Request $request): JsonResponse
+    public function updatePrimary(Request $request, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([
             'primary_provider' => ['required', Rule::in(array_keys(self::LLM_PROVIDERS))],
             'backup_provider' => ['nullable', Rule::in(array_keys(self::LLM_PROVIDERS))],
         ]);
 
+        $previous = ['primary_provider' => $this->platform->primaryLlmProvider(), 'backup_provider' => $this->platform->backupLlmProvider()];
         $this->platform->setPrimaryLlmProvider($data['primary_provider']);
         $this->platform->setBackupLlmProvider($data['backup_provider'] ?? null);
+        $audit->record('platform_llm_provider.updated', 'PlatformSettings', $data, $previous, $request);
 
         return response()->json([
             'ok' => true,

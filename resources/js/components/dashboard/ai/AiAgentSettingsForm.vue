@@ -45,7 +45,7 @@ const PERSONA_OPTIONS = [
     { value: 'strict', label: 'Строгий' },
 ];
 
-const form = reactive({ name: '', status: 'active' as 'active' | 'paused' | 'disabled', handoff_threshold: 70, goal: '', goalCustom: '', persona: '', personaCustom: '', instructions: '', model: '', modelCustom: '' });
+const form = reactive({ name: '', status: 'active' as 'active' | 'paused' | 'disabled', handoff_threshold: 70, goal: '', goalCustom: '', persona: '', personaCustom: '', maxDiscountPercent: null as number | null, forbiddenTopics: '', instructions: '', model: '', modelCustom: '' });
 const selectedDocIds = ref<number[]>([]);
 const selectedChannels = ref<string[]>([]);
 
@@ -70,6 +70,8 @@ watch(() => props.agent, (agent) => {
         form.persona = persona;
         form.personaCustom = '';
     }
+    form.maxDiscountPercent = agent.max_discount_percent ?? null;
+    form.forbiddenTopics = (agent.forbidden_topics ?? []).join('\n');
     form.instructions = agent.instructions ?? '';
     const model = agent.model ?? '';
     if (model && ! MODEL_OPTIONS.includes(model)) {
@@ -108,12 +110,15 @@ async function save(): Promise<void> {
     const documentIds = [...selectedDocIds.value];
     const goal = form.goal === '__custom__' ? form.goalCustom.trim() : form.goal;
     const persona = form.persona === '__custom__' ? form.personaCustom.trim() : form.persona;
+    const forbiddenTopics = form.forbiddenTopics.split('\n').map((line) => line.trim()).filter((line) => line !== '');
     await store.updateAiAgent(props.agent.id, {
         name: form.name.trim(),
         status: form.status,
         handoff_threshold: Number(form.handoff_threshold),
         goal: goal || null,
         persona: persona || null,
+        max_discount_percent: form.maxDiscountPercent === null || form.maxDiscountPercent === undefined || (form.maxDiscountPercent as unknown as string) === '' ? null : Number(form.maxDiscountPercent),
+        forbidden_topics: forbiddenTopics,
         instructions: form.instructions.trim(),
         model: model || null,
         channels: selectedChannels.value,
@@ -184,6 +189,18 @@ async function save(): Promise<void> {
                                 </SelectContent>
                             </Select>
                             <Input v-if="form.persona === '__custom__'" v-model="form.personaCustom" class="mt-2" placeholder="Например: спокойный и терпеливый, объясняет подробно" maxlength="30" />
+                        </label>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="max-w-40">
+                                <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Макс. скидка, %</span>
+                                <Input v-model.number="form.maxDiscountPercent" type="number" min="0" max="100" placeholder="Без лимита" />
+                                <p class="mt-1 text-[11px] ui-subtle">AI не сможет предложить скидку выше — ответ с превышением блокируется автоматически.</p>
+                            </label>
+                        </div>
+                        <label>
+                            <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Запрещённые темы</span>
+                            <Textarea v-model="form.forbiddenTopics" class="min-h-20" placeholder="Одна тема на строку, например:&#10;гарантии результата&#10;наличные возвраты" />
+                            <p class="mt-1 text-[11px] ui-subtle">AI получит инструкцию никогда их не обсуждать и вежливо переводить разговор.</p>
                         </label>
                     </div>
                 </div>

@@ -10,6 +10,7 @@ use App\Models\ConversationRead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -126,10 +127,11 @@ class ConversationController extends Controller
      * conversation and never overwrites an existing owner. This is an explicit,
      * deliberate override: an operator can claim an unclaimed conversation, steal
      * one from another operator, or release their own — always visible to everyone
-     * via the same `assigned_user` field, no separate "who did this" tracking needed
-     * beyond the existing audit-less soft-claim model already in place.
+     * via the same `assigned_user` field. ЭТАП 10.4 — this used to have no separate
+     * "who did this" tracking beyond that visible field; now audited too, since a
+     * stolen/released assignment is exactly the kind of action worth a record.
      */
-    public function assign(Request $request, Conversation $conversation, TenantContext $context): JsonResponse
+    public function assign(Request $request, Conversation $conversation, TenantContext $context, AuditLogger $audit): JsonResponse
     {
         $tenant = Tenant::query()->findOrFail($context->id());
         Gate::authorize('update', $tenant);
@@ -152,7 +154,9 @@ class ConversationController extends Controller
             }
         }
 
+        $previousUserId = $conversation->assigned_user_id;
         $conversation->forceFill(['assigned_user_id' => $userId])->save();
+        $audit->record('conversation.assigned', $conversation, ['assigned_user_id' => $userId], ['assigned_user_id' => $previousUserId], $request);
 
         return response()->json($conversation->fresh()->load('assignedUser:id,name'));
     }

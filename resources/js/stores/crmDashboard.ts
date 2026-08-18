@@ -87,6 +87,8 @@ export type AiAgent = {
     handoff_threshold: number;
     goal: string | null;
     persona: string | null;
+    max_discount_percent: number | null;
+    forbidden_topics: string[] | null;
     instructions: string | null;
     channels: string[] | null;
 };
@@ -97,6 +99,8 @@ export type AiAgentPayload = {
     handoff_threshold?: number;
     goal?: string | null;
     persona?: string | null;
+    max_discount_percent?: number | null;
+    forbidden_topics?: string[] | null;
     instructions?: string | null;
     model?: string | null;
     channels?: string[];

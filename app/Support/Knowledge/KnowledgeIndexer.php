@@ -5,6 +5,7 @@ namespace App\Support\Knowledge;
 use App\Models\KnowledgeChunk;
 use App\Models\KnowledgeDocument;
 use App\Support\Ai\LlmClient;
+use App\Support\Security\PromptInjectionDetector;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +20,10 @@ use Throwable;
 
 class KnowledgeIndexer
 {
-    public function __construct(private readonly LlmClient $llm)
-    {
+    public function __construct(
+        private readonly LlmClient $llm,
+        private readonly PromptInjectionDetector $injectionDetector,
+    ) {
     }
 
     public function indexText(array $data): KnowledgeDocument
@@ -119,7 +122,11 @@ class KnowledgeIndexer
             'content' => $content,
             'source_type' => 'url',
             'mime_type' => 'text/html',
-            'meta' => ['source_url' => $url],
+            // ЭТАП 10.5 — visibility only: a page fetched from a third party
+            // (unlike operator-pasted text) could contain adversarial content
+            // aimed at the AI reading it later. Doesn't block indexing — the
+            // operator explicitly chose this URL — just flags it for review.
+            'meta' => ['source_url' => $url, 'contains_injection_markers' => $this->injectionDetector->detect($content)],
         ]);
     }
 

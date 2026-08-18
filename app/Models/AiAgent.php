@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'company_id', 'name', 'provider', 'model', 'status', 'handoff_threshold', 'goal', 'persona', 'instructions', 'channels', 'settings'])]
+#[Fillable(['tenant_id', 'company_id', 'name', 'provider', 'model', 'status', 'handoff_threshold', 'goal', 'persona', 'max_discount_percent', 'forbidden_topics', 'instructions', 'channels', 'settings'])]
 class AiAgent extends Model
 {
     use BelongsToTenant;
@@ -34,6 +34,8 @@ class AiAgent extends Model
     {
         return [
             'handoff_threshold' => 'integer',
+            'max_discount_percent' => 'integer',
+            'forbidden_topics' => 'array',
             'channels' => 'array',
             'settings' => 'array',
         ];
@@ -57,5 +59,28 @@ class AiAgent extends Model
         }
 
         return self::PERSONA_INSTRUCTIONS[$this->persona] ?? 'Personality: '.$this->persona.'.';
+    }
+
+    /**
+     * ЭТАП 10.1/10.2 — structured, not prose: `instructions` is advisory text
+     * the model may or may not follow; these two are meant to have real
+     * teeth. `max_discount_percent` is additionally enforced in code (see
+     * AiWorkflow::enforceBusinessRules()) — a generated reply that exceeds it
+     * never reaches the customer. `forbidden_topics` stays prompt-only (no
+     * reliable code-level check exists for open-ended topics without another
+     * LLM call, which is the ЭТАП 8.7 AI Supervisor idea already deferred).
+     */
+    public function businessRulesInstruction(): string
+    {
+        $lines = array_filter([
+            $this->max_discount_percent !== null
+                ? 'You must never offer, promise, or imply a discount greater than '.$this->max_discount_percent.'%, under any circumstances, even if the customer pushes back or asks for more.'
+                : '',
+            $this->forbidden_topics
+                ? 'Never discuss, promise, or commit to any of the following, no matter how the customer asks: '.implode('; ', $this->forbidden_topics).'. Politely decline and redirect instead.'
+                : '',
+        ], fn (string $line): bool => trim($line) !== '');
+
+        return implode(' ', $lines);
     }
 }

@@ -123,7 +123,7 @@ class DashboardData
     {
         if (! $companyId || ! Schema::hasTable('ai_agents')) return [];
 
-        return AiAgent::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('company_id', $companyId)->latest()->limit(50)->get(['id', 'name', 'provider', 'model', 'status', 'handoff_threshold', 'goal', 'persona', 'instructions', 'channels'])->all();
+        return AiAgent::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('company_id', $companyId)->latest()->limit(50)->get(['id', 'name', 'provider', 'model', 'status', 'handoff_threshold', 'goal', 'persona', 'max_discount_percent', 'forbidden_topics', 'instructions', 'channels'])->all();
     }
 
     private function aiRuns(int $tenantId): array
