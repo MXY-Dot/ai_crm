@@ -97,6 +97,10 @@ export const useChatStore = defineStore('chat', () => {
         if (conversationsPollTimer !== null) window.clearInterval(conversationsPollTimer);
         conversationsPollTimer = null;
         stopViewHeartbeat();
+        // Leaving the inbox clears the selection — coming back should always
+        // start on the "Выберите диалог" empty state, not silently reopen
+        // whatever was last active.
+        activeConversationId.value = null;
     }
 
     async function loadConversations(opts: { page?: number; silent?: boolean } = {}): Promise<void> {
