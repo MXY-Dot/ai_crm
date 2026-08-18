@@ -1,6 +1,6 @@
-import type { ChatModel, MessageFileModel, MessageModel, User } from '@advanced-chat/components';
+import type { ChatModel, MessageFileModel, MessageModel, MessageSummary, User } from '@advanced-chat/components';
 import type { MessageAttachment, ProfileUser } from '../../stores/crmDashboard';
-import type { ChatConversation, ChatMessage, Typer } from './types';
+import type { ChatConversation, ChatMessage, ChatMessageReplySummary, Typer } from './types';
 
 /**
  * @advanced-chat/components ids are all strings (`Id = string`) — WERO's are
@@ -75,6 +75,17 @@ export function guessWeroType(mime: string): MessageAttachment['type'] {
     return 'document';
 }
 
+function toReplySummary(reply: ChatMessageReplySummary | null): MessageSummary | undefined {
+    if (! reply) return undefined;
+
+    return {
+        id: String(reply.id),
+        sender: { id: reply.sender_type === 'customer' ? 'customer' : US_SENDER_ID, name: reply.sender_name ?? '', status: { state: 'online' } },
+        content: reply.deleted_at ? undefined : reply.body,
+        createdAt: new Date().toISOString(),
+    };
+}
+
 export function toAdvancedMessages(messages: ChatMessage[]): MessageModel[] {
     return messages.map((message) => ({
         id: String(message.id),
@@ -85,7 +96,9 @@ export function toAdvancedMessages(messages: ChatMessage[]): MessageModel[] {
         deleted: Boolean(message.deleted_at),
         edited: Boolean(message.edited_at),
         files: toMessageFiles(message.meta?.attachment),
-        disableActions: true,
+        reply: toReplySummary(message.reply_to),
+        // Nothing to reply-to/edit/delete on an already-deleted message.
+        disableActions: Boolean(message.deleted_at),
     }));
 }
 
