@@ -157,6 +157,59 @@ class LlmClient
     }
 
     /**
+     * Text embedding for Knowledge Base RAG (ЭТАП 5.2/5.5) — always OpenAI's
+     * text-embedding-3-small specifically: neither of the platform's other
+     * currently-configured providers (Groq, DeepSeek) expose an embeddings
+     * endpoint at all, and this is a platform-wide key like every other one
+     * here, not per-tenant. Returns null on any failure — missing key,
+     * network error, empty result — so callers (KnowledgeIndexer,
+     * DifyClient::knowledgeContext()) degrade to the pre-RAG fixed-chunk
+     * behavior instead of breaking a customer-facing reply.
+     *
+     * @return array<int, float>|null
+     */
+    public function embed(string $text): ?array
+    {
+        $apiKey = $this->platform->llmApiKey('openai');
+
+        if ($apiKey === '') {
+            return null;
+        }
+
+        if ($this->health->isOpen('llm:openai-embeddings')) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(10)->connectTimeout(4)->retry(2, 500)->acceptJson()->withToken($apiKey)
+                ->post(self::OPENAI_COMPATIBLE_BASE_URLS['openai'].'/embeddings', [
+                    'model' => 'text-embedding-3-small',
+                    'input' => $text,
+                ]);
+        } catch (Throwable $error) {
+            Log::warning('Embedding request failed', ['error' => $error->getMessage()]);
+
+            return null;
+        }
+
+        if (! $response->successful()) {
+            $this->health->recordFailure('llm:openai-embeddings', null, 'empty_or_http_error');
+
+            return null;
+        }
+
+        $vector = Arr::get($response->json(), 'data.0.embedding');
+
+        if (! is_array($vector) || $vector === []) {
+            return null;
+        }
+
+        $this->health->recordSuccess('llm:openai-embeddings', null);
+
+        return $vector;
+    }
+
+    /**
      * Single-turn completion. Returns null if the provider isn't configured or the
      * call failed; otherwise an array with the reply text plus best-effort usage
      * data (tokens_in/tokens_out/latency_ms/cost_usd) for the LLM usage/billing view.

@@ -155,6 +155,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::apiResource('tasks', TaskController::class)->only(['index', 'store', 'show', 'update']);
         Route::post('knowledge-documents/upload', [KnowledgeDocumentController::class, 'upload']);
         Route::post('knowledge-documents/index-text', [KnowledgeDocumentController::class, 'indexText']);
+        Route::post('knowledge-documents/fetch-url', [KnowledgeDocumentController::class, 'fetchUrl']);
         Route::patch('knowledge-documents/{knowledgeDocument}/content', [KnowledgeDocumentController::class, 'updateContent']);
         Route::get('knowledge-documents/{knowledgeDocument}/file', [KnowledgeDocumentController::class, 'file']);
         Route::apiResource('knowledge-documents', KnowledgeDocumentController::class)->only(['index', 'store', 'show', 'update', 'destroy']);

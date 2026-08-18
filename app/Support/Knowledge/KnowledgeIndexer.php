@@ -4,13 +4,25 @@ namespace App\Support\Knowledge;
 
 use App\Models\KnowledgeChunk;
 use App\Models\KnowledgeDocument;
+use App\Support\Ai\LlmClient;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\IOFactory as SpreadsheetIOFactory;
+use PhpOffice\PhpWord\IOFactory as WordIOFactory;
+use RuntimeException;
+use Smalot\PdfParser\Parser as PdfParser;
+use Throwable;
 
 class KnowledgeIndexer
 {
+    public function __construct(private readonly LlmClient $llm)
+    {
+    }
+
     public function indexText(array $data): KnowledgeDocument
     {
         return DB::transaction(function () use ($data): KnowledgeDocument {
@@ -31,15 +43,7 @@ class KnowledgeIndexer
                 'indexed_at' => now(),
             ]);
 
-            foreach ($chunks as $position => $chunk) {
-                KnowledgeChunk::query()->create([
-                    'knowledge_document_id' => $document->id,
-                    'position' => $position + 1,
-                    'content' => $chunk,
-                    'token_count' => $this->tokens($chunk),
-                    'meta' => ['source' => 'text'],
-                ]);
-            }
+            $this->createChunks($document, $chunks);
 
             return $document->fresh('chunks');
         });
@@ -69,19 +73,54 @@ class KnowledgeIndexer
             ]);
 
             $document->chunks()->delete();
-
-            foreach ($chunks as $position => $chunk) {
-                KnowledgeChunk::query()->create([
-                    'knowledge_document_id' => $document->id,
-                    'position' => $position + 1,
-                    'content' => $chunk,
-                    'token_count' => $this->tokens($chunk),
-                    'meta' => ['source' => 'text'],
-                ]);
-            }
+            $this->createChunks($document, $chunks);
 
             return $document->fresh('chunks');
         });
+    }
+
+    /**
+     * ЭТАП 5.3 — single-page website training: fetches exactly the URL the
+     * operator gave (no link-following, no crawling, no schedule) and
+     * indexes its extracted text the same way as pasted text.
+     */
+    public function indexUrl(array $data): KnowledgeDocument
+    {
+        $url = trim((string) $data['url']);
+        $this->assertSafeUrl($url);
+
+        try {
+            // Redirects deliberately not followed — validating the target
+            // URL and then letting it 302 somewhere unvalidated would defeat
+            // assertSafeUrl() below entirely. A company's real site should
+            // resolve directly; if it 301s, the operator can paste the final URL.
+            $response = Http::timeout(10)->connectTimeout(4)
+                ->withUserAgent('WERO-KnowledgeBot/1.0')
+                ->withOptions(['allow_redirects' => false])
+                ->get($url);
+        } catch (Throwable $error) {
+            throw new RuntimeException('Could not reach that URL: '.$error->getMessage());
+        }
+
+        if (! $response->successful()) {
+            throw new RuntimeException('Could not fetch that URL (HTTP '.$response->status().').');
+        }
+
+        [$title, $content] = $this->extractHtml($response->body());
+
+        if (mb_strlen($content) < 20) {
+            throw new RuntimeException('No readable text found on that page.');
+        }
+
+        return $this->indexText([
+            'company_id' => $data['company_id'],
+            'ai_agent_id' => $data['ai_agent_id'] ?? null,
+            'title' => $data['title'] ?? ($title !== '' ? $title : $url),
+            'content' => $content,
+            'source_type' => 'url',
+            'mime_type' => 'text/html',
+            'meta' => ['source_url' => $url],
+        ]);
     }
 
     public function indexUploadedFile(array $data): KnowledgeDocument
@@ -103,23 +142,30 @@ class KnowledgeIndexer
             'original_size' => $file->getSize(),
         ];
 
-        if ($this->canReadAsText($extension, (string) $mimeType)) {
-            $content = trim((string) file_get_contents($file->getRealPath()));
+        $content = $this->canReadAsText($extension, (string) $mimeType)
+            ? trim((string) file_get_contents($file->getRealPath()))
+            : $this->extractText($extension, $file->getRealPath());
 
-            if (mb_strlen($content) >= 20) {
-                return $this->indexText([
-                    'company_id' => $data['company_id'],
-                    'ai_agent_id' => $data['ai_agent_id'] ?? null,
-                    'title' => $title,
-                    'content' => $content,
-                    'source_type' => 'manual',
-                    'file_name' => $fileName,
-                    'mime_type' => $mimeType,
-                    'summary' => $data['summary'] ?? null,
-                    'meta' => $meta,
-                ]);
-            }
+        if ($content !== null && mb_strlen($content) >= 20) {
+            return $this->indexText([
+                'company_id' => $data['company_id'],
+                'ai_agent_id' => $data['ai_agent_id'] ?? null,
+                'title' => $title,
+                'content' => $content,
+                'source_type' => $this->sourceType($extension),
+                'file_name' => $fileName,
+                'mime_type' => $mimeType,
+                'summary' => $data['summary'] ?? null,
+                'meta' => $meta,
+            ]);
         }
+
+        // ЭТАП 5.1/5.4 — pdf/docx/xlsx that genuinely failed to parse
+        // (corrupt, encrypted, scanned-image-only) get a real 'failed'
+        // status with an explanation instead of sitting in 'queued' forever;
+        // any other unreadable type still falls back to the original
+        // queued-for-a-human-to-paste-text behavior (no parser exists for it).
+        $parserAttempted = in_array($extension, ['pdf', 'docx', 'xlsx'], true);
 
         return KnowledgeDocument::query()->create([
             'company_id' => $data['company_id'],
@@ -128,11 +174,160 @@ class KnowledgeIndexer
             'source_type' => $this->sourceType($extension),
             'file_name' => $fileName,
             'mime_type' => $mimeType,
-            'status' => 'queued',
+            'status' => $parserAttempted ? 'failed' : 'queued',
             'version' => 1,
-            'summary' => 'Uploaded file is waiting for a document parser worker.',
-            'meta' => array_merge($meta, ['parser_status' => 'pending']),
+            'summary' => $parserAttempted
+                ? 'Could not extract readable text from this file — it may be scanned, image-only, or corrupted. Open it with the viewer and paste the text manually.'
+                : 'Uploaded file is waiting for a document parser worker.',
+            'meta' => array_merge($meta, ['parser_status' => $parserAttempted ? 'failed' : 'pending']),
         ]);
+    }
+
+    private function createChunks(KnowledgeDocument $document, array $chunks): void
+    {
+        foreach ($chunks as $position => $chunk) {
+            $record = KnowledgeChunk::query()->create([
+                'knowledge_document_id' => $document->id,
+                'position' => $position + 1,
+                'content' => $chunk,
+                'token_count' => $this->tokens($chunk),
+                'meta' => ['source' => 'text'],
+            ]);
+
+            $this->embedChunk($record);
+        }
+    }
+
+    /**
+     * ЭТАП 5.2 — best-effort: a missing platform OpenAI key (none configured
+     * as of this writing, see wero_pending_tasks.md) or a failed API call
+     * just leaves `embedding` null, which knowledgeContext() already treats
+     * as "fall back to fixed-order chunks". Never blocks indexing on this.
+     */
+    private function embedChunk(KnowledgeChunk $chunk): void
+    {
+        $vector = $this->llm->embed($chunk->content);
+
+        if ($vector === null) {
+            return;
+        }
+
+        DB::statement('UPDATE knowledge_chunks SET embedding = ?::vector WHERE id = ?', ['['.implode(',', $vector).']', $chunk->id]);
+    }
+
+    /**
+     * ЭТАП 5.1/5.4 — real parsing for the 3 formats that used to sit in
+     * 'queued' forever waiting for a human to paste text manually (see
+     * reindexText()'s docblock). Returns null on any parse failure (corrupt
+     * file, encrypted PDF, unsupported internal structure) rather than
+     * throwing — the caller turns that into a real 'failed' status instead
+     * of a 500.
+     */
+    private function extractText(string $extension, string $realPath): ?string
+    {
+        try {
+            return match ($extension) {
+                'pdf' => trim((new PdfParser())->parseFile($realPath)->getText()),
+                'docx' => $this->extractWordText($realPath),
+                'xlsx' => $this->extractSpreadsheetText($realPath),
+                default => null,
+            };
+        } catch (Throwable $error) {
+            Log::warning('Knowledge document parse failed', ['extension' => $extension, 'error' => $error->getMessage()]);
+
+            return null;
+        }
+    }
+
+    private function extractWordText(string $realPath): string
+    {
+        $lines = [];
+
+        foreach (WordIOFactory::load($realPath)->getSections() as $section) {
+            foreach ($section->getElements() as $element) {
+                if (method_exists($element, 'getText') && is_string($element->getText())) {
+                    $lines[] = trim($element->getText());
+                } elseif (method_exists($element, 'getElements')) {
+                    $runText = array_map(
+                        fn ($run) => method_exists($run, 'getText') && is_string($run->getText()) ? $run->getText() : '',
+                        $element->getElements()
+                    );
+                    $lines[] = trim(implode('', $runText));
+                }
+            }
+        }
+
+        return implode("\n", array_filter($lines, fn (string $line): bool => $line !== ''));
+    }
+
+    private function extractSpreadsheetText(string $realPath): string
+    {
+        $lines = [];
+
+        foreach (SpreadsheetIOFactory::load($realPath)->getAllSheets() as $sheet) {
+            foreach ($sheet->toArray(null, true, true, false) as $row) {
+                $cells = array_filter(array_map('trim', array_map('strval', $row)), fn (string $cell): bool => $cell !== '');
+
+                if ($cells !== []) {
+                    $lines[] = implode(' | ', $cells);
+                }
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Basic SSRF guard — this lets an authenticated operator make the server
+     * fetch an arbitrary URL, so it must not be usable to reach the server's
+     * own internal network (localhost, private ranges, cloud metadata IPs).
+     */
+    private function assertSafeUrl(string $url): void
+    {
+        $parts = parse_url($url);
+
+        if (! $parts || ! in_array($parts['scheme'] ?? '', ['http', 'https'], true) || empty($parts['host'])) {
+            throw new RuntimeException('Enter a valid http(s) URL.');
+        }
+
+        $host = $parts['host'];
+        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
+
+        if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
+            throw new RuntimeException('Could not resolve that host.');
+        }
+
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            throw new RuntimeException('That URL points to a disallowed address.');
+        }
+    }
+
+    /**
+     * @return array{0: string, 1: string} [pageTitle, plainBodyText]
+     */
+    private function extractHtml(string $html): array
+    {
+        $document = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $document->loadHTML('<?xml encoding="utf-8" ?>'.$html);
+        libxml_clear_errors();
+
+        $titleNodes = $document->getElementsByTagName('title');
+        $title = $titleNodes->length > 0 ? trim($titleNodes->item(0)->textContent) : '';
+
+        foreach (['script', 'style', 'nav', 'footer'] as $tag) {
+            $nodes = $document->getElementsByTagName($tag);
+
+            for ($i = $nodes->length - 1; $i >= 0; $i--) {
+                $nodes->item($i)->parentNode?->removeChild($nodes->item($i));
+            }
+        }
+
+        $bodyNodes = $document->getElementsByTagName('body');
+        $text = $bodyNodes->length > 0 ? $bodyNodes->item(0)->textContent : $document->textContent;
+        $text = preg_replace('/\s+/u', ' ', trim((string) $text)) ?? '';
+
+        return [$title, $text];
     }
 
     private function canReadAsText(string $extension, string $mimeType): bool

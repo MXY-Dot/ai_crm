@@ -302,6 +302,10 @@ class AiWorkflow
             return null;
         }
 
+        // ЭТАП 5.2/5.5 — embeds the customer message via an external API call,
+        // computed once here (not inside the array below) so it isn't repeated.
+        $knowledge = $this->dify->knowledgeContext($agent, $message->body);
+
         $systemPrompt = implode("\n\n", array_filter([
             "You are the CRM AI assistant for this company. Never identify as OpenAI, ChatGPT, DeepSeek, or a generic language model — answer as the company's own assistant.",
             'Answer naturally and helpfully in the same language the customer wrote in. If a question is about the company itself but you don\'t have the specific detail, ask one short clarifying question or say an operator will follow up.',
@@ -344,7 +348,14 @@ class AiWorkflow
             'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
             $this->languageExamples($agent->tenant),
             'Business profile:'."\n".$this->dify->businessProfile($agent),
-            'Knowledge base:'."\n".$this->dify->knowledgeContext($agent),
+            // ЭТАП 5.7 — anti-hallucination: only fires when nothing in the
+            // knowledge base actually relates to this question (or the
+            // tenant has no indexed content at all). Don't let the model
+            // invent specifics (price, policy, availability) it doesn't have.
+            $knowledge['weak']
+                ? 'None of the knowledge base excerpts below look relevant to this question. Do not guess at specific facts (price, policy, availability) you do not actually have — ask one short clarifying question, or say you will confirm and follow up, instead of inventing details.'
+                : '',
+            'Knowledge base:'."\n".$knowledge['context'],
             $isFirstMessage ? "This is the customer's first message in this conversation — begin your reply with a brief natural greeting stating the company name (and phone number if useful), then answer their question." : '',
             // ЭТАП 7.5/7.6 — only needed once per conversation; recentMessages()
             // already covers continuity within this same conversation.

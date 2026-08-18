@@ -676,6 +676,15 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }), 'toast.fileUploaded');
     }
 
+    async function fetchKnowledgeUrl(payload: { title?: string; url: string; ai_agent_id?: number | null }): Promise<void> {
+        if (! companyId.value) return;
+        await mutate(() => apiRequest('/api/knowledge-documents/fetch-url', {
+            method: 'POST',
+            tenant: tenantSlug.value,
+            body: { company_id: companyId.value, ...payload },
+        }), 'toast.knowledgeIndexed');
+    }
+
     async function deleteKnowledgeDocument(id: number): Promise<void> {
         await mutate(() => apiRequest(`/api/knowledge-documents/${id}`, {
             method: 'DELETE',
@@ -848,6 +857,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         syncAgentKnowledge,
         indexKnowledgeText,
         uploadKnowledgeFile,
+        fetchKnowledgeUrl,
         deleteKnowledgeDocument,
         fetchKnowledgeDocument,
         updateKnowledgeDocumentContent,

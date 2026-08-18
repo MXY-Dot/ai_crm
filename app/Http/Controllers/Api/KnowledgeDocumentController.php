@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KnowledgeDocumentController extends TenantResourceController
@@ -104,6 +105,34 @@ class KnowledgeDocumentController extends TenantResourceController
         $document = $indexer->indexUploadedFile($data);
 
         $audit->record('knowledge_document.uploaded', $document, $this->auditDocument($document), [], $request);
+
+        return response()->json($document->loadCount('chunks'), 201);
+    }
+
+    /**
+     * ЭТАП 5.3 — single-page website training: fetch one operator-given URL,
+     * extract its text, index it. See KnowledgeIndexer::indexUrl()/
+     * assertSafeUrl() for the fetch + SSRF-guard details.
+     */
+    public function fetchUrl(Request $request, KnowledgeIndexer $indexer, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('create', KnowledgeDocument::class);
+
+        $data = $request->validate([
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'ai_agent_id' => ['nullable', 'integer', 'exists:ai_agents,id'],
+            'title' => ['nullable', 'string', 'max:180'],
+            'url' => ['required', 'string', 'max:2048'],
+        ]);
+        $data['ai_agent_id'] ??= $this->defaultAgent((int) $data['company_id'])->id;
+
+        try {
+            $document = $indexer->indexUrl($data);
+        } catch (RuntimeException $error) {
+            return response()->json(['message' => $error->getMessage()], 422);
+        }
+
+        $audit->record('knowledge_document.url_indexed', $document, $this->auditDocument($document), [], $request);
 
         return response()->json($document->loadCount('chunks'), 201);
     }

@@ -12,14 +12,19 @@ use App\Models\Tenant;
 use App\Support\Emergency\HealthMonitor;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class DifyClient
 {
+    /** ЭТАП 5.7 — cosine distance above which the best-matching chunk still doesn't count as relevant (empirical, OpenAI embeddings are unit-normalized). */
+    private const WEAK_COVERAGE_DISTANCE = 0.4;
+
     public function __construct(
         private readonly TenantIntegrationSettings $secrets,
         private readonly HealthMonitor $health,
+        private readonly LlmClient $llm,
     ) {
     }
 
@@ -43,6 +48,11 @@ class DifyClient
             return null;
         }
 
+        // Computed once and threaded into query() below — knowledgeContext()
+        // embeds the customer message via an external API call (ЭТАП 5.2), so
+        // this must not be called twice per decide().
+        $knowledge = $this->knowledgeContext($agent, $message->body);
+
         try {
             // ЭТАП 4 — matches LlmClient's own retry(2, 500) on its provider calls:
             // this VPS's connectivity is known-flaky (see LlmClient docblock), and
@@ -65,10 +75,10 @@ class DifyClient
                         'preferred_model' => $agent->model ?? '',
                         'is_first_message' => $isFirstMessage ? 'yes' : 'no',
                         'recent_messages' => $this->recentMessages($conversation),
-                        'knowledge_context' => $this->knowledgeContext($agent),
+                        'knowledge_context' => $knowledge['context'],
                         'business_profile' => $this->businessProfile($agent),
                     ],
-                    'query' => $this->query($agent, $conversation, $message, $lead, $isFirstMessage),
+                    'query' => $this->query($agent, $conversation, $message, $lead, $isFirstMessage, $knowledge),
                     'response_mode' => 'blocking',
                     'user' => 'tenant-'.$agent->tenant_id.'-conversation-'.$conversation->id,
                 ]);
@@ -125,7 +135,10 @@ class DifyClient
         return $response->successful();
     }
 
-    private function query(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage): string
+    /**
+     * @param array{context: string, weak: bool} $knowledge already-computed by decide() — see its own comment for why this isn't recomputed here.
+     */
+    private function query(AiAgent $agent, Conversation $conversation, Message $message, Lead $lead, bool $isFirstMessage, array $knowledge): string
     {
         return implode("\n\n", array_filter([
             'You are the CRM AI assistant for this company. Never identify as DeepSeek, ChatGPT, Dify, or a generic language model. Answer as the company assistant.',
@@ -152,11 +165,18 @@ class DifyClient
             $isFirstMessage ? "This is the customer's first message in this conversation. Begin your reply with a brief, natural greeting that states the company name (and phone number if it helps the customer), then answer their question." : '',
             // ЭТАП 7.5/7.6 — only needed once per conversation, recentMessages() already covers continuity within it.
             $isFirstMessage ? $this->customerMemory($conversation) : '',
+            // ЭТАП 5.7 — anti-hallucination: only fires when nothing in the
+            // knowledge base actually relates to this question (or the
+            // tenant has no indexed content at all). Don't let the model
+            // invent specifics (price, policy, availability) it doesn't have.
+            $knowledge['weak']
+                ? 'None of the knowledge base excerpts below look relevant to this question. Do not guess at specific facts (price, policy, availability) you do not actually have — ask one short clarifying question, or say you will confirm and follow up, instead of inventing details.'
+                : '',
             'Agent instructions: '.$agent->instructions,
             'Lead: '.$lead->title,
             'Conversation: '.$conversation->subject,
             'Business profile:' . "\n" . $this->businessProfile($agent),
-            'Knowledge base:' . "\n" . $this->knowledgeContext($agent),
+            'Knowledge base:' . "\n" . $knowledge['context'],
             'Recent messages:' . "\n" . $this->recentMessages($conversation),
             'Customer message:' . "\n" . $message->body,
             'Respond as JSON with keys: confidence, intent, summary, reply_text, next_action, handoff_required.',
@@ -272,9 +292,47 @@ class DifyClient
             ->implode("\n");
     }
 
-    public function knowledgeContext(AiAgent $agent): string
+    /**
+     * ЭТАП 5.2/5.5/5.7 — real semantic search when possible: embeds
+     * $queryText (the customer's own message) and orders chunks by cosine
+     * distance, so the excerpts actually relate to what was asked instead of
+     * always being the first 6 chunks by upload order. Falls back to that
+     * original fixed-order slice whenever no embedding is available — no
+     * platform OpenAI key configured yet (see wero_pending_tasks.md), the
+     * embedding call itself failed, or this tenant's chunks simply haven't
+     * been embedded — so an existing knowledge base never goes silent.
+     *
+     * @return array{context: string, weak: bool}
+     */
+    public function knowledgeContext(AiAgent $agent, string $queryText): array
     {
-        return KnowledgeChunk::withoutGlobalScopes()
+        $vector = trim($queryText) !== '' ? $this->llm->embed($queryText) : null;
+
+        if ($vector !== null) {
+            $rows = DB::select(
+                'select kc.content, (kc.embedding <=> ?::vector) as distance
+                 from knowledge_chunks kc
+                 inner join knowledge_documents kd on kd.id = kc.knowledge_document_id
+                 where kc.tenant_id = ?
+                   and kc.embedding is not null
+                   and kd.status = ?
+                   and (kd.ai_agent_id is null or kd.ai_agent_id = ?)
+                 order by distance asc
+                 limit 6',
+                ['['.implode(',', $vector).']', $agent->tenant_id, 'indexed', $agent->id]
+            );
+
+            if ($rows !== []) {
+                return [
+                    'context' => collect($rows)
+                        ->map(fn (object $row): string => mb_strimwidth($row->content, 0, 500, '...'))
+                        ->implode("\n---\n"),
+                    'weak' => ((float) $rows[0]->distance) > self::WEAK_COVERAGE_DISTANCE,
+                ];
+            }
+        }
+
+        $fallback = KnowledgeChunk::withoutGlobalScopes()
             ->where('tenant_id', $agent->tenant_id)
             ->whereHas('document', fn ($query) => $query
                 ->where('status', 'indexed')
@@ -285,6 +343,8 @@ class DifyClient
             ->pluck('content')
             ->map(fn (string $content): string => mb_strimwidth($content, 0, 500, '...'))
             ->implode("\n---\n");
+
+        return ['context' => $fallback, 'weak' => $fallback === ''];
     }
 
     /**

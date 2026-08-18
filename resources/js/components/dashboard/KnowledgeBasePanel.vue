@@ -10,6 +10,7 @@ import KnowledgeSourcesTable from './knowledge/KnowledgeSourcesTable.vue';
 import KnowledgeStatsBento from './knowledge/KnowledgeStatsBento.vue';
 import KnowledgeTextForm from './knowledge/KnowledgeTextForm.vue';
 import KnowledgeUploadForm from './knowledge/KnowledgeUploadForm.vue';
+import KnowledgeUrlForm from './knowledge/KnowledgeUrlForm.vue';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
@@ -21,6 +22,8 @@ const labels = computed(() => ({
     chunks: locale.t('kb.chunks'),
     contentPlaceholder: locale.t('kb.contentPlaceholder'),
     empty: locale.t('kb.empty'),
+    fetchUrl: locale.t('kb.fetchUrl'),
+    fromUrl: locale.t('kb.fromUrl'),
     indexText: locale.t('kb.indexText'),
     indexed: locale.t('kb.indexed'),
     optionalTitle: locale.t('kb.optionalTitle'),
@@ -32,6 +35,7 @@ const labels = computed(() => ({
     uploadAndIndex: locale.t('kb.uploadAndIndex'),
     uploadFile: locale.t('kb.uploadFile'),
     uploadHelp: locale.t('kb.uploadHelp'),
+    urlPlaceholder: locale.t('kb.urlPlaceholder'),
 }));
 
 const filteredDocuments = computed(() => {
@@ -54,6 +58,10 @@ async function indexText(payload: { title: string; content: string }): Promise<v
 async function uploadFile(payload: { title: string; file: File }): Promise<void> {
     await store.uploadKnowledgeFile({ title: payload.title || undefined, file: payload.file, ai_agent_id: aiAgents.value[0]?.id ?? null });
 }
+
+async function fetchUrl(payload: { url: string }): Promise<void> {
+    await store.fetchKnowledgeUrl({ url: payload.url, ai_agent_id: aiAgents.value[0]?.id ?? null });
+}
 </script>
 
 <template>
@@ -65,9 +73,10 @@ async function uploadFile(payload: { title: string; file: File }): Promise<void>
             <Input v-model="query" class="h-10 pl-9 lg:pl-10" :placeholder="labels.search" />
         </div>
 
-        <div class="grid gap-4 lg:grid-cols-2" data-tour="kb-add">
+        <div class="grid gap-4 lg:grid-cols-3" data-tour="kb-add">
             <KnowledgeTextForm :busy="busy" :error="error" :labels="labels" @submit="indexText" />
             <KnowledgeUploadForm :busy="busy" :labels="labels" @submit="uploadFile" />
+            <KnowledgeUrlForm :busy="busy" :error="error" :labels="labels" @submit="fetchUrl" />
         </div>
 
         <div data-tour="kb-sources">
