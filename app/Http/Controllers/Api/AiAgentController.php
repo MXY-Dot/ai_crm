@@ -35,7 +35,7 @@ class AiAgentController extends Controller
             'instructions' => ['nullable', 'string', 'max:4000'],
             'model' => ['nullable', 'string', 'max:60'],
             'channels' => ['sometimes', 'array'],
-            'channels.*' => [Rule::in(['telegram', 'whatsapp', 'instagram', 'website'])],
+            'channels.*' => [Rule::in(['telegram', 'whatsapp', 'instagram', 'facebook', 'website'])],
         ]);
 
         // A brand-new agent with no model picked used to sit silently answering with
@@ -78,7 +78,7 @@ class AiAgentController extends Controller
             'instructions' => ['sometimes', 'nullable', 'string', 'max:4000'],
             'model' => ['sometimes', 'nullable', 'string', 'max:60'],
             'channels' => ['sometimes', 'array'],
-            'channels.*' => [Rule::in(['telegram', 'whatsapp', 'instagram', 'website'])],
+            'channels.*' => [Rule::in(['telegram', 'whatsapp', 'instagram', 'facebook', 'website'])],
             'settings' => ['sometimes', 'array'],
         ]);
 

@@ -9,7 +9,7 @@ class RunHealthProbesCommand extends Command
 {
     protected $signature = 'emergency:probe';
 
-    protected $description = 'Run scheduled health probes for LLM providers, Dify recovery, database, and queue (ЭТАП 16.1/16.17).';
+    protected $description = 'Run scheduled health probes for LLM providers, Dify recovery, database, queue, and Telegram channels (ЭТАП 16.1/16.17, 2.6).';
 
     public function handle(ActiveHealthProbe $probe): int
     {
@@ -17,6 +17,7 @@ class RunHealthProbesCommand extends Command
         $probe->probeQueue();
         $probe->probeLlmProviders();
         $probe->probeDifyRecovery();
+        $probe->probeTelegramChannels();
 
         return self::SUCCESS;
     }

@@ -10,9 +10,16 @@ const props = defineProps<{
     name: string;
     status?: string;
     lastSyncedAt?: string | null;
-    brand?: 'telegram' | 'whatsapp' | 'instagram' | 'blue';
+    brand?: 'telegram' | 'whatsapp' | 'instagram' | 'facebook' | 'blue';
     /** Optional external link (e.g. the provider's own dashboard) shown as a small button next to "Настроить". */
     externalUrl?: string | null;
+    /**
+     * ЭТАП 2.6 — real, actively-monitored status (see ActiveHealthProbe::probeTelegramChannels()),
+     * distinct from `status` (which is only ever written once, at connect-time).
+     * When set, this overrides the badge entirely; omit/null for channels that
+     * aren't monitored yet, which keeps the old `status`-only badge.
+     */
+    healthStatus?: 'up' | 'down' | null;
 }>();
 
 const brandClass = computed(() => {
@@ -20,6 +27,7 @@ const brandClass = computed(() => {
         telegram: 'bg-brand-telegram text-white',
         whatsapp: 'bg-brand-whatsapp text-white',
         instagram: 'bg-gradient-to-br from-brand-instagram-from via-brand-instagram-via to-brand-instagram-to text-white',
+        facebook: 'bg-[#1877F2] text-white',
         blue: 'bg-brand-website text-white',
     };
 
@@ -27,6 +35,8 @@ const brandClass = computed(() => {
 });
 
 const tone = computed(() => {
+    if (props.healthStatus === 'down') return { label: 'Ошибка соединения', class: 'text-destructive bg-destructive/10 border-destructive/20' };
+    if (props.healthStatus === 'up') return { label: 'Подключено', class: 'bg-primary/10 text-primary border-primary/20' };
     if (props.status === 'connected') return { label: 'Подключено', class: 'bg-primary/10 text-primary border-primary/20' };
     if (props.status === 'pending') return { label: 'Требуется настройка', class: 'bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/20' };
     if (props.status === 'error') return { label: 'Ошибка', class: 'text-destructive bg-destructive/10 border-destructive/20' };
@@ -49,7 +59,7 @@ const lastSyncedLabel = computed(() => (props.lastSyncedAt
                 <div>
                     <h3 class="font-display text-base font-semibold ui-text">{{ name }}</h3>
                     <span class="mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" :class="tone.class">
-                        <span class="h-1.5 w-1.5 rounded-full" :class="status === 'connected' ? 'bg-primary' : status === 'error' ? 'bg-destructive' : 'bg-current'" />
+                        <span class="h-1.5 w-1.5 rounded-full" :class="healthStatus === 'down' || status === 'error' ? 'bg-destructive' : healthStatus === 'up' || status === 'connected' ? 'bg-primary' : 'bg-current'" />
                         {{ tone.label }}
                     </span>
                 </div>

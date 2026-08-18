@@ -110,13 +110,30 @@ class ChatwootPayloadMapper
 
         return trim($name.' - '.Str::limit($content, 70, '')) ?: 'Chatwoot #'.$conversationId;
     }
+    /**
+     * ЭТАП 2 — Chatwoot sends its channel type in Rails STI form ("Channel::Whatsapp",
+     * "Channel::FacebookPage", "Channel::Instagram") — `::`-separated, not `\`-separated,
+     * so class_basename() alone left it untouched as "channel::whatsapp" instead of
+     * "whatsapp". That's why ChatwootWebhookHandler::channel() (which keys the
+     * auto-created Channel row directly off this return value) never produced a
+     * whatsapp/instagram row a tenant would ever see as "Подключено" in Settings.
+     * Not verified against a live WhatsApp/Instagram Chatwoot webhook (no such
+     * channel is actually configured on the demo tenant) — based on Chatwoot's
+     * documented channel_type naming convention.
+     */
     private function provider(array $source): string
     {
-        $channel = (string) (Arr::get($source, 'channel') ?? Arr::get($source, 'channel_type') ?? 'chatwoot');
+        $channel = strtolower((string) (Arr::get($source, 'channel') ?? Arr::get($source, 'channel_type') ?? 'chatwoot'));
 
-        return str_contains(strtolower($channel), 'web')
-            ? 'website'
-            : strtolower(class_basename($channel ?: 'chatwoot'));
+        if (str_contains($channel, 'web')) {
+            return 'website';
+        }
+
+        if (str_contains($channel, 'facebook')) {
+            return 'facebook';
+        }
+
+        return class_basename(str_replace('::', '\\', $channel ?: 'chatwoot'));
     }
 
     private function senderType(array $message): string

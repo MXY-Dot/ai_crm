@@ -61,6 +61,7 @@ export type Channel = {
     name: string;
     status: string;
     last_synced_at: string | null;
+    health_status?: 'up' | 'down' | null;
 };
 
 export type Conversation = {

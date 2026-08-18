@@ -41,6 +41,7 @@ export const sourceLabels: Record<string, string> = {
     web: 'Сайт',
     chatwoot: 'Единый инбокс',
     instagram: 'Instagram',
+    facebook: 'Facebook',
     manual: 'Вручную',
 };
 

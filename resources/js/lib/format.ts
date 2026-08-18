@@ -15,6 +15,7 @@ export function channelTone(value: string | null | undefined): ChannelTone {
     if (key.includes('telegram')) return 'telegram';
     if (key.includes('whatsapp')) return 'whatsapp';
     if (key.includes('instagram')) return 'instagram';
+    if (key.includes('facebook')) return 'blue';
     if (key.includes('website') || key.includes('widget')) return 'blue';
 
     return 'neutral';

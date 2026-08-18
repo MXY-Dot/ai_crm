@@ -22,11 +22,12 @@ function isModelLocked(model: string): boolean {
     return provider !== null && ! currentPlan.value.aiProviders.includes(provider);
 }
 const maxAiProviders = Math.max(...plans.map((plan) => plan.aiProviders.length));
-const CHANNEL_OPTIONS = ['telegram', 'whatsapp', 'instagram', 'website'];
+const CHANNEL_OPTIONS = ['telegram', 'whatsapp', 'instagram', 'facebook', 'website'];
 const CHANNEL_STYLES: Record<string, string> = {
     telegram: 'border-brand-telegram/50 bg-brand-telegram/15 text-brand-telegram',
     whatsapp: 'border-brand-whatsapp/50 bg-brand-whatsapp/15 text-brand-whatsapp',
     instagram: 'border-brand-instagram-to/50 bg-brand-instagram-to/15 text-brand-instagram-to',
+    facebook: 'border-[#1877F2]/50 bg-[#1877F2]/15 text-[#1877F2]',
     website: 'border-sky-600/50 bg-sky-600/15 text-sky-700 dark:text-sky-300',
     chatwoot: 'border-emerald-600/50 bg-emerald-600/15 text-emerald-700 dark:text-emerald-300',
 };

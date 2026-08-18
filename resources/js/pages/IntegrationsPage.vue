@@ -8,6 +8,7 @@ import ChatwootRoutedChannelInfo from '../components/dashboard/channels/Chatwoot
 import EmergencyModeCard from '../components/dashboard/channels/EmergencyModeCard.vue';
 import TelegramChannelSettings from '../components/dashboard/channels/TelegramChannelSettings.vue';
 import WidgetChannelSettings from '../components/dashboard/channels/WidgetChannelSettings.vue';
+import FacebookIcon from '../components/icons/FacebookIcon.vue';
 import InstagramIcon from '../components/icons/InstagramIcon.vue';
 import TelegramIcon from '../components/icons/TelegramIcon.vue';
 import WhatsappIcon from '../components/icons/WhatsappIcon.vue';
@@ -22,6 +23,7 @@ const telegramChannel = computed(() => channels.value.find((item) => item.provid
 const whatsappChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('whatsapp')) ?? null);
 const websiteChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('website')) ?? null);
 const instagramChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('instagram')) ?? null);
+const facebookChannel = computed(() => channels.value.find((item) => item.provider.toLowerCase().includes('facebook')) ?? null);
 
 onMounted(async () => {
     if (! integrationSettings.value) await store.loadIntegrationSettings();
@@ -38,7 +40,7 @@ defineOptions({ layout: AppLayout });
         </div>
 
         <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4" data-tour="channels-grid">
-            <ChannelCard :icon="TelegramIcon" name="Telegram" brand="telegram" :status="telegramChannel?.status" :last-synced-at="telegramChannel?.last_synced_at">
+            <ChannelCard :icon="TelegramIcon" name="Telegram" brand="telegram" :status="telegramChannel?.status" :health-status="telegramChannel?.health_status" :last-synced-at="telegramChannel?.last_synced_at">
                 <TelegramChannelSettings :settings="integrationSettings?.telegram ?? null" :busy="busy" />
             </ChannelCard>
 
@@ -53,6 +55,13 @@ defineOptions({ layout: AppLayout });
                 <ChatwootRoutedChannelInfo
                     :chatwoot="integrationSettings?.chatwoot ?? null"
                     description="Instagram Direct тоже маршрутизируется через единый инбокс. Используйте тот же вебхук при подключении аккаунта."
+                />
+            </ChannelCard>
+
+            <ChannelCard :icon="FacebookIcon" name="Facebook" brand="facebook" :status="facebookChannel?.status" :last-synced-at="facebookChannel?.last_synced_at">
+                <ChatwootRoutedChannelInfo
+                    :chatwoot="integrationSettings?.chatwoot ?? null"
+                    description="Facebook Messenger тоже маршрутизируется через единый инбокс. Добавьте этот вебхук при подключении страницы."
                 />
             </ChannelCard>
 

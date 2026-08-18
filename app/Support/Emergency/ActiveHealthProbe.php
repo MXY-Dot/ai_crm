@@ -3,11 +3,13 @@
 namespace App\Support\Emergency;
 
 use App\Jobs\HealthHeartbeatJob;
+use App\Models\Channel;
 use App\Models\HealthComponent;
 use App\Models\Tenant;
 use App\Support\Ai\DifyClient;
 use App\Support\Ai\LlmClient;
 use App\Support\Integrations\PlatformSettings;
+use App\Support\TelegramClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +33,7 @@ class ActiveHealthProbe
         private readonly LlmClient $llm,
         private readonly DifyClient $dify,
         private readonly PlatformSettings $platform,
+        private readonly TelegramClient $telegram,
     ) {
     }
 
@@ -116,6 +119,41 @@ class ActiveHealthProbe
                 $this->health->recordSuccess('dify:'.$tenant->id, $tenant->id);
             } else {
                 $this->health->recordFailure('dify:'.$tenant->id, $tenant->id, 'probe_failed');
+            }
+        }
+    }
+
+    /**
+     * ЭТАП 2.6 — Integration Health for channels. Every tick, for every tenant
+     * with a Telegram channel already marked connected, calls getMe() (the same
+     * cheap call IntegrationSettingsController::testTelegram() already uses to
+     * validate a token) — catches a revoked/expired bot token or an
+     * api.telegram.org outage even overnight, same as probeLlmProviders() does
+     * for LLM providers. WhatsApp/Instagram/Facebook aren't probed here — they
+     * have no direct API key WERO holds, only Chatwoot-mediated webhooks (see
+     * wero_pending_tasks.md's Stage 2 entry); Website is WERO's own server and
+     * always "connected" by definition.
+     */
+    public function probeTelegramChannels(): void
+    {
+        $tenantIds = Channel::withoutGlobalScopes()
+            ->where('provider', 'telegram')
+            ->where('status', 'connected')
+            ->distinct()
+            ->pluck('tenant_id');
+
+        foreach ($tenantIds as $tenantId) {
+            $tenant = Tenant::query()->find($tenantId);
+
+            if (! $tenant) {
+                continue;
+            }
+
+            try {
+                $this->telegram->getMe($tenant);
+                $this->health->recordSuccess('telegram:'.$tenant->id, $tenant->id);
+            } catch (RuntimeException $error) {
+                $this->health->recordFailure('telegram:'.$tenant->id, $tenant->id, 'probe_failed', $error->getMessage());
             }
         }
     }

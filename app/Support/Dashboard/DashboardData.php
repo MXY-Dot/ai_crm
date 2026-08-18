@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\CrmTask;
 use App\Models\Customer;
+use App\Models\HealthComponent;
 use App\Models\KnowledgeDocument;
 use App\Models\Lead;
 use App\Models\Message;
@@ -95,7 +96,21 @@ class DashboardData
     {
         if (! $companyId || ! Schema::hasTable('channels')) return [];
 
-        return Channel::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('company_id', $companyId)->orderBy('provider')->get(['id', 'provider', 'name', 'status', 'last_synced_at'])->all();
+        $channels = Channel::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('company_id', $companyId)->orderBy('provider')->get(['id', 'provider', 'name', 'status', 'last_synced_at']);
+
+        // ЭТАП 2.6 — real per-channel health, Telegram only for now (see
+        // ActiveHealthProbe::probeTelegramChannels()'s own docblock for why
+        // WhatsApp/Instagram/Facebook/Website aren't probed). null means
+        // "not actively monitored", distinct from up/down.
+        if (Schema::hasTable('health_components')) {
+            $telegramStatus = HealthComponent::query()->where('tenant_id', $tenantId)->where('component', 'telegram:'.$tenantId)->value('status');
+
+            $channels->each(function (Channel $channel) use ($telegramStatus): void {
+                $channel->setAttribute('health_status', $channel->provider === 'telegram' ? $telegramStatus : null);
+            });
+        }
+
+        return $channels->all();
     }
 
     private function conversations(int $tenantId, ?int $companyId): array
