@@ -161,8 +161,8 @@ summary,
 /* AI-authored chat bubbles get a slow, quiet glow — the one place "AI vs
    operator" needs to read at a glance without a label. */
 @keyframes wero-ai-glow {
-    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 35%, transparent); }
-    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 0%, transparent); }
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 16%, transparent); }
+    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 0%, transparent); }
 }
 
 [data-slot='bubble'][data-variant='tinted'] [data-slot='bubble-content'] {
