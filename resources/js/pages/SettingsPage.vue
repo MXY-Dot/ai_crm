@@ -2,6 +2,7 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import CompanyProfilePanel from '../components/dashboard/CompanyProfilePanel.vue';
 import NotificationPreferencesPanel from '../components/dashboard/NotificationPreferencesPanel.vue';
+import WidgetTokensPanel from '../components/dashboard/WidgetTokensPanel.vue';
 
 defineOptions({ layout: AppLayout });
 </script>
@@ -17,5 +18,7 @@ defineOptions({ layout: AppLayout });
             <CompanyProfilePanel data-tour="settings-company" />
             <NotificationPreferencesPanel data-tour="settings-notify" />
         </div>
+
+        <WidgetTokensPanel data-tour="settings-widget-tokens" />
     </section>
 </template>

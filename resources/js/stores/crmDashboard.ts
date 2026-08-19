@@ -311,13 +311,11 @@ export function buildIntegrationSettingsPayload(form: IntegrationSettingsForm): 
 export type WidgetLauncherIcon = 'chat' | 'message' | 'help';
 
 export type WidgetSettings = {
-    site_key: string;
     status: string;
     welcome_message: string | null;
     color: string;
     position: 'right' | 'left';
     launcher_icon: WidgetLauncherIcon;
-    embed_snippet: string;
     last_synced_at: string | null;
 };
 
@@ -326,6 +324,15 @@ export type WidgetSettingsForm = {
     color: string;
     position: 'right' | 'left';
     launcherIcon: WidgetLauncherIcon;
+};
+
+export type WidgetToken = {
+    id: number;
+    label: string;
+    token: string;
+    embed_snippet: string;
+    last_used_at: string | null;
+    created_at: string;
 };
 
 export type AiRun = {
@@ -421,6 +428,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const tenantUsers = ref(boot.tenantUsers ?? []);
     const integrationSettings = ref<IntegrationSettings | null>(null);
     const widgetSettings = ref<WidgetSettings | null>(null);
+    const widgetTokens = ref<WidgetToken[]>([]);
     const leadStatus = ref('all');
     const selectedConversationId = ref<number | null>(conversations.value[0]?.id ?? null);
     const selectedCustomerId = ref<number | null>(customers.value[0]?.id ?? null);
@@ -806,12 +814,31 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }, 'toast.settingsSaved');
     }
 
-    async function regenerateWidgetKey(): Promise<void> {
+    async function loadWidgetTokens(): Promise<void> {
+        const response = await apiRequest<{ data: WidgetToken[] }>('/api/widget-tokens', {
+            tenant: tenantSlug.value,
+        });
+        widgetTokens.value = response.data;
+    }
+
+    async function createWidgetToken(label: string): Promise<void> {
         await mutate(async () => {
-            widgetSettings.value = await apiRequest<WidgetSettings>('/api/widget-settings/regenerate-key', {
+            const token = await apiRequest<WidgetToken>('/api/widget-tokens', {
                 method: 'POST',
                 tenant: tenantSlug.value,
+                body: { label },
             });
+            widgetTokens.value = [token, ...widgetTokens.value];
+        }, 'toast.settingsSaved');
+    }
+
+    async function deleteWidgetToken(id: number): Promise<void> {
+        await mutate(async () => {
+            await apiRequest(`/api/widget-tokens/${id}`, {
+                method: 'DELETE',
+                tenant: tenantSlug.value,
+            });
+            widgetTokens.value = widgetTokens.value.filter((token) => token.id !== id);
         }, 'toast.settingsSaved');
     }
 
@@ -876,6 +903,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         tenantUsers,
         integrationSettings,
         widgetSettings,
+        widgetTokens,
         leadStatus,
         selectedConversationId,
         selectedCustomerId,
@@ -928,6 +956,8 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         updateIntegrationSettings,
         loadWidgetSettings,
         updateWidgetSettings,
-        regenerateWidgetKey,
+        loadWidgetTokens,
+        createWidgetToken,
+        deleteWidgetToken,
     };
 });

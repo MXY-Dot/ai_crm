@@ -17,9 +17,12 @@ use Illuminate\Validation\Rule;
 /**
  * CRM-side configuration for the website chat widget (see WidgetController
  * for the public, unauthenticated half a visitor's browser actually talks
- * to). One `provider = 'website'` Channel per tenant carries the site key
- * (`external_id`) and settings (welcome message) — auto-provisioned here on
- * first read so there's no separate manual "set up the widget" step.
+ * to). One `provider = 'website'` Channel per tenant carries the branding
+ * settings (welcome message/color/position/launcher icon) — auto-provisioned
+ * here on first read so there's no separate manual "set up the widget" step.
+ * The embed key(s) live in WidgetTokenController now, not here — a tenant can
+ * have several named tokens (one per site/page), all resolving to this same
+ * Channel.
  */
 class WidgetSettingsController extends Controller
 {
@@ -67,17 +70,6 @@ class WidgetSettingsController extends Controller
         return response()->json($this->payload($channel));
     }
 
-    public function regenerateKey(TenantContext $context): JsonResponse
-    {
-        $tenant = Tenant::query()->findOrFail($context->id());
-        Gate::authorize('update', $tenant);
-
-        $channel = $this->channel($tenant);
-        $channel->forceFill(['external_id' => Str::random(24)])->save();
-
-        return response()->json($this->payload($channel));
-    }
-
     private function channel(Tenant $tenant): Channel
     {
         $company = Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->first();
@@ -96,16 +88,12 @@ class WidgetSettingsController extends Controller
 
     private function payload(Channel $channel): array
     {
-        $siteKey = $channel->external_id;
-
         return [
-            'site_key' => $siteKey,
             'status' => $channel->status,
             'welcome_message' => Arr::get($channel->settings ?? [], 'welcome_message'),
             'color' => Arr::get($channel->settings ?? [], 'widget_color', '#16a34a'),
             'position' => Arr::get($channel->settings ?? [], 'widget_position', 'right'),
             'launcher_icon' => Arr::get($channel->settings ?? [], 'widget_launcher_icon', 'chat'),
-            'embed_snippet' => '<script src="'.rtrim(config('app.url'), '/').'/widget.js" data-site-key="'.$siteKey.'" async></script>',
             'last_synced_at' => $channel->last_synced_at,
         ];
     }

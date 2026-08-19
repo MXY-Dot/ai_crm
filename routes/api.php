@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\WidgetController;
 use App\Http\Controllers\Api\WidgetSettingsController;
+use App\Http\Controllers\Api\WidgetTokenController;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Support\Facades\Route;
@@ -142,7 +143,9 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('chatwoot/sync', ChatwootSyncController::class)->middleware('throttle:10,1');
         Route::get('widget-settings', [WidgetSettingsController::class, 'show']);
         Route::patch('widget-settings', [WidgetSettingsController::class, 'update']);
-        Route::post('widget-settings/regenerate-key', [WidgetSettingsController::class, 'regenerateKey']);
+        Route::get('widget-tokens', [WidgetTokenController::class, 'index']);
+        Route::post('widget-tokens', [WidgetTokenController::class, 'store']);
+        Route::delete('widget-tokens/{widgetToken}', [WidgetTokenController::class, 'destroy']);
         Route::apiResource('tenant-users', TenantUserController::class)->only(['index', 'store', 'update']);
         Route::apiResource('companies', CompanyController::class)->only(['index', 'store', 'show', 'update']);
         Route::post('companies/{company}/logo', [CompanyController::class, 'uploadLogo']);

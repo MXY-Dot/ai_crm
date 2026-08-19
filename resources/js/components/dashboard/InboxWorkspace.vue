@@ -52,6 +52,15 @@ onBeforeUnmount(() => chat.dispose());
 async function cycleAutoReplyMode(): Promise<void> {
     const nextIndex = (AUTO_REPLY_MODES.indexOf(autoReplyMode.value) + 1) % AUTO_REPLY_MODES.length;
     await dashboard.updateIntegrationSettings({ chatwoot: { auto_reply_mode: AUTO_REPLY_MODES[nextIndex] } });
+
+    // "Вернуть AI" was removed from ChatHeader.vue — this toggle is now the one
+    // control for AI auto-reply, so cycling it also releases the currently open
+    // conversation if the operator still has it claimed (ЭТАП 8.3/8.5's
+    // assigned_user_id gate), otherwise a claimed conversation would stay stuck
+    // on "AI paused" with no way left to hand it back.
+    if (activeConversation.value?.assigned_user_id === dashboard.user?.id) {
+        await chat.setAssignee(activeConversation.value.id, false);
+    }
 }
 
 function useDraft(body: string): void {

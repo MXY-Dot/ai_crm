@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Copy, HelpCircle, MessageSquare, RefreshCw, Save } from '@lucide/vue';
+import { HelpCircle, MessageSquare, Save } from '@lucide/vue';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import type { WidgetLauncherIcon } from '../../../stores/crmDashboard';
 import { Button } from '../../ui/button';
@@ -16,7 +16,6 @@ const form = reactive({
     position: 'right' as 'right' | 'left',
     launcherIcon: 'chat' as WidgetLauncherIcon,
 });
-const copied = ref(false);
 
 const LAUNCHER_ICONS: { value: WidgetLauncherIcon; label: string }[] = [
     { value: 'chat', label: 'Диалог' },
@@ -35,13 +34,6 @@ watch(widgetSettings, (value) => {
     form.launcherIcon = value?.launcher_icon ?? 'chat';
 }, { immediate: true });
 
-async function copySnippet(): Promise<void> {
-    if (! widgetSettings.value?.embed_snippet) return;
-    await navigator.clipboard.writeText(widgetSettings.value.embed_snippet);
-    copied.value = true;
-    setTimeout(() => (copied.value = false), 1500);
-}
-
 async function save(): Promise<void> {
     await store.updateWidgetSettings({
         welcomeMessage: form.welcomeMessage.trim(),
@@ -50,24 +42,11 @@ async function save(): Promise<void> {
         launcherIcon: form.launcherIcon,
     });
 }
-
-async function regenerateKey(): Promise<void> {
-    if (! confirm('Старый код виджета перестанет работать на сайте — придётся вставить новый. Продолжить?')) return;
-    await store.regenerateWidgetKey();
-}
 </script>
 
 <template>
     <div class="space-y-4 text-sm">
-        <p class="ui-subtle">Вставьте этот код перед закрывающим тегом <code class="rounded bg-muted px-1 py-0.5 text-xs">&lt;/body&gt;</code> на вашем сайте — чат появится на странице. Когда диалог открыт у оператора, посетитель видит его имя и фото; иначе — что отвечает AI.</p>
-
-        <div v-if="widgetSettings" class="rounded-lg border p-3 border-border bg-muted">
-            <span class="mb-1 block text-[11px] font-semibold uppercase ui-subtle">Код для вставки</span>
-            <p class="break-all font-mono text-xs ui-text">{{ widgetSettings.embed_snippet }}</p>
-            <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline" @click="copySnippet">
-                <Copy class="h-3.5 w-3.5" /> {{ copied ? 'Скопировано' : 'Скопировать' }}
-            </button>
-        </div>
+        <p class="ui-subtle">Код для вставки на сайт — в разделе <span class="font-medium ui-text">Настройки → Токены виджета</span>. Здесь настраивается только внешний вид: приветствие, цвет, положение, значок.</p>
 
         <form class="space-y-4" @submit.prevent="save">
             <label class="block text-sm">
@@ -134,14 +113,9 @@ async function regenerateKey(): Promise<void> {
                 </div>
             </div>
 
-            <div class="flex gap-2">
-                <Button size="sm" variant="primary" type="submit" class="flex-1" :disabled="busy">
-                    <Save class="h-4 w-4" /> {{ busy ? 'Сохранение...' : 'Сохранить' }}
-                </Button>
-                <Button size="sm" variant="outline" type="button" :disabled="busy" @click="regenerateKey">
-                    <RefreshCw class="h-4 w-4" /> Обновить ключ
-                </Button>
-            </div>
+            <Button size="sm" variant="primary" type="submit" class="w-full" :disabled="busy">
+                <Save class="h-4 w-4" /> {{ busy ? 'Сохранение...' : 'Сохранить' }}
+            </Button>
         </form>
     </div>
 </template>

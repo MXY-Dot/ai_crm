@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { CheckCircle2, Info, Menu, Tag, UserCheck, UserX, X } from '@lucide/vue';
+import { CheckCircle2, Menu, Tag, UserCheck, X } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
 import { useCrmDashboardStore } from '@/stores/crmDashboard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -28,10 +28,6 @@ const isAssignedToOther = computed(() => !! conversation.value?.assigned_user_id
 
 function claim(): void {
     if (conversation.value) chat.setAssignee(conversation.value.id, true);
-}
-
-function release(): void {
-    if (conversation.value) chat.setAssignee(conversation.value.id, false);
 }
 
 // ЭТАП 13.6 — first real writer of status='closed'; nothing set it before this.
@@ -82,16 +78,23 @@ function removeLabel(value: string): void {
             <Button variant="ghost" size="icon" class="lg:hidden" aria-label="Диалоги" @click="$emit('open-sidebar')">
                 <Menu class="h-4 w-4" />
             </Button>
-            <Avatar class="size-9">
-                <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial }}</AvatarFallback>
-            </Avatar>
-            <div class="min-w-0">
-                <p class="truncate font-display text-sm font-semibold ui-text">{{ displayName }}</p>
-                <p class="truncate text-xs ui-subtle">
-                    <span v-if="typingLabel" class="text-primary">{{ typingLabel }}</span>
-                    <span v-else>{{ isRecentlyActive ? 'Активен(на) недавно' : conversation.channel?.name ?? '' }}</span>
-                </p>
-            </div>
+            <button
+                type="button"
+                class="flex min-w-0 items-center gap-3 rounded-lg px-1 py-0.5 text-left transition hover:bg-muted"
+                title="Информация о диалоге"
+                @click="$emit('open-info')"
+            >
+                <Avatar class="size-9">
+                    <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial }}</AvatarFallback>
+                </Avatar>
+                <div class="min-w-0">
+                    <p class="truncate font-display text-sm font-semibold ui-text">{{ displayName }}</p>
+                    <p class="truncate text-xs ui-subtle">
+                        <span v-if="typingLabel" class="text-primary">{{ typingLabel }}</span>
+                        <span v-else>{{ isRecentlyActive ? 'Активен(на) недавно' : conversation.channel?.name ?? '' }}</span>
+                    </p>
+                </div>
+            </button>
             <Badge v-if="conversation.priority === 'high'" tone="amber">Высокий приоритет</Badge>
             <Badge v-if="conversation.assigned_user" tone="blue">Ведёт: {{ conversation.assigned_user.name }}</Badge>
             <Badge v-if="isClosed" tone="green">Закрыт</Badge>
@@ -104,10 +107,7 @@ function removeLabel(value: string): void {
         </div>
         <div class="flex shrink-0 items-center gap-2">
             <template v-if="! isClosed">
-                <Button v-if="isAssignedToMe" variant="outline" size="sm" @click="release">
-                    <UserX class="h-4 w-4" />Вернуть AI
-                </Button>
-                <Button v-else-if="! isAssignedToOther" variant="outline" size="sm" @click="claim">
+                <Button v-if="! isAssignedToMe && ! isAssignedToOther" variant="outline" size="sm" @click="claim">
                     <UserCheck class="h-4 w-4" />Взять в работу
                 </Button>
                 <Button variant="outline" size="sm" @click="resolve">
@@ -125,9 +125,6 @@ function removeLabel(value: string): void {
                     <Input v-model="newLabel" placeholder="Например: доставка" @keyup.enter="addLabel" />
                 </PopoverContent>
             </Popover>
-            <Button variant="outline" size="icon" aria-label="Информация о диалоге" title="Информация о диалоге" @click="$emit('open-info')">
-                <Info class="h-4 w-4" />
-            </Button>
         </div>
     </div>
 </template>
