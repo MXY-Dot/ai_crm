@@ -389,6 +389,14 @@ class AiWorkflow
             in_array($conversation->customer?->vip_status, ['vip', 'top_vip'], true)
                 ? 'This is a VIP customer ('.$conversation->customer->vip_reason.') — greet them warmly by name if known and treat their request as a priority.'
                 : '',
+            // The mandatory first-contact phone gate (see process()) only fires
+            // once — after that, nothing else told the model whether a phone was
+            // already collected, so it kept naturally re-asking for one as part
+            // of a normal booking reply even when the customer had already
+            // shared it (e.g. via Telegram's native "share contact" button).
+            $conversation->customer?->phone
+                ? 'The customer\'s phone number is already on file: '.$conversation->customer->phone.'. Do not ask them for their phone number again.'
+                : '',
         ], fn (string $part): bool => trim($part) !== ''));
 
         $userPrompt = implode("\n\n", array_filter([
