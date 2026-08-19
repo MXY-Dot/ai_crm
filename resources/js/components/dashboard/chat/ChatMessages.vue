@@ -17,11 +17,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import ChatLoadOlderWatcher from './ChatLoadOlderWatcher.vue';
 import ChatMessageItem from './ChatMessageItem.vue';
+import ChatStickyDate from './ChatStickyDate.vue';
 
 const chat = useChatStore();
 
 type ThreadRow =
-    | { kind: 'date'; key: string; label: string }
+    | { kind: 'date'; key: string; label: string; iso: string; messageId: string }
     | { kind: 'group'; key: string; messages: ChatMessage[] };
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -56,7 +57,7 @@ const rows = computed<ThreadRow[]>(() => {
 
         if (day !== lastDate) {
             flushGroup();
-            result.push({ kind: 'date', key: `date-${day}`, label: dateLabel(sentAt) });
+            result.push({ kind: 'date', key: `date-${day}`, label: dateLabel(sentAt), iso: sentAt, messageId: String(message.id) });
             lastDate = day;
             lastSender = null;
         }
@@ -94,6 +95,7 @@ function onLoadOlder(): void {
     <MessageScrollerProvider :key="conversationId" v-else auto-scroll default-scroll-position="end" class="min-h-0 flex-1">
         <ChatLoadOlderWatcher :conversation-id="conversationId" @load-older="onLoadOlder" />
         <MessageScroller class="h-full">
+            <ChatStickyDate :rows="rows" />
             <MessageScrollerViewport>
                 <div v-if="loadingOlder" class="flex justify-center py-2"><Spinner class="size-4 ui-subtle" /></div>
 

@@ -24,6 +24,7 @@
         "@fortawesome/free-brands-svg-icons": "^7.3.1",
         "@fortawesome/vue-fontawesome": "^3.3.3",
         "@inertiajs/vue3": "^3.6.1",
+        "@internationalized/date": "^3.12.2",
         "@lucide/vue": "^1.31.0",
         "@unovis/ts": "^1.6.7",
         "@unovis/vue": "^1.6.7",
