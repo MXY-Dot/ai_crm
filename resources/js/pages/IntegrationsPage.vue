@@ -4,8 +4,10 @@ import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Globe2 } from '@lucide/vue';
 import ChannelCard from '../components/dashboard/channels/ChannelCard.vue';
-import ChatwootRoutedChannelInfo from '../components/dashboard/channels/ChatwootRoutedChannelInfo.vue';
+import FacebookChannelSettings from '../components/dashboard/channels/FacebookChannelSettings.vue';
+import InstagramChannelSettings from '../components/dashboard/channels/InstagramChannelSettings.vue';
 import TelegramChannelSettings from '../components/dashboard/channels/TelegramChannelSettings.vue';
+import WhatsappChannelSettings from '../components/dashboard/channels/WhatsappChannelSettings.vue';
 import WidgetChannelSettings from '../components/dashboard/channels/WidgetChannelSettings.vue';
 import FacebookIcon from '../components/icons/FacebookIcon.vue';
 import InstagramIcon from '../components/icons/InstagramIcon.vue';
@@ -42,24 +44,15 @@ defineOptions({ layout: AppLayout });
             </ChannelCard>
 
             <ChannelCard :icon="WhatsappIcon" name="WhatsApp" brand="whatsapp" :status="whatsappChannel?.status" :last-synced-at="whatsappChannel?.last_synced_at">
-                <ChatwootRoutedChannelInfo
-                    :chatwoot="integrationSettings?.chatwoot ?? null"
-                    description="WhatsApp подключается через единый инбокс. Добавьте этот вебхук в настройках вашего WhatsApp Business канала."
-                />
+                <WhatsappChannelSettings :settings="integrationSettings?.whatsapp ?? null" :busy="busy" />
             </ChannelCard>
 
             <ChannelCard :icon="InstagramIcon" name="Instagram" brand="instagram" :status="instagramChannel?.status" :last-synced-at="instagramChannel?.last_synced_at">
-                <ChatwootRoutedChannelInfo
-                    :chatwoot="integrationSettings?.chatwoot ?? null"
-                    description="Instagram Direct тоже маршрутизируется через единый инбокс. Используйте тот же вебхук при подключении аккаунта."
-                />
+                <InstagramChannelSettings :settings="integrationSettings?.instagram ?? null" :busy="busy" />
             </ChannelCard>
 
             <ChannelCard :icon="FacebookIcon" name="Facebook" brand="facebook" :status="facebookChannel?.status" :last-synced-at="facebookChannel?.last_synced_at">
-                <ChatwootRoutedChannelInfo
-                    :chatwoot="integrationSettings?.chatwoot ?? null"
-                    description="Facebook Messenger тоже маршрутизируется через единый инбокс. Добавьте этот вебхук при подключении страницы."
-                />
+                <FacebookChannelSettings :settings="integrationSettings?.facebook ?? null" :busy="busy" />
             </ChannelCard>
 
             <ChannelCard :icon="Globe2" name="Виджет на сайт" brand="blue" :status="websiteChannel?.status" :last-synced-at="websiteChannel?.last_synced_at">

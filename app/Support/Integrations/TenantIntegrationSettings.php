@@ -82,6 +82,44 @@ class TenantIntegrationSettings
         return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.telegram.webhook_secret'));
     }
 
+    /** Direct WhatsApp Cloud API (Meta) — no Chatwoot involved. */
+    public function whatsappAccessToken(Tenant $tenant): string
+    {
+        return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.whatsapp.access_token'));
+    }
+
+    public function whatsappPhoneNumberId(Tenant $tenant): string
+    {
+        return (string) Arr::get($tenant->settings ?? [], 'integrations.whatsapp.phone_number_id', '');
+    }
+
+    public function whatsappBusinessAccountId(Tenant $tenant): string
+    {
+        return (string) Arr::get($tenant->settings ?? [], 'integrations.whatsapp.business_account_id', '');
+    }
+
+    /** Direct Instagram Graph API (Meta) — Instagram Business Account, no Chatwoot involved. */
+    public function instagramPageAccessToken(Tenant $tenant): string
+    {
+        return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.instagram.page_access_token'));
+    }
+
+    public function instagramBusinessAccountId(Tenant $tenant): string
+    {
+        return (string) Arr::get($tenant->settings ?? [], 'integrations.instagram.business_account_id', '');
+    }
+
+    /** Direct Facebook Graph API (Meta) — Page access token, no Chatwoot involved. */
+    public function facebookPageAccessToken(Tenant $tenant): string
+    {
+        return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.facebook.page_access_token'));
+    }
+
+    public function facebookPageId(Tenant $tenant): string
+    {
+        return (string) Arr::get($tenant->settings ?? [], 'integrations.facebook.page_id', '');
+    }
+
     public function encrypt(?string $value): ?string
     {
         if ($value === null || $value === '') {

@@ -197,7 +197,7 @@ class AiWorkflow
 
         $local = $this->localAnalyzer->analyze($conversation, $message, $lead, $agent->handoff_threshold, $company, $isFirstMessage);
 
-        $llmProvider = $agent->model ? $this->llm->providerForModel($agent->model) : null;
+        $llmProvider = $this->platform->primaryLlmProvider();
         $llmConfigured = $tenant !== null && $llmProvider !== null
             && $this->llm->apiKey($tenant, $llmProvider) !== ''
             && $this->planAllowsProvider($tenant, $llmProvider)
@@ -308,15 +308,15 @@ class AiWorkflow
     {
         $wasThrottled = false;
 
-        if (! $agent->model || ! $agent->tenant) {
+        if (! $agent->tenant) {
             return null;
         }
 
-        $primaryProvider = $this->llm->providerForModel($agent->model);
-
-        if (! $primaryProvider) {
-            return null;
-        }
+        // Model choice is platform-controlled (see PlatformSettings::primaryLlmProvider())
+        // — a tenant's own agent.model no longer decides which provider answers,
+        // super_admin's "Основной провайдер" on /super-admin/llm-providers does.
+        $primaryProvider = $this->platform->primaryLlmProvider();
+        $primaryModel = $this->platform->defaultModel();
 
         // ЭТАП 5.2/5.5 — embeds the customer message via an external API call,
         // computed once here (not inside the array below) so it isn't repeated.
@@ -397,7 +397,7 @@ class AiWorkflow
         ], fn (string $part): bool => trim($part) !== ''));
 
         $primaryThrottled = false;
-        $completion = $this->attemptCompletion($agent->tenant, $primaryProvider, $agent->model, $systemPrompt, $userPrompt, $primaryThrottled);
+        $completion = $this->attemptCompletion($agent->tenant, $primaryProvider, $primaryModel, $systemPrompt, $userPrompt, $primaryThrottled);
         $wasThrottled = $primaryThrottled;
 
         // ЭТАП 15.5 — the primary provider (whichever the agent's own model maps

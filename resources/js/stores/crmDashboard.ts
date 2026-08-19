@@ -215,11 +215,27 @@ export type IntegrationSettings = {
         webhook_url: string;
     };
     telegram_webhook?: { ok: boolean; message: string } | null;
+    whatsapp?: {
+        access_token_configured: boolean;
+        access_token_mask: string | null;
+        phone_number_id: string | null;
+        business_account_id: string | null;
+    };
+    instagram?: {
+        page_access_token_configured: boolean;
+        page_access_token_mask: string | null;
+        business_account_id: string | null;
+    };
+    facebook?: {
+        page_access_token_configured: boolean;
+        page_access_token_mask: string | null;
+        page_id: string | null;
+    };
 };
 
 export type IntegrationTestResult = {
     ok: boolean;
-    provider: 'dify' | 'chatwoot' | 'telegram';
+    provider: 'dify' | 'chatwoot' | 'telegram' | 'whatsapp' | 'instagram' | 'facebook';
     status: string;
     message: string;
     checked_at: string;
@@ -242,6 +258,19 @@ export type IntegrationSettingsPayload = {
         bot_token?: string;
         webhook_secret?: string;
         auto_reply_enabled?: boolean;
+    };
+    whatsapp?: {
+        access_token?: string;
+        phone_number_id?: string;
+        business_account_id?: string;
+    };
+    instagram?: {
+        page_access_token?: string;
+        business_account_id?: string;
+    };
+    facebook?: {
+        page_access_token?: string;
+        page_id?: string;
     };
 };
 
@@ -786,7 +815,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }, 'toast.settingsSaved');
     }
 
-    async function testIntegrationConnection(payload: IntegrationSettingsPayload & { provider: 'dify' | 'chatwoot' | 'telegram' }): Promise<IntegrationTestResult> {
+    async function testIntegrationConnection(payload: IntegrationSettingsPayload & { provider: 'dify' | 'chatwoot' | 'telegram' | 'whatsapp' | 'instagram' | 'facebook' }): Promise<IntegrationTestResult> {
         try {
             const result = await apiRequest<IntegrationTestResult>('/api/integration-settings/test', {
                 method: 'POST',

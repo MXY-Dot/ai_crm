@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import AiAgentActivityPanel from './ai/AiAgentActivityPanel.vue';
 import AiAgentList from './ai/AiAgentList.vue';
 import AiAgentSettingsForm from './ai/AiAgentSettingsForm.vue';
-import LanguageExamplesDialog from './ai/LanguageExamplesDialog.vue';
+import LanguageExamplesPanel from './ai/LanguageExamplesPanel.vue';
 import AiHandoffCenter from './AiHandoffCenter.vue';
 import HelpAssistantPanel from './HelpAssistantPanel.vue';
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue';
@@ -19,7 +19,6 @@ const locale = useLocaleStore();
 const { aiAgents, aiRuns, aiHandoffs, knowledgeDocuments, busy } = storeToRefs(store);
 const activeTab = ref('agent');
 const selectedAgentId = ref<number | null>(null);
-const languageExamplesOpen = ref(false);
 
 watch(aiAgents, (agents) => {
     if (! selectedAgentId.value && agents[0]) selectedAgentId.value = agents[0].id;
@@ -38,6 +37,7 @@ const tabs = computed(() => [
     { value: 'agent', label: locale.t('ai.tabs.agent'), icon: Bot },
     { value: 'overview', label: locale.t('ai.tabs.overview'), icon: ListChecks },
     { value: 'knowledge', label: locale.t('ai.tabs.knowledge'), icon: BrainCircuit },
+    { value: 'examples', label: locale.t('languageExamples.title'), icon: Languages },
     { value: 'handoff', label: locale.t('ai.tabs.handoff'), icon: Inbox },
     { value: 'runs', label: locale.t('ai.tabs.runs'), icon: Workflow },
     { value: 'help', label: locale.t('ai.tabs.help'), icon: HelpCircle },
@@ -65,21 +65,6 @@ const tabs = computed(() => [
                 <AiAgentSettingsForm :agent="selectedAgent" :documents="agentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
                 <AiAgentActivityPanel :agent="selectedAgent" :ai-runs="aiRuns" />
             </div>
-            <button
-                type="button"
-                class="mt-5 flex w-full items-center gap-4 rounded-xl border p-4 text-left border-border bg-card transition hover:border-primary/40 hover:bg-muted/40"
-                @click="languageExamplesOpen = true"
-            >
-                <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <Languages class="h-5 w-5" />
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block font-medium ui-text">{{ locale.t('languageExamples.title') }}</span>
-                    <span class="block truncate text-xs ui-subtle">{{ locale.t('languageExamples.subtitle') }}</span>
-                </span>
-                <span class="shrink-0 rounded-lg border px-3 py-1.5 text-sm font-medium border-border ui-text">{{ locale.t('languageExamples.openGallery') }}</span>
-            </button>
-            <LanguageExamplesDialog v-model:open="languageExamplesOpen" />
         </TabsContent>
 
         <TabsContent value="overview" class="mt-0">
@@ -103,6 +88,11 @@ const tabs = computed(() => [
 
         <TabsContent value="knowledge" class="mt-0">
             <KnowledgeBasePanel />
+        </TabsContent>
+
+        <TabsContent value="examples" class="mt-0">
+            <p class="mb-4 text-sm ui-subtle">{{ locale.t('languageExamples.subtitle') }}</p>
+            <LanguageExamplesPanel />
         </TabsContent>
 
         <TabsContent value="handoff" class="mt-0">

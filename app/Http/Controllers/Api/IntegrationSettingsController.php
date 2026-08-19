@@ -54,6 +54,13 @@ class IntegrationSettingsController extends Controller
             'chatwoot.auto_reply_mode' => ['nullable', Rule::in(['off', 'priority', 'always'])],
             'telegram.bot_token' => ['nullable', 'string', 'max:255'],
             'telegram.webhook_secret' => ['nullable', 'string', 'max:255'],
+            'whatsapp.access_token' => ['nullable', 'string', 'max:255'],
+            'whatsapp.phone_number_id' => ['nullable', 'string', 'max:64'],
+            'whatsapp.business_account_id' => ['nullable', 'string', 'max:64'],
+            'instagram.page_access_token' => ['nullable', 'string', 'max:255'],
+            'instagram.business_account_id' => ['nullable', 'string', 'max:64'],
+            'facebook.page_access_token' => ['nullable', 'string', 'max:255'],
+            'facebook.page_id' => ['nullable', 'string', 'max:64'],
         ]);
 
         $oldAudit = $this->auditSettingsSnapshot($tenant);
@@ -109,6 +116,32 @@ class IntegrationSettingsController extends Controller
                 Arr::set($settings, 'integrations.telegram.webhook_secret', $this->secrets->encrypt(Str::random(32)));
             }
 
+            foreach (['phone_number_id', 'business_account_id'] as $key) {
+                if (array_key_exists($key, $data['whatsapp'] ?? [])) {
+                    Arr::set($settings, 'integrations.whatsapp.'.$key, $data['whatsapp'][$key]);
+                }
+            }
+
+            if ($this->hasFilledSecret($data['whatsapp'] ?? [], 'access_token')) {
+                Arr::set($settings, 'integrations.whatsapp.access_token', $this->secrets->encrypt($data['whatsapp']['access_token']));
+            }
+
+            if (array_key_exists('business_account_id', $data['instagram'] ?? [])) {
+                Arr::set($settings, 'integrations.instagram.business_account_id', $data['instagram']['business_account_id']);
+            }
+
+            if ($this->hasFilledSecret($data['instagram'] ?? [], 'page_access_token')) {
+                Arr::set($settings, 'integrations.instagram.page_access_token', $this->secrets->encrypt($data['instagram']['page_access_token']));
+            }
+
+            if (array_key_exists('page_id', $data['facebook'] ?? [])) {
+                Arr::set($settings, 'integrations.facebook.page_id', $data['facebook']['page_id']);
+            }
+
+            if ($this->hasFilledSecret($data['facebook'] ?? [], 'page_access_token')) {
+                Arr::set($settings, 'integrations.facebook.page_access_token', $this->secrets->encrypt($data['facebook']['page_access_token']));
+            }
+
             $locked->forceFill(['settings' => $settings])->save();
 
             return $telegramTokenNowSet;
@@ -157,7 +190,7 @@ class IntegrationSettingsController extends Controller
         Gate::authorize('update', $tenant);
 
         $data = $request->validate([
-            'provider' => ['required', Rule::in(['dify', 'chatwoot', 'telegram'])],
+            'provider' => ['required', Rule::in(['dify', 'chatwoot', 'telegram', 'whatsapp', 'instagram', 'facebook'])],
             'dify.url' => ['nullable', 'url', 'max:255'],
             'dify.api_key' => ['nullable', 'string', 'max:255'],
             'dify.timeout' => ['nullable', 'integer', 'min:3', 'max:60'],
@@ -168,12 +201,21 @@ class IntegrationSettingsController extends Controller
             'chatwoot.auto_reply_mode' => ['nullable', Rule::in(['off', 'priority', 'always'])],
             'telegram.bot_token' => ['nullable', 'string', 'max:255'],
             'telegram.webhook_secret' => ['nullable', 'string', 'max:255'],
+            'whatsapp.access_token' => ['nullable', 'string', 'max:255'],
+            'whatsapp.phone_number_id' => ['nullable', 'string', 'max:64'],
+            'instagram.page_access_token' => ['nullable', 'string', 'max:255'],
+            'instagram.business_account_id' => ['nullable', 'string', 'max:64'],
+            'facebook.page_access_token' => ['nullable', 'string', 'max:255'],
+            'facebook.page_id' => ['nullable', 'string', 'max:64'],
         ]);
 
         $result = match ($data['provider']) {
             'dify' => $this->testDify($tenant, $data['dify'] ?? []),
             'chatwoot' => $this->testChatwoot($tenant, $data['chatwoot'] ?? []),
             'telegram' => $this->testTelegram($tenant),
+            'whatsapp' => $this->testWhatsapp($tenant, $data['whatsapp'] ?? []),
+            'instagram' => $this->testInstagram($tenant, $data['instagram'] ?? []),
+            'facebook' => $this->testFacebook($tenant, $data['facebook'] ?? []),
         };
 
         $audit->record('integration_connection.tested', $tenant, [
@@ -296,6 +338,91 @@ class IntegrationSettingsController extends Controller
         ]);
     }
 
+    /** Direct WhatsApp Cloud API (Meta) — no Chatwoot involved. */
+    private function testWhatsapp(Tenant $tenant, array $draft): array
+    {
+        $token = (string) ($draft['access_token'] ?? $this->secrets->whatsappAccessToken($tenant));
+        $phoneNumberId = (string) ($draft['phone_number_id'] ?? $this->secrets->whatsappPhoneNumberId($tenant));
+
+        if ($token === '' || $phoneNumberId === '') {
+            return $this->connectionResult(false, 'whatsapp', 'missing_credentials', 'Укажите access token и phone number ID.');
+        }
+
+        try {
+            $response = Http::timeout(10)->connectTimeout(4)->acceptJson()
+                ->get('https://graph.facebook.com/v21.0/'.$phoneNumberId, ['access_token' => $token]);
+        } catch (Throwable $error) {
+            return $this->connectionResult(false, 'whatsapp', 'request_failed', $error->getMessage());
+        }
+
+        $json = $response->json();
+
+        if (! $response->successful()) {
+            return $this->connectionResult(false, 'whatsapp', 'http_'.$response->status(), Arr::get($json, 'error.message', 'Meta вернул ошибку.'));
+        }
+
+        return $this->connectionResult(true, 'whatsapp', 'connected', 'Номер '.Arr::get($json, 'display_phone_number', $phoneNumberId).' подтверждён.', [
+            'display_phone_number' => Arr::get($json, 'display_phone_number'),
+            'verified_name' => Arr::get($json, 'verified_name'),
+        ]);
+    }
+
+    /** Direct Instagram Graph API (Meta) — Instagram Business Account, no Chatwoot involved. */
+    private function testInstagram(Tenant $tenant, array $draft): array
+    {
+        $token = (string) ($draft['page_access_token'] ?? $this->secrets->instagramPageAccessToken($tenant));
+        $accountId = (string) ($draft['business_account_id'] ?? $this->secrets->instagramBusinessAccountId($tenant));
+
+        if ($token === '' || $accountId === '') {
+            return $this->connectionResult(false, 'instagram', 'missing_credentials', 'Укажите page access token и Instagram Business Account ID.');
+        }
+
+        try {
+            $response = Http::timeout(10)->connectTimeout(4)->acceptJson()
+                ->get('https://graph.facebook.com/v21.0/'.$accountId, ['fields' => 'username', 'access_token' => $token]);
+        } catch (Throwable $error) {
+            return $this->connectionResult(false, 'instagram', 'request_failed', $error->getMessage());
+        }
+
+        $json = $response->json();
+
+        if (! $response->successful()) {
+            return $this->connectionResult(false, 'instagram', 'http_'.$response->status(), Arr::get($json, 'error.message', 'Meta вернул ошибку.'));
+        }
+
+        return $this->connectionResult(true, 'instagram', 'connected', 'Аккаунт @'.Arr::get($json, 'username', $accountId).' подтверждён.', [
+            'username' => Arr::get($json, 'username'),
+        ]);
+    }
+
+    /** Direct Facebook Graph API (Meta) — Page access token, no Chatwoot involved. */
+    private function testFacebook(Tenant $tenant, array $draft): array
+    {
+        $token = (string) ($draft['page_access_token'] ?? $this->secrets->facebookPageAccessToken($tenant));
+        $pageId = (string) ($draft['page_id'] ?? $this->secrets->facebookPageId($tenant));
+
+        if ($token === '' || $pageId === '') {
+            return $this->connectionResult(false, 'facebook', 'missing_credentials', 'Укажите page access token и Page ID.');
+        }
+
+        try {
+            $response = Http::timeout(10)->connectTimeout(4)->acceptJson()
+                ->get('https://graph.facebook.com/v21.0/'.$pageId, ['fields' => 'name', 'access_token' => $token]);
+        } catch (Throwable $error) {
+            return $this->connectionResult(false, 'facebook', 'request_failed', $error->getMessage());
+        }
+
+        $json = $response->json();
+
+        if (! $response->successful()) {
+            return $this->connectionResult(false, 'facebook', 'http_'.$response->status(), Arr::get($json, 'error.message', 'Meta вернул ошибку.'));
+        }
+
+        return $this->connectionResult(true, 'facebook', 'connected', 'Страница «'.Arr::get($json, 'name', $pageId).'» подтверждена.', [
+            'page_name' => Arr::get($json, 'name'),
+        ]);
+    }
+
     private function hasFilledSecret(array $input, string $key): bool
     {
         return array_key_exists($key, $input) && trim((string) $input[$key]) !== '';
@@ -342,6 +469,22 @@ class IntegrationSettingsController extends Controller
                 'webhook_secret_mask' => $payload['telegram']['webhook_secret_mask'],
                 'webhook_url' => $payload['telegram']['webhook_url'],
             ],
+            'whatsapp' => [
+                'access_token_configured' => $payload['whatsapp']['access_token_configured'],
+                'access_token_mask' => $payload['whatsapp']['access_token_mask'],
+                'phone_number_id' => $payload['whatsapp']['phone_number_id'],
+                'business_account_id' => $payload['whatsapp']['business_account_id'],
+            ],
+            'instagram' => [
+                'page_access_token_configured' => $payload['instagram']['page_access_token_configured'],
+                'page_access_token_mask' => $payload['instagram']['page_access_token_mask'],
+                'business_account_id' => $payload['instagram']['business_account_id'],
+            ],
+            'facebook' => [
+                'page_access_token_configured' => $payload['facebook']['page_access_token_configured'],
+                'page_access_token_mask' => $payload['facebook']['page_access_token_mask'],
+                'page_id' => $payload['facebook']['page_id'],
+            ],
         ];
     }
 
@@ -358,6 +501,9 @@ class IntegrationSettingsController extends Controller
         $chatwootSecret = $this->secrets->chatwootWebhookSecret($tenant, false);
         $telegramToken = $this->secrets->telegramBotToken($tenant);
         $telegramSecret = $this->secrets->telegramWebhookSecret($tenant);
+        $whatsappToken = $this->secrets->whatsappAccessToken($tenant);
+        $instagramToken = $this->secrets->instagramPageAccessToken($tenant);
+        $facebookToken = $this->secrets->facebookPageAccessToken($tenant);
 
         return [
             'dify' => [
@@ -383,6 +529,22 @@ class IntegrationSettingsController extends Controller
                 'webhook_secret_configured' => $telegramSecret !== '',
                 'webhook_secret_mask' => $this->secrets->mask($telegramSecret),
                 'webhook_url' => url('/api/telegram/webhook?tenant_slug='.$tenant->slug),
+            ],
+            'whatsapp' => [
+                'access_token_configured' => $whatsappToken !== '',
+                'access_token_mask' => $this->secrets->mask($whatsappToken),
+                'phone_number_id' => $this->secrets->whatsappPhoneNumberId($tenant) ?: null,
+                'business_account_id' => $this->secrets->whatsappBusinessAccountId($tenant) ?: null,
+            ],
+            'instagram' => [
+                'page_access_token_configured' => $instagramToken !== '',
+                'page_access_token_mask' => $this->secrets->mask($instagramToken),
+                'business_account_id' => $this->secrets->instagramBusinessAccountId($tenant) ?: null,
+            ],
+            'facebook' => [
+                'page_access_token_configured' => $facebookToken !== '',
+                'page_access_token_mask' => $this->secrets->mask($facebookToken),
+                'page_id' => $this->secrets->facebookPageId($tenant) ?: null,
             ],
         ];
     }

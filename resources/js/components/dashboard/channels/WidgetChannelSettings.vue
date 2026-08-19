@@ -96,18 +96,18 @@ async function regenerateKey(): Promise<void> {
                         <button
                             type="button"
                             class="flex-1 rounded-md text-xs font-medium transition"
-                            :class="form.position === 'right' ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
-                            @click="form.position = 'right'"
-                        >
-                            Справа
-                        </button>
-                        <button
-                            type="button"
-                            class="flex-1 rounded-md text-xs font-medium transition"
                             :class="form.position === 'left' ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
                             @click="form.position = 'left'"
                         >
                             Слева
+                        </button>
+                        <button
+                            type="button"
+                            class="flex-1 rounded-md text-xs font-medium transition"
+                            :class="form.position === 'right' ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
+                            @click="form.position = 'right'"
+                        >
+                            Справа
                         </button>
                     </div>
                 </div>
