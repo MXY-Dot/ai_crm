@@ -191,7 +191,7 @@ class ConversationController extends Controller
         Gate::authorize('update', $tenant);
         abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
 
-        $data = $request->validate(['labels' => ['required', 'array'], 'labels.*' => ['string', 'max:60']]);
+        $data = $request->validate(['labels' => ['present', 'array'], 'labels.*' => ['string', 'max:60']]);
         $labels = array_values(array_unique($data['labels']));
 
         $previous = $conversation->labels;
