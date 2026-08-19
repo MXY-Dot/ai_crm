@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Building2, Globe2 } from '@lucide/vue';
+import { Bell, Building2, Globe2 } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CompanyProfilePanel from '../components/dashboard/CompanyProfilePanel.vue';
@@ -20,16 +20,18 @@ const activeTab = ref('company');
         </div>
 
         <Tabs v-model="activeTab">
-            <TabsList>
+            <TabsList class="flex-wrap">
                 <TabsTrigger value="company"><Building2 class="h-4 w-4" />Компания</TabsTrigger>
+                <TabsTrigger value="notifications"><Bell class="h-4 w-4" />Уведомления</TabsTrigger>
                 <TabsTrigger value="widget"><Globe2 class="h-4 w-4" />Токены виджета</TabsTrigger>
             </TabsList>
 
             <TabsContent value="company" class="mt-4">
-                <div class="grid items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
-                    <CompanyProfilePanel data-tour="settings-company" />
-                    <NotificationPreferencesPanel data-tour="settings-notify" />
-                </div>
+                <CompanyProfilePanel data-tour="settings-company" />
+            </TabsContent>
+
+            <TabsContent value="notifications" class="mt-4">
+                <NotificationPreferencesPanel data-tour="settings-notify" />
             </TabsContent>
 
             <TabsContent value="widget" class="mt-4">
