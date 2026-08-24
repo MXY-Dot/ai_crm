@@ -30,6 +30,16 @@ function runTour(steps: DriveStep[], onFinished: () => void): void {
         prevBtnText: t('onboarding.prev'),
         doneBtnText: t('onboarding.done'),
         progressText: t('onboarding.progress'),
+        onPopoverRender: (popover) => {
+            if (steps.length <= 1) return;
+
+            const skipButton = document.createElement('button');
+            skipButton.type = 'button';
+            skipButton.className = 'driver-popover-footer-btn wero-driver-skip-btn';
+            skipButton.textContent = t('onboarding.skip');
+            skipButton.addEventListener('click', () => tour.destroy());
+            popover.footerButtons.prepend(skipButton);
+        },
         onDestroyed: onFinished,
         steps,
     });

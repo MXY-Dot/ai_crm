@@ -29,7 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 defineOptions({ layout: SuperAdminLayout });
 
-type Status = 'trial' | 'active' | 'paused' | 'blocked';
+type Status = 'trial' | 'inactive' | 'active' | 'paused' | 'blocked';
 type PlanId = 'starter' | 'pro' | 'business';
 
 type CompanyRow = {
@@ -61,6 +61,7 @@ const addOpen = ref(false);
 
 const statusLabels: Record<Status, string> = {
     trial: 'Пробный период',
+    inactive: 'Неактивна',
     active: 'Активна',
     paused: 'Приостановлена',
     blocked: 'Заблокирована',
@@ -68,6 +69,7 @@ const statusLabels: Record<Status, string> = {
 const statusTone: Record<Status, 'green' | 'blue' | 'amber' | 'red'> = {
     active: 'green',
     trial: 'blue',
+    inactive: 'amber',
     paused: 'amber',
     blocked: 'red',
 };

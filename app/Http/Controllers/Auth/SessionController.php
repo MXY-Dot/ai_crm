@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\PlatformTelegramNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -84,8 +85,8 @@ class SessionController extends Controller
         $tenant = Tenant::query()->create([
             'name' => $data['workspace'],
             'slug' => $this->tenantSlug($data['workspace']),
-            'status' => 'trial',
-            'trial_ends_at' => now()->addDays(14),
+            'status' => 'inactive',
+            'trial_ends_at' => null,
             'settings' => ['billing' => ['plan' => $data['plan'] ?? 'starter']],
         ]);
 
@@ -104,6 +105,12 @@ class SessionController extends Controller
             'status' => 'active',
             'last_login_at' => now(),
         ]);
+
+        PlatformTelegramNotifier::notify(
+            'Новая компания зарегистрирована: '.$tenant->name.PHP_EOL.
+            'Владелец: '.$user->name.' ('.$user->email.')'.PHP_EOL.
+            'Статус: неактивна, ожидает проверки модератором.'
+        );
 
         Auth::login($user);
         $request->session()->regenerate();

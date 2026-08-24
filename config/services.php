@@ -60,10 +60,9 @@ return [
         'rate_limit' => env('DEEPSEEK_RATE_LIMIT_PER_MINUTE', 60),
     ],
 
-    'google' => [
-        'client_id' => env('GOOGLE_CLIENT_ID'),
-        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    'telegram_moderator' => [
+        'bot_token' => env('TELEGRAM_MODERATOR_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_MODERATOR_CHAT_ID'),
     ],
 
     'postmark' => [

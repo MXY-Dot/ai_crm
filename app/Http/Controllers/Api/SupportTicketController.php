@@ -7,6 +7,7 @@ use App\Models\SupportMessage;
 use App\Models\SupportTicket;
 use App\Models\User;
 use App\Notifications\AppNotification;
+use App\Support\PlatformTelegramNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -96,6 +97,11 @@ class SupportTicketController extends Controller
                 Str::limit($preview, 140),
                 '/super-admin/support/'.$ticket->id,
             ))
+        );
+
+        PlatformTelegramNotifier::notify(
+            'Новая заявка в техподдержку: '.$ticket->subject.PHP_EOL.
+            Str::limit($preview, 300)
         );
     }
 

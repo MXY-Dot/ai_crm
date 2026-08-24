@@ -1,11 +1,11 @@
 <?php
 
-use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Middleware\EnsurePageAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\EnsureTenantActive;
 use App\Models\Channel;
 use App\Models\Tenant;
 use App\Support\Dashboard\DashboardData;
@@ -40,8 +40,6 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/login', [SessionController::class, 'store'])->name('login.store');
     Route::get('/register', [SessionController::class, 'register'])->name('register');
     Route::post('/register', [SessionController::class, 'signup'])->name('register.store');
-    Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
-    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
     Route::get('/two-factor-challenge', [TwoFactorChallengeController::class, 'create'])->name('two-factor.challenge');
     Route::post('/two-factor-challenge', [TwoFactorChallengeController::class, 'store'])->name('two-factor.challenge.store');
 });
@@ -56,7 +54,7 @@ $dashboardPage = static fn (
     'bootstrap' => $dashboard->forUser($request->user()),
 ]);
 
-Route::middleware(['auth', EnsurePageAccess::class])->group(function () use ($dashboardPage): void {
+Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])->group(function () use ($dashboardPage): void {
     Route::get('/app', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'OverviewPage'))->name('dashboard');
     Route::get('/inbox', fn (Request $request, DashboardData $dashboard) =>

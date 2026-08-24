@@ -215,7 +215,7 @@ class SuperAdminCompanyController extends Controller
             'company_name' => ['required', 'string', 'max:160'],
             'industry' => ['nullable', 'string', 'max:120'],
             'plan' => ['nullable', Rule::in(['starter', 'pro', 'business'])],
-            'status' => ['nullable', Rule::in(['trial', 'active', 'paused', 'blocked'])],
+            'status' => ['nullable', Rule::in(['trial', 'inactive', 'active', 'paused', 'blocked'])],
             'owner_name' => ['required', 'string', 'max:160'],
             'owner_email' => ['required', 'email', 'max:160', 'unique:users,email'],
             'owner_password' => ['nullable', 'string', Password::min(8)],
@@ -290,7 +290,7 @@ class SuperAdminCompanyController extends Controller
     public function updateStatus(Request $request, Tenant $tenant, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([
-            'status' => ['required', Rule::in(['trial', 'active', 'paused', 'blocked'])],
+            'status' => ['required', Rule::in(['trial', 'inactive', 'active', 'paused', 'blocked'])],
         ]);
 
         $previousStatus = $tenant->status;
