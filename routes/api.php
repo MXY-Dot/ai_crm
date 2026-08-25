@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\SuperAdminBillingController;
 use App\Http\Controllers\Api\SuperAdminCompanyController;
 use App\Http\Controllers\Api\SuperAdminIncidentController;
 use App\Http\Controllers\Api\SuperAdminLlmProviderController;
+use App\Http\Controllers\Api\SuperAdminInsightsController;
 use App\Http\Controllers\Api\SuperAdminOverviewController;
 use App\Http\Controllers\Api\SuperAdminSupportController;
 use App\Http\Controllers\Api\SuperAdminUserController;
@@ -87,6 +88,8 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::get('analytics', [SuperAdminAnalyticsController::class, 'index']);
         Route::get('billing/overview', [SuperAdminBillingController::class, 'index']);
         Route::get('llm-providers', [SuperAdminLlmProviderController::class, 'index']);
+        Route::get('insights/knowledge-gaps', [SuperAdminInsightsController::class, 'knowledgeGaps']);
+        Route::get('insights/lost-leads', [SuperAdminInsightsController::class, 'lostLeads']);
         Route::patch('llm-providers/primary', [SuperAdminLlmProviderController::class, 'updatePrimary']);
         Route::patch('llm-providers/{provider}/key', [SuperAdminLlmProviderController::class, 'updateKey']);
         Route::patch('llm-providers/base-knowledge-document', [SuperAdminLlmProviderController::class, 'updateBaseKnowledgeDocument']);

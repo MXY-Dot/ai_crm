@@ -7,6 +7,7 @@ import { useLocaleStore } from '../../../stores/locale';
 import { timeAgo } from '../../../lib/format';
 import { sourceLabels } from '../../../lib/statusLabels';
 import { Badge } from '../../ui/badge';
+import LeadLostDialog from './LeadLostDialog.vue';
 
 const PAGE_SIZE = 20;
 
@@ -81,6 +82,7 @@ function statusTone(status: string): 'green' | 'blue' | 'amber' | 'red' | 'neutr
                                 >
                                     Выиграна
                                 </button>
+                                <LeadLostDialog :lead-id="lead.id" />
                             </div>
                             <span v-else class="text-xs ui-subtle">—</span>
                         </td>

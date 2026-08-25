@@ -7,6 +7,7 @@ import { channelTone, timeAgo } from '../../../lib/format';
 import { sourceLabels } from '../../../lib/statusLabels';
 import { Avatar, AvatarFallback } from '../../ui/avatar';
 import { Badge } from '../../ui/badge';
+import LeadLostDialog from './LeadLostDialog.vue';
 
 const props = defineProps<{ lead: Lead; customerName: string | null; selected: boolean }>();
 defineEmits<{ select: [] }>();
@@ -78,6 +79,7 @@ const nextActionLabel = computed(() => (props.lead.next_action ? NEXT_ACTION_LAB
             >
                 Выиграна
             </button>
+            <LeadLostDialog :lead-id="lead.id" />
         </div>
     </article>
 </template>

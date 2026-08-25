@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'company_id', 'customer_id', 'title', 'status', 'source', 'score', 'next_action', 'amount', 'won_at', 'assigned_user_id', 'ai_summary'])]
+#[Fillable(['tenant_id', 'company_id', 'customer_id', 'title', 'status', 'source', 'score', 'next_action', 'amount', 'won_at', 'assigned_user_id', 'ai_summary', 'lost_reason'])]
 class Lead extends Model
 {
     use BelongsToTenant;
@@ -24,6 +24,11 @@ class Lead extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     protected static function booted(): void

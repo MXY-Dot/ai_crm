@@ -103,6 +103,7 @@ Route::middleware(['auth', EnsureSuperAdmin::class])->prefix('super-admin')->gro
     Route::get('/billing', fn (Request $request) => $superAdminPage($request, 'SuperAdminBillingPage'))->name('super-admin.billing');
     Route::get('/llm-providers', fn (Request $request) => $superAdminPage($request, 'SuperAdminLlmProvidersPage'))->name('super-admin.llm-providers');
     Route::get('/support', fn (Request $request) => $superAdminPage($request, 'SuperAdminSupportPage'))->name('super-admin.support');
+    Route::get('/insights', fn (Request $request) => $superAdminPage($request, 'SuperAdminInsightsPage'))->name('super-admin.insights');
     Route::get('/incidents', fn (Request $request) => $superAdminPage($request, 'SuperAdminIncidentsPage'))->name('super-admin.incidents');
     Route::get('/vip', fn (Request $request) => $superAdminPage($request, 'SuperAdminVipPage'))->name('super-admin.vip');
     Route::get('/users/{user}', fn (Request $request, \App\Models\User $user) => Inertia::render('SuperAdminUserDetailPage', [

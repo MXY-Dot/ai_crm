@@ -605,11 +605,11 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }), 'toast.avatarUpdated');
     }
 
-    async function updateLeadStatus(id: number, status: string): Promise<void> {
+    async function updateLeadStatus(id: number, status: string, lostReason?: string): Promise<void> {
         await mutate(() => apiRequest(`/api/leads/${id}`, {
             method: 'PATCH',
             tenant: tenantSlug.value,
-            body: { status },
+            body: lostReason ? { status, lost_reason: lostReason } : { status },
         }), 'toast.leadStatusUpdated');
     }
 

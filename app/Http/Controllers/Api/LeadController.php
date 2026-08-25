@@ -26,6 +26,7 @@ class LeadController extends TenantResourceController
             'amount' => ['nullable', 'numeric', 'min:0'],
             'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'ai_summary' => ['nullable', 'string'],
+            'lost_reason' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\CrmTask;
 use App\Models\Lead;
+use App\Models\KnowledgeGap;
 use App\Models\LanguageExample;
 use App\Models\Message;
 use App\Models\Tenant;
@@ -322,6 +323,10 @@ class AiWorkflow
         // computed once here (not inside the array below) so it isn't repeated.
         $knowledge = $this->dify->knowledgeContext($agent, $message->body);
 
+        if ($knowledge['weak'] && $agent->tenant) {
+            $this->recordKnowledgeGap($agent, $conversation, $message->body);
+        }
+
         $systemPrompt = implode("\n\n", array_filter([
             "You are the CRM AI assistant for this company. Never identify as OpenAI, ChatGPT, DeepSeek, or a generic language model — answer as the company's own assistant.",
             // ЭТАП 10.5 — instruction-hierarchy hardening: only what's written
@@ -461,6 +466,27 @@ class AiWorkflow
      * companies add their own verified examples via Настройки → AI. No caching —
      * a handful of rows per tenant, cheap enough per request.
      */
+    /**
+     * ЭТАП 19.7 — FAQ Gap Detection. Fires whenever the anti-hallucination
+     * guard already decided the knowledge base had nothing relevant for this
+     * question (see the $knowledge['weak'] check above) -- that's exactly
+     * the signal a real gap-detection feature needs, so it's logged here
+     * instead of only degrading the reply. Best-effort: a logging failure
+     * must never break the actual customer reply.
+     */
+    private function recordKnowledgeGap(AiAgent $agent, Conversation $conversation, string $customerMessage): void
+    {
+        try {
+            KnowledgeGap::query()->create([
+                'tenant_id' => $agent->tenant_id,
+                'company_id' => $agent->company_id,
+                'conversation_id' => $conversation->id,
+                'customer_message' => Str::limit(trim($customerMessage), 500),
+            ]);
+        } catch (\Throwable) {
+        }
+    }
+
     private function languageExamples(?Tenant $tenant): string
     {
         if (! $tenant) {
