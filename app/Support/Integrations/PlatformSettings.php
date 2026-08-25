@@ -110,6 +110,26 @@ class PlatformSettings
         $this->set('llm.backup_provider', $provider, encrypt: false);
     }
 
+    /**
+     * A short reference document (glossary, tone rules, common phrasing) that
+     * super_admin can maintain once and have it apply to EVERY tenant's AI
+     * replies, regardless of that tenant's own knowledge base content or
+     * language. Meant for platform-wide guidance — e.g. correct Tajik/Russian
+     * business terminology consistent across all companies — not tied to any
+     * one company's products/services. Always injected in full (not chunked
+     * or retrieved via similarity search) into AiWorkflow's system prompt,
+     * the same way agent instructions/business profile already are.
+     */
+    public function baseKnowledgeDocument(): string
+    {
+        return $this->get('ai.base_knowledge_document', false) ?? '';
+    }
+
+    public function setBaseKnowledgeDocument(string $value): void
+    {
+        $this->set('ai.base_knowledge_document', trim($value), encrypt: false);
+    }
+
     public function mask(string $value): ?string
     {
         if ($value === '') {

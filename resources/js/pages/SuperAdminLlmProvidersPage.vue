@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 
 defineOptions({ layout: SuperAdminLayout });
 
@@ -27,6 +28,7 @@ type Overview = {
     providers: ProviderRow[];
     primary_provider: string;
     backup_provider: string | null;
+    base_knowledge_document: string;
     usage: { top_tenants: TopTenant[]; requests_this_month: number };
 };
 
@@ -48,12 +50,16 @@ const primarySelect = ref('groq');
 const backupSelect = ref<string>('none');
 const savingPrimary = ref(false);
 
+const baseKnowledgeInput = ref('');
+const savingBaseKnowledge = ref(false);
+
 async function load(): Promise<void> {
     loading.value = true;
     try {
         data.value = await apiRequest<Overview>('/api/admin/llm-providers');
         primarySelect.value = data.value.primary_provider;
         backupSelect.value = data.value.backup_provider ?? 'none';
+        baseKnowledgeInput.value = data.value.base_knowledge_document;
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Не удалось загрузить LLM-провайдеров');
     } finally {
@@ -110,6 +116,22 @@ async function savePrimary(): Promise<void> {
         toast.error(error instanceof Error ? error.message : 'Не удалось сохранить выбор');
     } finally {
         savingPrimary.value = false;
+    }
+}
+
+async function saveBaseKnowledge(): Promise<void> {
+    savingBaseKnowledge.value = true;
+    try {
+        await apiRequest('/api/admin/llm-providers/base-knowledge-document', {
+            method: 'PATCH',
+            body: { content: baseKnowledgeInput.value },
+        });
+        toast.success('Базовый документ сохранён');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось сохранить документ');
+    } finally {
+        savingBaseKnowledge.value = false;
     }
 }
 
@@ -234,6 +256,18 @@ const totalRequests30d = computed(() => (data.value?.providers ?? []).reduce((su
             <Button variant="primary" size="sm" class="mt-4" :disabled="savingPrimary" @click="savePrimary">Сохранить выбор</Button>
         </div>
 
+        <div class="mt-5 rounded-xl border border-border bg-card p-5">
+            <h3 class="mb-1 font-display text-base font-semibold ui-text">Базовые знания для всех компаний</h3>
+            <p class="mb-3 text-sm ui-subtle">
+                Этот текст добавляется в системный промпт AI для КАЖДОЙ компании на платформе, независимо от их
+                собственной базы знаний — например, единый глоссарий терминов и правильные формулировки на таджикском
+                и русском, чтобы ответы AI были корректны на обоих языках у всех компаний сразу.
+            </p>
+            <Textarea v-model="baseKnowledgeInput" class="min-h-40 font-mono text-sm" placeholder="Например: глоссарий терминов, правила вежливого обращения, типовые таджикско-русские формулировки..." />
+            <Button variant="primary" size="sm" class="mt-3" :disabled="savingBaseKnowledge" @click="saveBaseKnowledge">
+                <Save class="h-4 w-4" />Сохранить документ
+            </Button>
+        </div>
     </div>
 
     <div v-if="data && data.usage.top_tenants.length" class="rounded-xl border border-border bg-card p-5">

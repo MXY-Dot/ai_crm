@@ -252,19 +252,70 @@ class KnowledgeIndexer
 
         foreach (WordIOFactory::load($realPath)->getSections() as $section) {
             foreach ($section->getElements() as $element) {
-                if (method_exists($element, 'getText') && is_string($element->getText())) {
-                    $lines[] = trim($element->getText());
-                } elseif (method_exists($element, 'getElements')) {
-                    $runText = array_map(
-                        fn ($run) => method_exists($run, 'getText') && is_string($run->getText()) ? $run->getText() : '',
-                        $element->getElements()
-                    );
-                    $lines[] = trim(implode('', $runText));
-                }
+                $lines = array_merge($lines, $this->extractWordElementText($element));
             }
         }
 
         return implode("\n", array_filter($lines, fn (string $line): bool => $line !== ''));
+    }
+
+    /**
+     * Recurses into a single PhpWord element and returns the plain-text
+     * line(s) it represents. Originally only handled Text/TextRun (a plain
+     * paragraph) -- a table (the most common shape for a real pricing list
+     * or FAQ, e.g. "Archive_2023_Pricing.docx") has no getText()/getElements()
+     * of its own, so it silently produced zero lines: a real, non-corrupt
+     * DOCX could come out completely empty, fall under the 20-char minimum,
+     * and get marked 'failed' with no error ever logged (unlike a genuine
+     * parse exception, which does get logged) -- confirmed by generating a
+     * table-only test .docx and running it through this method directly.
+     *
+     * @return string[]
+     */
+    private function extractWordElementText(mixed $element): array
+    {
+        if ($element instanceof \PhpOffice\PhpWord\Element\Table) {
+            $lines = [];
+
+            foreach ($element->getRows() as $row) {
+                $cells = [];
+
+                foreach ($row->getCells() as $cell) {
+                    $cellLines = [];
+
+                    foreach ($cell->getElements() as $cellElement) {
+                        $cellLines = array_merge($cellLines, $this->extractWordElementText($cellElement));
+                    }
+
+                    $cellText = trim(implode(' ', array_filter($cellLines, fn (string $line): bool => $line !== '')));
+
+                    if ($cellText !== '') {
+                        $cells[] = $cellText;
+                    }
+                }
+
+                if ($cells !== []) {
+                    $lines[] = implode(' | ', $cells);
+                }
+            }
+
+            return $lines;
+        }
+
+        if (method_exists($element, 'getText') && is_string($element->getText())) {
+            return [trim($element->getText())];
+        }
+
+        if (method_exists($element, 'getElements')) {
+            $runText = array_map(
+                fn ($run) => method_exists($run, 'getText') && is_string($run->getText()) ? $run->getText() : '',
+                $element->getElements()
+            );
+
+            return [trim(implode('', $runText))];
+        }
+
+        return [];
     }
 
     private function extractSpreadsheetText(string $realPath): string

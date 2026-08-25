@@ -89,6 +89,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::get('llm-providers', [SuperAdminLlmProviderController::class, 'index']);
         Route::patch('llm-providers/primary', [SuperAdminLlmProviderController::class, 'updatePrimary']);
         Route::patch('llm-providers/{provider}/key', [SuperAdminLlmProviderController::class, 'updateKey']);
+        Route::patch('llm-providers/base-knowledge-document', [SuperAdminLlmProviderController::class, 'updateBaseKnowledgeDocument']);
         Route::post('llm-providers/{provider}/test', [SuperAdminLlmProviderController::class, 'test'])->middleware('throttle:10,1');
         Route::get('companies/lookup', [SuperAdminCompanyController::class, 'lookup']);
         Route::get('companies', [SuperAdminCompanyController::class, 'index']);

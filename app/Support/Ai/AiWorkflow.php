@@ -370,6 +370,13 @@ class AiWorkflow
             // naturally, matching their language and register.
             'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
             $this->languageExamples($agent->tenant),
+            // Platform-wide reference (glossary/tone/terminology) maintained by
+            // super_admin on /super-admin/llm-providers -- applies to every
+            // tenant's replies the same way, regardless of that tenant's own
+            // knowledge base language or content.
+            $this->platform->baseKnowledgeDocument() !== ''
+                ? 'General guidance for all companies (platform-wide):'."\n".$this->platform->baseKnowledgeDocument()
+                : '',
             'Business profile:'."\n".$this->dify->businessProfile($agent),
             // ЭТАП 5.7 — anti-hallucination: only fires when nothing in the
             // knowledge base actually relates to this question (or the
