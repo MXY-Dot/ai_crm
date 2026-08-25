@@ -61,7 +61,7 @@ const nextActionLabel = computed(() => (props.lead.next_action ? NEXT_ACTION_LAB
             </Avatar>
         </div>
 
-        <div v-if="lead.status !== 'won' && lead.status !== 'lost'" class="mt-3 flex items-center gap-2 border-t pt-3 border-border" @click.stop>
+        <div v-if="lead.status !== 'won' && lead.status !== 'lost'" class="mt-3 flex flex-wrap items-center gap-2 border-t pt-3 border-border" @click.stop>
             <button
                 v-if="lead.status === 'new'"
                 class="rounded-md border px-2 py-1 text-[11px] font-medium ui-text hover:bg-muted disabled:opacity-50 border-border"

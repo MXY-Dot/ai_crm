@@ -66,7 +66,7 @@ function statusTone(status: string): 'green' | 'blue' | 'amber' | 'red' | 'neutr
                         <td class="px-4 py-3 ui-subtle">{{ lead.score }}</td>
                         <td class="px-4 py-3 ui-subtle">{{ timeAgo(lead.created_at, locale.locale) || (lead.source ? (sourceLabels[lead.source] ?? lead.source) : '—') }}</td>
                         <td class="px-4 py-3" @click.stop>
-                            <div v-if="lead.status !== 'won' && lead.status !== 'lost'" class="flex items-center gap-2">
+                            <div v-if="lead.status !== 'won' && lead.status !== 'lost'" class="flex flex-wrap items-center gap-2">
                                 <button
                                     v-if="lead.status === 'new'"
                                     class="rounded-md border px-2 py-1 text-[11px] font-medium ui-text hover:bg-muted disabled:opacity-50 border-border"
