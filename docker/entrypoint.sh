@@ -10,16 +10,13 @@ if [ "${CREATE_ENV_FILE:-false}" = "true" ] && [ ! -f .env ] && [ -f .env.exampl
 fi
 
 mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 
 php artisan storage:link >/dev/null 2>&1 || true
 
-if [ "${DB_CONNECTION:-}" = "sqlite" ] && [ -n "${DB_DATABASE:-}" ]; then
-    mkdir -p "$(dirname "$DB_DATABASE")"
-    touch "$DB_DATABASE"
-fi
-
-if [ "${WAIT_FOR_DB:-false}" = "true" ] && [ "${DB_CONNECTION:-}" = "mysql" ]; then
-    until mysqladmin ping -h"${DB_HOST:-mysql}" -P"${DB_PORT:-3306}" -u"${DB_USERNAME:-root}" -p"${DB_PASSWORD:-}" --silent; do
+if [ "${WAIT_FOR_DB:-false}" = "true" ] && [ "${DB_CONNECTION:-}" = "pgsql" ]; then
+    until pg_isready -h "${DB_HOST:-postgres}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-ai_crm}" >/dev/null 2>&1; do
+        echo "Waiting for PostgreSQL at ${DB_HOST:-postgres}:${DB_PORT:-5432}..."
         sleep 2
     done
 fi

@@ -1,53 +1,104 @@
+x-app: &app
+  build:
+    context: .
+    args:
+      INSTALL_DEV: "${INSTALL_DEV:-false}"
+      VITE_APP_NAME: "${VITE_APP_NAME:-WERO}"
+  image: wero-ai-crm:local
+  env_file:
+    - .env
+  environment:
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: "${DB_DATABASE:-ai_crm}"
+    DB_USERNAME: "${DB_USERNAME:-ai_crm}"
+    DB_PASSWORD: "${DB_PASSWORD:-ai_crm}"
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    QUEUE_CONNECTION: redis
+    CACHE_STORE: redis
+    REVERB_HOST: reverb
+    REVERB_SERVER_HOST: 0.0.0.0
+    WAIT_FOR_DB: "true"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_started
+  volumes:
+    - crm-storage:/var/www/html/storage
+  restart: unless-stopped
+
 services:
-  crm:
-    build:
-      context: .
-      args:
-        INSTALL_DEV: "${INSTALL_DEV:-false}"
-        VITE_APP_NAME: "${VITE_APP_NAME:-Gravity AI CRM}"
-    image: gravity-ai-crm:local
-    container_name: gravity-ai-crm
-    env_file:
-      - .env
+  app:
+    <<: *app
+    container_name: wero-ai-crm
     environment:
-      APP_URL: "${APP_URL:-http://localhost:8000}"
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_DATABASE: "${DB_DATABASE:-ai_crm}"
-      DB_USERNAME: "${DB_USERNAME:-root}"
-      DB_PASSWORD: "${DB_PASSWORD:-root}"
-      CHATWOOT_URL: "${DOCKER_CHATWOOT_URL:-http://host.docker.internal:3000}"
-      DIFY_API_URL: "${DOCKER_DIFY_API_URL:-http://host.docker.internal:8080/v1}"
-      WAIT_FOR_DB: "${WAIT_FOR_DB:-false}"
+      DB_USERNAME: "${DB_USERNAME:-ai_crm}"
+      DB_PASSWORD: "${DB_PASSWORD:-ai_crm}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      REVERB_HOST: reverb
+      REVERB_SERVER_HOST: 0.0.0.0
+      WAIT_FOR_DB: "true"
       RUN_MIGRATIONS: "${RUN_MIGRATIONS:-true}"
       RUN_SEEDERS: "${RUN_SEEDERS:-false}"
       CACHE_CONFIG: "${CACHE_CONFIG:-false}"
     ports:
-      - "${CRM_PORT:-8000}:8000"
-    depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-      - crm-storage:/var/www/html/storage
-    restart: unless-stopped
+      - "${APP_PORT:-8000}:80"
 
-  mysql:
-    image: mysql:8.4
-    container_name: gravity-ai-crm-mysql
-    environment:
-      MYSQL_DATABASE: "${DB_DATABASE:-ai_crm}"
-      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:-root}"
+  queue:
+    <<: *app
+    container_name: wero-ai-crm-queue
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=0.5", "--tries=2", "--max-time=3600"]
+    ports: []
+
+  scheduler:
+    <<: *app
+    container_name: wero-ai-crm-scheduler
+    command: ["php", "artisan", "schedule:work"]
+    ports: []
+
+  reverb:
+    <<: *app
+    container_name: wero-ai-crm-reverb
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=6001"]
     ports:
-      - "${MYSQL_PORT:-3307}:3306"
-    volumes:
-      - crm-mysql:/var/lib/mysql
+      - "${REVERB_PORT:-6001}:6001"
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: wero-ai-crm-postgres
+    environment:
+      POSTGRES_DB: "${DB_DATABASE:-ai_crm}"
+      POSTGRES_USER: "${DB_USERNAME:-ai_crm}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-ai_crm}"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 20
+    volumes:
+      - crm-postgres:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-pgvector.sql:ro
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: wero-ai-crm-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - crm-redis:/data
     restart: unless-stopped
 
 volumes:
-  crm-mysql:
+  crm-postgres:
+  crm-redis:
   crm-storage:
