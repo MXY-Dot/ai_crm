@@ -115,7 +115,7 @@ class SessionController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard');
+        return redirect()->route("onboarding");
     }
 
     public function destroy(Request $request): RedirectResponse

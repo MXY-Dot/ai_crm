@@ -9,10 +9,15 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
-#[Fillable(['tenant_id', 'name', 'industry', 'phone', 'email', 'website', 'address', 'timezone', 'working_hours', 'brand_settings'])]
+#[Fillable(['tenant_id', 'name', 'industry', 'business_type_id', 'business_type_other', 'phone', 'email', 'website', 'address', 'timezone', 'working_hours', 'brand_settings'])]
 class Company extends Model
 {
     use BelongsToTenant;
+
+    public function businessType(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(BusinessType::class);
+    }
 
     protected $appends = ['logo_url'];
 

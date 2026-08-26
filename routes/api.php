@@ -29,6 +29,9 @@ use App\Http\Controllers\Api\SuperAdminIncidentController;
 use App\Http\Controllers\Api\SuperAdminLlmProviderController;
 use App\Http\Controllers\Api\SuperAdminInsightsController;
 use App\Http\Controllers\Api\SuperAdminLanguageQualityController;
+use App\Http\Controllers\Api\SuperAdminBusinessModulesController;
+use App\Http\Controllers\Api\OnboardingController;
+use App\Http\Controllers\Api\CompanyModuleController;
 use App\Http\Controllers\Api\SuperAdminOverviewController;
 use App\Http\Controllers\Api\SuperAdminSupportController;
 use App\Http\Controllers\Api\SuperAdminUserController;
@@ -84,6 +87,17 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('tickets/{ticket}/messages', [SupportTicketController::class, 'storeMessage']);
     });
 
+    Route::prefix('onboarding')->group(function (): void {
+        Route::get('business-types', [OnboardingController::class, 'businessTypes']);
+        Route::post('complete', [OnboardingController::class, 'complete']);
+        Route::post('integration-request', [OnboardingController::class, 'storeIntegrationRequest']);
+    });
+
+    Route::prefix('company-modules')->group(function (): void {
+        Route::get('/', [CompanyModuleController::class, 'index']);
+        Route::post('toggle', [CompanyModuleController::class, 'toggle']);
+    });
+
     Route::middleware(EnsureSuperAdmin::class)->prefix('admin')->group(function (): void {
         Route::get('overview', [SuperAdminOverviewController::class, 'index']);
         Route::get('analytics', [SuperAdminAnalyticsController::class, 'index']);
@@ -98,6 +112,13 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('language-quality/eval-examples', [SuperAdminLanguageQualityController::class, 'storeEvalExample']);
         Route::delete('language-quality/eval-examples/{aiEvalExample}', [SuperAdminLanguageQualityController::class, 'destroyEvalExample']);
         Route::post('language-quality/run-eval', [SuperAdminLanguageQualityController::class, 'runEval'])->middleware('throttle:5,10');
+
+        Route::get('business-types', [SuperAdminBusinessModulesController::class, 'businessTypes']);
+        Route::patch('business-types/{businessType}', [SuperAdminBusinessModulesController::class, 'updateBusinessType']);
+        Route::get('integration-requests', [SuperAdminBusinessModulesController::class, 'integrationRequests']);
+        Route::get('integration-requests/{integrationRequest}', [SuperAdminBusinessModulesController::class, 'showIntegrationRequest']);
+        Route::patch('integration-requests/{integrationRequest}', [SuperAdminBusinessModulesController::class, 'updateIntegrationRequest']);
+        Route::post('integration-requests/{integrationRequest}/messages', [SuperAdminBusinessModulesController::class, 'storeIntegrationRequestMessage']);
         Route::patch('llm-providers/primary', [SuperAdminLlmProviderController::class, 'updatePrimary']);
         Route::patch('llm-providers/{provider}/key', [SuperAdminLlmProviderController::class, 'updateKey']);
         Route::patch('llm-providers/base-knowledge-document', [SuperAdminLlmProviderController::class, 'updateBaseKnowledgeDocument']);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, Building2, CreditCard, Crown, Cpu, Languages, LayoutDashboard, Lightbulb, LifeBuoy, LogOut, Menu, ShieldAlert, Users } from '@lucide/vue';
+import { BarChart3, Blocks, Building2, CreditCard, Crown, Cpu, Languages, LayoutDashboard, Lightbulb, LifeBuoy, LogOut, Menu, ShieldAlert, Users } from '@lucide/vue';
 import LanguageSwitcher from '@/components/dashboard/LanguageSwitcher.vue';
 import NotificationBell from '@/components/dashboard/NotificationBell.vue';
 import Sidebar, { type SidebarUser } from '@/components/dashboard/Sidebar.vue';
@@ -27,6 +27,7 @@ const navItems = [
     { href: '/super-admin/support', label: 'Техподдержка', icon: LifeBuoy },
     { href: '/super-admin/insights', label: 'AI-инсайты', icon: Lightbulb },
     { href: '/super-admin/language-quality', label: 'Языковые датасеты', icon: Languages },
+    { href: '/super-admin/business-modules', label: 'Отраслевые модули', icon: Blocks },
 ];
 
 const mobileMenuOpen = ref(false);

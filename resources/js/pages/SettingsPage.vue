@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { Bell, Building2, Globe2 } from '@lucide/vue';
+import { Bell, Blocks, Building2, Globe2 } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CompanyProfilePanel from '../components/dashboard/CompanyProfilePanel.vue';
 import NotificationPreferencesPanel from '../components/dashboard/NotificationPreferencesPanel.vue';
 import WidgetTokensPanel from '../components/dashboard/WidgetTokensPanel.vue';
+import CompanyModulesPanel from '../components/dashboard/CompanyModulesPanel.vue';
 
 defineOptions({ layout: AppLayout });
 
@@ -45,6 +46,7 @@ onBeforeUnmount(() => headerObserver?.disconnect());
                     <TabsTrigger value="company"><Building2 class="h-4 w-4" />Компания</TabsTrigger>
                     <TabsTrigger value="notifications"><Bell class="h-4 w-4" />Уведомления</TabsTrigger>
                     <TabsTrigger value="widget"><Globe2 class="h-4 w-4" />Токены виджета</TabsTrigger>
+                    <TabsTrigger value="modules"><Blocks class="h-4 w-4" />Модули</TabsTrigger>
                 </TabsList>
             </div>
 
@@ -58,6 +60,10 @@ onBeforeUnmount(() => headerObserver?.disconnect());
 
             <TabsContent value="widget" class="mt-4">
                 <WidgetTokensPanel data-tour="settings-widget-tokens" />
+            </TabsContent>
+
+            <TabsContent value="modules" class="mt-4">
+                <CompanyModulesPanel />
             </TabsContent>
         </Tabs>
     </section>
