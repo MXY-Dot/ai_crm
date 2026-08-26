@@ -4,6 +4,7 @@ namespace App\Support\Ai;
 
 use App\Jobs\NotifyVipContactJob;
 use App\Models\AiAgent;
+use App\Models\AiSystemPrompt;
 use App\Models\AiRun;
 use App\Models\Company;
 use App\Models\Conversation;
@@ -21,6 +22,7 @@ use App\Support\Inbox\ConversationStatus;
 use App\Support\Integrations\PlatformSettings;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\Language\LanguageDetector;
+use App\Support\Language\TajikTextNormalizer;
 use App\Support\Security\PromptInjectionDetector;
 use App\Support\Sentiment\SentimentDetector;
 use App\Support\TelegramClient;
@@ -44,6 +46,7 @@ class AiWorkflow
         private readonly LanguageDetector $languageDetector,
         private readonly SentimentDetector $sentimentDetector,
         private readonly PromptInjectionDetector $injectionDetector,
+        private readonly TajikTextNormalizer $tajikNormalizer,
     ) {
     }
 
@@ -319,6 +322,13 @@ class AiWorkflow
         $primaryProvider = $this->platform->primaryLlmProvider();
         $primaryModel = $this->platform->defaultModel();
 
+        // Tajik/Russian normalization: original_text is what actually gets sent to
+        // the model below (unchanged) -- folded_text/normalized_text exist only for
+        // internal matching (example retrieval just below, knowledge search) and are
+        // persisted onto the message for later inspection/debugging, best-effort.
+        $tajik = $this->tajikNormalizer->normalize($message->body);
+        $this->persistTajikNormalization($message, $tajik);
+
         // ЭТАП 5.2/5.5 — embeds the customer message via an external API call,
         // computed once here (not inside the array below) so it isn't repeated.
         $knowledge = $this->dify->knowledgeContext($agent, $message->body);
@@ -374,7 +384,11 @@ class AiWorkflow
             // express confusion about mixed/transliterated text — just respond
             // naturally, matching their language and register.
             'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
-            $this->languageExamples($agent->tenant),
+            $this->languageExamples($agent->tenant, $tajik['normalized_text']),
+            // Versioned Tajik/Russian language-handling supplement, maintained by
+            // super_admin on /super-admin/language-quality (Качество AI -> Языковые
+            // датасеты) -- separate from the general base-knowledge-document below.
+            AiSystemPrompt::active()?->content ?? '',
             // Platform-wide reference (glossary/tone/terminology) maintained by
             // super_admin on /super-admin/llm-providers -- applies to every
             // tenant's replies the same way, regardless of that tenant's own
@@ -487,7 +501,17 @@ class AiWorkflow
         }
     }
 
-    private function languageExamples(?Tenant $tenant): string
+    /**
+     * Only status='approved' examples are ever eligible (requirement: never
+     * surface a pending/rejected example to the model). Ranked by a plain
+     * word-overlap score against the current message's normalized_text --
+     * not an embedding search, deliberately simple since this is a small
+     * per-tenant set, not a corpus. Returns the 3-8 highest-scoring matches;
+     * falls back to the 3 most recent approved examples when nothing scores
+     * above zero, so a tenant with examples but an unrelated question still
+     * gets some tone/style guidance rather than none.
+     */
+    private function languageExamples(?Tenant $tenant, string $normalizedMessage): string
     {
         if (! $tenant) {
             return '';
@@ -495,17 +519,48 @@ class AiWorkflow
 
         $examples = LanguageExample::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
-            ->inRandomOrder()
-            ->limit(3)
+            ->where('status', 'approved')
             ->get();
 
         if ($examples->isEmpty()) {
             return '';
         }
 
-        $formatted = $examples->map(fn (LanguageExample $example): string => 'Customer: '.$example->customer_message."\nGood reply: ".$example->good_reply)->implode("\n\n");
+        $queryWords = array_filter(explode(' ', $normalizedMessage), fn (string $w): bool => $w !== '');
+
+        $ranked = $examples->map(function (LanguageExample $example) use ($queryWords): array {
+            $exampleWords = array_filter(explode(' ', mb_strtolower($example->customer_message)), fn (string $w): bool => $w !== '');
+            $overlap = count(array_intersect($queryWords, $exampleWords));
+
+            return ['example' => $example, 'score' => $overlap];
+        })->sortByDesc('score');
+
+        $topScore = $ranked->first()['score'] ?? 0;
+        $selected = $topScore > 0
+            ? $ranked->filter(fn (array $row): bool => $row['score'] > 0)->take(8)
+            : $ranked->take(3);
+
+        if ($selected->count() < 3) {
+            $selected = $ranked->take(3);
+        }
+
+        $formatted = $selected->map(fn (array $row): string => 'Customer: '.$row['example']->customer_message."\nGood reply: ".$row['example']->good_reply)->implode("\n\n");
 
         return "Example good responses from this company's own past conversations — match this tone and phrasing style where relevant:\n".$formatted;
+    }
+
+    /** Best-effort: normalization is a debugging/search aid, never allowed to block the actual reply. */
+    private function persistTajikNormalization(Message $message, array $tajik): void
+    {
+        try {
+            $meta = $message->meta ?? [];
+            $meta['tajik_normalization'] = [
+                'folded_text' => $tajik['folded_text'],
+                'normalized_text' => $tajik['normalized_text'],
+            ];
+            $message->forceFill(['meta' => $meta])->save();
+        } catch (\Throwable) {
+        }
     }
 
     /**
