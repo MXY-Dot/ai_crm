@@ -1,0 +1,110 @@
+<?php
+
+/**
+ * APP_LOCALE=ru but no lang/ru/ ever existed -- Laravel silently fell back
+ * to its built-in English defaults for every validation error, which is
+ * exactly what the user saw ("The content field must be at least 20
+ * characters.") on an otherwise fully-Russian page. Covers the rules
+ * actually used across this app's controllers, not the full Laravel rule
+ * set -- pragmatic, not exhaustive.
+ */
+return [
+    'accepted' => 'Поле :attribute должно быть принято.',
+    'active_url' => 'Поле :attribute должно быть корректным адресом.',
+    'after' => 'Поле :attribute должно быть датой позже :date.',
+    'after_or_equal' => 'Поле :attribute должно быть датой не раньше :date.',
+    'array' => 'Поле :attribute должно быть массивом.',
+    'before' => 'Поле :attribute должно быть датой раньше :date.',
+    'before_or_equal' => 'Поле :attribute должно быть датой не позже :date.',
+    'between' => [
+        'array' => 'В поле :attribute должно быть от :min до :max элементов.',
+        'file' => 'Размер файла :attribute должен быть от :min до :max килобайт.',
+        'numeric' => 'Значение поля :attribute должно быть от :min до :max.',
+        'string' => 'Длина поля :attribute должна быть от :min до :max символов.',
+    ],
+    'boolean' => 'Поле :attribute должно быть true или false.',
+    'confirmed' => 'Подтверждение поля :attribute не совпадает.',
+    'date' => 'Поле :attribute не является корректной датой.',
+    'date_format' => 'Поле :attribute не соответствует формату :format.',
+    'different' => 'Поля :attribute и :other должны различаться.',
+    'digits' => 'Поле :attribute должно содержать :digits цифр.',
+    'email' => 'Поле :attribute должно быть корректным email-адресом.',
+    'exists' => 'Выбранное значение поля :attribute некорректно.',
+    'file' => 'Поле :attribute должно быть файлом.',
+    'filled' => 'Поле :attribute обязательно для заполнения.',
+    'gt' => [
+        'array' => 'В поле :attribute должно быть больше :value элементов.',
+        'numeric' => 'Значение поля :attribute должно быть больше :value.',
+        'string' => 'Длина поля :attribute должна быть больше :value символов.',
+    ],
+    'image' => 'Поле :attribute должно быть изображением.',
+    'in' => 'Выбранное значение поля :attribute некорректно.',
+    'in_array' => 'Значение поля :attribute отсутствует в :other.',
+    'integer' => 'Поле :attribute должно быть целым числом.',
+    'ip' => 'Поле :attribute должно быть корректным IP-адресом.',
+    'json' => 'Поле :attribute должно быть корректной JSON-строкой.',
+    'lt' => [
+        'array' => 'В поле :attribute должно быть меньше :value элементов.',
+        'numeric' => 'Значение поля :attribute должно быть меньше :value.',
+        'string' => 'Длина поля :attribute должна быть меньше :value символов.',
+    ],
+    'max' => [
+        'array' => 'В поле :attribute не должно быть больше :max элементов.',
+        'file' => 'Размер файла :attribute не должен превышать :max килобайт.',
+        'numeric' => 'Значение поля :attribute не должно превышать :max.',
+        'string' => 'Длина поля :attribute не должна превышать :max символов.',
+    ],
+    'mimes' => 'Поле :attribute должно быть файлом одного из типов: :values.',
+    'min' => [
+        'array' => 'В поле :attribute должно быть не менее :min элементов.',
+        'file' => 'Размер файла :attribute должен быть не менее :min килобайт.',
+        'numeric' => 'Значение поля :attribute должно быть не менее :min.',
+        'string' => 'Длина поля :attribute должна быть не менее :min символов.',
+    ],
+    'numeric' => 'Поле :attribute должно быть числом.',
+    'present' => 'Поле :attribute должно присутствовать.',
+    'regex' => 'Формат поля :attribute некорректен.',
+    'required' => 'Поле :attribute обязательно для заполнения.',
+    'required_if' => 'Поле :attribute обязательно, если :other равно :value.',
+    'required_unless' => 'Поле :attribute обязательно, если :other не равно :value.',
+    'required_with' => 'Поле :attribute обязательно при наличии :values.',
+    'required_without' => 'Поле :attribute обязательно при отсутствии :values.',
+    'same' => 'Поля :attribute и :other должны совпадать.',
+    'size' => [
+        'array' => 'Поле :attribute должно содержать :size элементов.',
+        'file' => 'Размер файла :attribute должен быть :size килобайт.',
+        'numeric' => 'Значение поля :attribute должно быть равно :size.',
+        'string' => 'Длина поля :attribute должна быть :size символов.',
+    ],
+    'string' => 'Поле :attribute должно быть строкой.',
+    'unique' => 'Такое значение поля :attribute уже используется.',
+    'url' => 'Поле :attribute должно быть корректным адресом.',
+    'uuid' => 'Поле :attribute должно быть корректным UUID.',
+
+    'custom' => [],
+
+    'attributes' => [
+        'content' => 'текст',
+        'title' => 'название',
+        'name' => 'имя',
+        'email' => 'email',
+        'password' => 'пароль',
+        'phone' => 'телефон',
+        'status' => 'статус',
+        'url' => 'ссылка',
+        'file' => 'файл',
+        'body' => 'сообщение',
+        'company_id' => 'компания',
+        'customer_id' => 'клиент',
+        'tenant_id' => 'компания',
+        'business_type_id' => 'сфера бизнеса',
+        'input_text' => 'сообщение',
+        'expected_reply' => 'ожидаемый ответ',
+        'platform_name' => 'название платформы',
+        'platform_url' => 'адрес платформы',
+        'scenario_description' => 'описание сценария',
+        'comment' => 'комментарий',
+        'reason' => 'причина',
+        'amount' => 'сумма',
+    ],
+];

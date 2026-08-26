@@ -14,7 +14,7 @@ import KnowledgeUrlForm from './knowledge/KnowledgeUrlForm.vue';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
-const { knowledgeDocuments, aiAgents, busy, error } = storeToRefs(store);
+const { knowledgeDocuments, aiAgents, busy } = storeToRefs(store);
 const query = ref('');
 const openDocumentId = ref<number | null>(null);
 
@@ -74,9 +74,9 @@ async function fetchUrl(payload: { url: string }): Promise<void> {
         </div>
 
         <div class="grid gap-4 lg:grid-cols-3" data-tour="kb-add">
-            <KnowledgeTextForm :busy="busy" :error="error" :labels="labels" @submit="indexText" />
+            <KnowledgeTextForm :busy="busy" :labels="labels" @submit="indexText" />
             <KnowledgeUploadForm :busy="busy" :labels="labels" @submit="uploadFile" />
-            <KnowledgeUrlForm :busy="busy" :error="error" :labels="labels" @submit="fetchUrl" />
+            <KnowledgeUrlForm :busy="busy" :labels="labels" @submit="fetchUrl" />
         </div>
 
         <div data-tour="kb-sources">

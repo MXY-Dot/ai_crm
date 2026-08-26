@@ -102,17 +102,17 @@ class KnowledgeIndexer
                 ->withOptions(['allow_redirects' => false])
                 ->get($url);
         } catch (Throwable $error) {
-            throw new RuntimeException('Could not reach that URL: '.$error->getMessage());
+            throw new RuntimeException('Не удалось обратиться по этой ссылке: '.$error->getMessage());
         }
 
         if (! $response->successful()) {
-            throw new RuntimeException('Could not fetch that URL (HTTP '.$response->status().').');
+            throw new RuntimeException('Не удалось загрузить страницу (HTTP '.$response->status().').');
         }
 
         [$title, $content] = $this->extractHtml($response->body());
 
         if (mb_strlen($content) < 20) {
-            throw new RuntimeException('No readable text found on that page.');
+            throw new RuntimeException('На этой странице не найдено читаемого текста.');
         }
 
         return $this->indexText([
@@ -345,18 +345,18 @@ class KnowledgeIndexer
         $parts = parse_url($url);
 
         if (! $parts || ! in_array($parts['scheme'] ?? '', ['http', 'https'], true) || empty($parts['host'])) {
-            throw new RuntimeException('Enter a valid http(s) URL.');
+            throw new RuntimeException('Введите корректный http(s)-адрес.');
         }
 
         $host = $parts['host'];
         $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
 
         if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
-            throw new RuntimeException('Could not resolve that host.');
+            throw new RuntimeException('Не удалось определить адрес этого хоста.');
         }
 
         if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            throw new RuntimeException('That URL points to a disallowed address.');
+            throw new RuntimeException('Эта ссылка указывает на запрещённый адрес.');
         }
     }
 
