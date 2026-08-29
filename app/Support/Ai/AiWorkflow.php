@@ -399,6 +399,17 @@ class AiWorkflow
             // spell that out explicitly rather than relying on the model to infer
             // "same language as the customer" correctly on its own.
             'This business operates in Tajikistan and communicates only in Tajik (Tajikistan dialect, Cyrillic script — literary or colloquial, diacritics present or dropped, exactly as described above) and Russian. Never reply in Uzbek, Kazakh, Kyrgyz, Turkmen, Farsi/Dari (Iran/Afghanistan dialects), Pashto, or any other language, even if a short or ambiguous customer message superficially resembles one of those — always default to Tajik or Russian, matching whichever the customer actually used.',
+            // Found live, a second time, on the very next real reply after the fix
+            // above: not a full-language switch this time, but Uzbek grammar
+            // bleeding into an otherwise-Tajik sentence — "...хоҳлайсиз" (Uzbek
+            // 2nd-person verb suffix -сиз, e.g. хоҳлайсиз/борасиз/келасиз) where
+            // correct Tajik is "...мехоҳед"/"...хоҳед" (verb + -ед/-ен, with
+            // "шумо"). Naming the language wasn't a strong enough anchor by
+            // itself — a concrete, contrastive grammar rule for the exact
+            // failure mode observed is added here rather than guessing at a
+            // broader list, since this is the one pattern actually confirmed
+            // in production output twice.
+            'Grammar check specific to Tajik verbs addressing the customer as "шумо": correct Tajik verb endings are -ед/-ен (e.g. мехоҳед, доред, гуфтед, метавонед) — never the Uzbek verb suffix "-сиз"/"-сизлар" (e.g. хоҳлайсиз, борасиз, келасиз is WRONG Uzbek grammar, not Tajik). If a word you are about to write ends in "-сиз", that is Uzbek, not Tajik — rewrite it with the correct Tajik "-ед" ending before answering.',
             $this->languageExamples($agent->tenant, $tajik['normalized_text']),
             // Versioned Tajik/Russian language-handling supplement, maintained by
             // super_admin on /super-admin/language-quality (Качество AI -> Языковые

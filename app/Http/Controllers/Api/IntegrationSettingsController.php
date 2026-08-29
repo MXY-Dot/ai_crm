@@ -437,6 +437,14 @@ class IntegrationSettingsController extends Controller
      * actually confirms the credentials work, so that's what flips the channel
      * card from "требуется настройка" to "подключено" here, mirroring what
      * registerTelegramWebhook() does for Telegram.
+     *
+     * Matches the existing row on (tenant, company, provider) only — NOT name.
+     * A tenant can only sensibly have one channel per provider, and some tenants
+     * (demo-seeded ones especially) already had a row under a different display
+     * name (e.g. "WhatsApp Business" instead of "WhatsApp"); matching on name too
+     * meant this silently created a second, duplicate row instead of updating the
+     * existing one — IntegrationsPage.vue's `channels.find()` then kept showing
+     * whichever row happened to come first, which was the old stale one.
      */
     private function markChannelConnected(Tenant $tenant, string $provider, string $name): void
     {
@@ -447,8 +455,8 @@ class IntegrationSettingsController extends Controller
         }
 
         Channel::withoutGlobalScopes()->updateOrCreate(
-            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'provider' => $provider, 'name' => $name],
-            ['status' => 'connected', 'last_synced_at' => now()]
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'provider' => $provider],
+            ['name' => $name, 'status' => 'connected', 'last_synced_at' => now()]
         );
     }
 
