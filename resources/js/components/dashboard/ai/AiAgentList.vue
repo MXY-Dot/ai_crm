@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { FlaskConical, Pencil, Trash2, X } from '@lucide/vue';
+import { ArrowLeft, FlaskConical, Pencil, Trash2, X } from '@lucide/vue';
 import CreateAgentDialog from './CreateAgentDialog.vue';
 import AiAgentActivityPanel from './AiAgentActivityPanel.vue';
 import AiAgentSettingsForm from './AiAgentSettingsForm.vue';
@@ -9,7 +9,6 @@ import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import { sourceLabels } from '../../../lib/statusLabels';
 import { Button } from '../../ui/button';
-import { Dialog, DialogContent } from '../../ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerHeader, DrawerTitle } from '../../ui/drawer';
 import {
     AlertDialog,
@@ -47,16 +46,16 @@ const CHANNEL_STYLES: Record<string, string> = {
     chatwoot: 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-300',
 };
 
-// Editing opens a Dialog (window) with the full settings form — including
-// channels, which the inline panel this replaced never actually exposed for
+// Editing swaps the table out for a full-width "show" view of one agent
+// (like CustomerProfilePage's list<->detail pattern) instead of a cramped
+// modal — includes channels, which the old inline panel never exposed for
 // an already-created agent (only at creation time, via CreateAgentDialog).
-const editAgent = ref<AiAgent | null>(null);
-const editOpen = ref(false);
-const editAgentDocuments = computed(() => props.knowledgeDocuments.filter((doc) => doc.ai_agent_id === editAgent.value?.id));
+const viewingAgentId = ref<number | null>(null);
+const viewingAgent = computed(() => props.agents.find((agent) => agent.id === viewingAgentId.value) ?? null);
+const viewingAgentDocuments = computed(() => props.knowledgeDocuments.filter((doc) => doc.ai_agent_id === viewingAgentId.value));
 
 function openEdit(agent: AiAgent): void {
-    editAgent.value = agent;
-    editOpen.value = true;
+    viewingAgentId.value = agent.id;
 }
 
 // "Последние запуски" is shown per agent via a slide-out Drawer instead of a
@@ -81,77 +80,82 @@ function askDelete(agent: AiAgent): void {
 async function confirmDelete(): Promise<void> {
     if (! deleteTarget.value) return;
     await store.deleteAiAgent(deleteTarget.value.id);
+    if (viewingAgentId.value === deleteTarget.value.id) viewingAgentId.value = null;
     deleteOpen.value = false;
 }
 </script>
 
 <template>
     <div class="flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-            <h2 class="font-display text-base font-semibold ui-text">Ассистенты</h2>
-            <CreateAgentDialog />
-        </div>
-
-        <div class="overflow-hidden rounded-xl border border-border bg-card">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-border text-left text-xs uppercase tracking-wide ui-subtle">
-                            <th class="py-2.5 pl-4 pr-3 font-semibold">Агент</th>
-                            <th class="py-2.5 pr-3 font-semibold">Каналы</th>
-                            <th class="py-2.5 pr-3 font-semibold">Статус</th>
-                            <th class="py-2.5 pr-3 font-semibold">Запуски</th>
-                            <th class="py-2.5 pr-4 text-right font-semibold">Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                        <tr
-                            v-for="agent in agents"
-                            :key="agent.id"
-                            class="cursor-pointer transition hover:bg-muted"
-                            @click="openEdit(agent)"
-                        >
-                            <td class="py-2.5 pl-4 pr-3">
-                                <p class="font-semibold ui-text">{{ agent.name }}</p>
-                                <p class="text-xs ui-subtle">{{ agent.provider }}<span v-if="agent.model"> · {{ agent.model }}</span></p>
-                            </td>
-                            <td class="py-2.5 pr-3">
-                                <div v-if="agent.channels?.length" class="flex flex-wrap gap-1">
-                                    <span v-for="channel in agent.channels" :key="channel" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="CHANNEL_STYLES[channel] ?? 'bg-muted ui-subtle'">{{ sourceLabels[channel] ?? channel }}</span>
-                                </div>
-                                <span v-else class="text-xs ui-subtle">Запасной</span>
-                            </td>
-                            <td class="py-2.5 pr-3">
-                                <span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-muted" :class="statusTone[agent.status] ?? 'ui-subtle'">{{ locale.t('ai.status.' + agent.status) }}</span>
-                            </td>
-                            <td class="py-2.5 pr-3 font-mono text-xs ui-subtle">
-                                {{ stats(agent).count }}<span v-if="stats(agent).avgConfidence !== null" class="ml-1.5 text-primary">{{ stats(agent).avgConfidence }}%</span>
-                            </td>
-                            <td class="py-2.5 pr-4" @click.stop>
-                                <div class="flex items-center justify-end gap-1">
-                                    <Button variant="ghost" size="icon-xs" title="Последние запуски" aria-label="Последние запуски" @click="openActivity(agent)">
-                                        <FlaskConical class="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon-xs" title="Изменить" aria-label="Изменить" @click="openEdit(agent)">
-                                        <Pencil class="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="destructive" size="icon-xs" title="Удалить" aria-label="Удалить" @click="askDelete(agent)">
-                                        <Trash2 class="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        <template v-if="viewingAgent">
+            <div class="flex items-center justify-between">
+                <Button variant="ghost" size="sm" @click="viewingAgentId = null"><ArrowLeft class="h-4 w-4" />Назад к списку</Button>
+                <Button variant="destructive" size="sm" @click="askDelete(viewingAgent)"><Trash2 class="h-4 w-4" />Удалить ассистента</Button>
             </div>
-            <p v-if="! agents.length" class="p-6 text-center text-sm ui-subtle">Нет ассистентов</p>
-        </div>
+            <AiAgentSettingsForm :agent="viewingAgent" :documents="viewingAgentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
+        </template>
 
-        <Dialog v-model:open="editOpen">
-            <DialogContent class="max-h-[85vh] max-w-4xl overflow-y-auto rounded-xl p-0 ring-0" @click.stop>
-                <AiAgentSettingsForm :agent="editAgent" :documents="editAgentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
-            </DialogContent>
-        </Dialog>
+        <template v-else>
+            <div class="flex items-center justify-between">
+                <h2 class="font-display text-base font-semibold ui-text">Ассистенты</h2>
+                <CreateAgentDialog />
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-border bg-card">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-border text-left text-xs uppercase tracking-wide ui-subtle">
+                                <th class="py-2.5 pl-4 pr-3 font-semibold">Агент</th>
+                                <th class="py-2.5 pr-3 font-semibold">Каналы</th>
+                                <th class="py-2.5 pr-3 font-semibold">Статус</th>
+                                <th class="py-2.5 pr-3 font-semibold">Запуски</th>
+                                <th class="py-2.5 pr-4 text-right font-semibold">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            <tr
+                                v-for="agent in agents"
+                                :key="agent.id"
+                                class="cursor-pointer transition hover:bg-muted"
+                                @click="openEdit(agent)"
+                            >
+                                <td class="py-2.5 pl-4 pr-3">
+                                    <p class="font-semibold ui-text">{{ agent.name }}</p>
+                                    <p class="text-xs ui-subtle">{{ agent.provider }}<span v-if="agent.model"> · {{ agent.model }}</span></p>
+                                </td>
+                                <td class="py-2.5 pr-3">
+                                    <div v-if="agent.channels?.length" class="flex flex-wrap gap-1">
+                                        <span v-for="channel in agent.channels" :key="channel" class="rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="CHANNEL_STYLES[channel] ?? 'bg-muted ui-subtle'">{{ sourceLabels[channel] ?? channel }}</span>
+                                    </div>
+                                    <span v-else class="text-xs ui-subtle">Запасной</span>
+                                </td>
+                                <td class="py-2.5 pr-3">
+                                    <span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-muted" :class="statusTone[agent.status] ?? 'ui-subtle'">{{ locale.t('ai.status.' + agent.status) }}</span>
+                                </td>
+                                <td class="py-2.5 pr-3 font-mono text-xs ui-subtle">
+                                    {{ stats(agent).count }}<span v-if="stats(agent).avgConfidence !== null" class="ml-1.5 text-primary">{{ stats(agent).avgConfidence }}%</span>
+                                </td>
+                                <td class="py-2.5 pr-4" @click.stop>
+                                    <div class="flex items-center justify-end gap-1">
+                                        <Button variant="ghost" size="icon-xs" title="Последние запуски" aria-label="Последние запуски" @click="openActivity(agent)">
+                                            <FlaskConical class="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon-xs" title="Изменить" aria-label="Изменить" @click="openEdit(agent)">
+                                            <Pencil class="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="destructive" size="icon-xs" title="Удалить" aria-label="Удалить" @click="askDelete(agent)">
+                                            <Trash2 class="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p v-if="! agents.length" class="p-6 text-center text-sm ui-subtle">Нет ассистентов</p>
+            </div>
+        </template>
 
         <Drawer v-model:open="activityOpen" direction="right">
             <DrawerContent class="sm:max-w-md">

@@ -111,7 +111,7 @@ async function save(): Promise<void> {
 
 <template>
     <div class="flex flex-col rounded-xl border border-border bg-card">
-        <div class="flex items-center justify-between border-b p-4 pr-14 border-border">
+        <div class="flex items-center justify-between border-b p-4 border-border">
             <h2 class="flex items-center gap-2 font-display text-base font-semibold ui-text"><Bot class="h-4 w-4 text-primary" />{{ agent ? `Настройки: ${agent.name}` : 'Выберите ассистента' }}</h2>
             <Button v-if="agent" variant="outline" size="sm" :disabled="busy" @click="save"><Save class="h-4 w-4" />{{ busy ? locale.t('common.waiting') : locale.t('ai.saveAgent') }}</Button>
         </div>
