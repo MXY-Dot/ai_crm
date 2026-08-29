@@ -19,7 +19,10 @@ defineOptions({ layout: AppLayout });
 
 const locale = useLocaleStore();
 const store = useCrmDashboardStore();
-const { companyId, customers, tenant } = storeToRefs(store);
+const { company, customers, tenant } = storeToRefs(store);
+// crmDashboard's own `companyId` computed is a private local (never in its
+// return object, so `store.companyId` is always undefined) -- derive it here.
+const companyId = computed(() => company.value?.id ?? null);
 const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 type Service = { id: number; name: string; duration_minutes: number; price: number };
