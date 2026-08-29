@@ -6,6 +6,7 @@ import type { Conversation } from '../../../stores/crmDashboard';
 import { Avatar, AvatarFallback } from '../../ui/avatar';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
+import ConversationAnalysisPanel from './ConversationAnalysisPanel.vue';
 
 const props = defineProps<{ conversation: Conversation }>();
 const store = useCrmDashboardStore();
@@ -34,6 +35,8 @@ function initials(name: string): string {
             </div>
             <p class="text-[13px] leading-relaxed ui-subtle">{{ conversation.ai_summary }}</p>
         </div>
+
+        <ConversationAnalysisPanel :conversation-id="conversation.id" />
 
         <div class="space-y-4 px-4 py-2">
             <div>

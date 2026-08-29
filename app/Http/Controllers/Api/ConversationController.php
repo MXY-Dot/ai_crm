@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\AnalyzeConversationJob;
 use App\Models\Company;
 use App\Models\Conversation;
+use App\Models\ConversationAnalysis;
 use App\Models\ConversationPin;
 use App\Models\ConversationRead;
 use App\Models\Message;
@@ -179,9 +181,23 @@ class ConversationController extends Controller
 
         $conversation->forceFill(['status' => ConversationStatus::CLOSED, 'resolved_at' => now()])->save();
 
+        AnalyzeConversationJob::dispatch($conversation->id);
+
         $this->pushToChatwoot($tenant, $conversation->loadMissing('channel'), fn () => $chatwoot->resolveConversation($tenant, (string) $conversation->external_id));
 
         return response()->json($conversation->fresh(['channel', 'customer', 'lead']));
+    }
+
+    /** ТЗ «Отчётность...» раздел 14 — AI-разбор конкретного диалога (см. ConversationAnalyzer). Null body if not analyzed yet (too recent / still open / analysis pending). */
+    public function analysis(Conversation $conversation, TenantContext $context): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('view', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        $analysis = ConversationAnalysis::query()->where('conversation_id', $conversation->id)->first();
+
+        return response()->json($analysis);
     }
 
     /** ЭТАП 3.7 — freeform operator-managed labels on a conversation; see Conversation::addLabel() for the AI-side auto-add counterpart. */

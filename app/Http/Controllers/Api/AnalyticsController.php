@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AiRun;
 use App\Models\Conversation;
+use App\Models\ConversationAnalysis;
+use App\Models\KnowledgeGap;
 use App\Models\Lead;
 use App\Models\LlmCallFailure;
 use App\Models\Message;
+use App\Models\User;
 use App\Support\Analytics\DateRangeResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -52,7 +55,26 @@ class AnalyticsController extends Controller
             'llm_usage' => $this->llmUsage($start, $end),
             'sales' => $this->sales($start, $end, $bucket),
             'sla' => $this->sla($start, $end),
+            'outcomes' => $this->outcomes($start, $end),
+            'sentiment' => $this->sentimentBreakdown($start, $end),
+            'dissatisfied_customers' => $this->dissatisfiedCustomers($start, $end),
+            'topics' => $this->topics($start, $end),
+            'operators' => $this->operators($start, $end),
         ]);
+    }
+
+    /** ТЗ раздел 9 — tenant-scoped counterpart of SuperAdminInsightsController::knowledgeGaps() (that one is platform-wide, Super Admin only). */
+    public function knowledgeGaps(Request $request): JsonResponse
+    {
+        [$start, $end] = $this->range->resolve($request);
+
+        $gaps = KnowledgeGap::query()
+            ->whereBetween('created_at', [$start, $end])
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get(['id', 'conversation_id', 'customer_message', 'created_at']);
+
+        return response()->json(['data' => $gaps, 'total' => $gaps->count()]);
     }
 
     /** Date-range-scoped conversations/messages/ai_runs for the existing chart components (AnalyticsKpis/LoadHeatmap/MessageLoadDonut/PriorityBreakdown/DialogsTrendChart) — same field shapes as DashboardData, just not capped at the bootstrap's fixed 12/24/10. */
@@ -261,5 +283,156 @@ class AnalyticsController extends Controller
             'avg_resolution_hours' => $avgResolutionSeconds !== null ? round($avgResolutionSeconds / 3600, 1) : null,
             'resolved_count' => (clone $resolved)->count(),
         ];
+    }
+
+    /** ТЗ раздел 3 — распределение результатов диалогов, только ненулевые. */
+    private function outcomes(Carbon $start, Carbon $end): array
+    {
+        $counts = ConversationAnalysis::query()
+            ->whereBetween('analyzed_at', [$start, $end])
+            ->selectRaw('outcome, count(*) as count')
+            ->groupBy('outcome')
+            ->pluck('count', 'outcome');
+        $total = (int) $counts->sum();
+
+        return collect(ConversationAnalysis::OUTCOMES)
+            ->map(fn (string $outcome): array => [
+                'outcome' => $outcome,
+                'count' => (int) ($counts[$outcome] ?? 0),
+                'percent' => $total > 0 ? round(((int) ($counts[$outcome] ?? 0)) / $total * 100, 1) : 0.0,
+            ])
+            ->filter(fn (array $row): bool => $row['count'] > 0)
+            ->values()
+            ->all();
+    }
+
+    /** ТЗ раздел 5 — распределение настроения клиентов на конец диалога. */
+    private function sentimentBreakdown(Carbon $start, Carbon $end): array
+    {
+        $counts = ConversationAnalysis::query()
+            ->whereBetween('analyzed_at', [$start, $end])
+            ->selectRaw('sentiment, count(*) as count')
+            ->groupBy('sentiment')
+            ->pluck('count', 'sentiment');
+        $total = (int) $counts->sum();
+
+        return collect(ConversationAnalysis::SENTIMENTS)->map(fn (string $sentiment): array => [
+            'sentiment' => $sentiment,
+            'count' => (int) ($counts[$sentiment] ?? 0),
+            'percent' => $total > 0 ? round(((int) ($counts[$sentiment] ?? 0)) / $total * 100, 1) : 0.0,
+        ])->values()->all();
+    }
+
+    /** ТЗ раздел 6 — «Клиенты, требующие внимания». */
+    private function dissatisfiedCustomers(Carbon $start, Carbon $end): array
+    {
+        return ConversationAnalysis::query()
+            ->whereBetween('analyzed_at', [$start, $end])
+            ->where(function (Builder $q): void {
+                $q->whereIn('sentiment', ConversationAnalysis::UNHAPPY_SENTIMENTS)
+                    ->orWhereIn('outcome', ConversationAnalysis::UNHAPPY_OUTCOMES);
+            })
+            ->with([
+                'conversation:id,customer_id,channel_id,assigned_user_id,status,last_message_at',
+                'conversation.customer:id,name,phone',
+                'conversation.assignedUser:id,name',
+                'conversation.channel:id,provider',
+            ])
+            ->orderByDesc('analyzed_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (ConversationAnalysis $analysis): array => [
+                'conversation_id' => $analysis->conversation_id,
+                'customer_name' => $analysis->conversation?->customer?->name,
+                'customer_phone' => $analysis->conversation?->customer?->phone,
+                'channel' => $analysis->conversation?->channel?->provider,
+                'date' => $analysis->analyzed_at?->toIso8601String(),
+                'last_message_at' => $analysis->conversation?->last_message_at?->toIso8601String(),
+                'reason' => $analysis->unhappy_reason,
+                'summary' => $analysis->summary,
+                'status' => $analysis->conversation?->status,
+                'assigned_user_id' => $analysis->conversation?->assigned_user_id,
+                'assigned_user_name' => $analysis->conversation?->assignedUser?->name,
+                'sentiment' => $analysis->sentiment,
+                'outcome' => $analysis->outcome,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * ТЗ разделы 7-8 — актуальные и новые вопросы, из `AiRun.intent` (уже
+     * извлекается на каждый ответ AI, отдельная кластеризация не нужна).
+     * `is_new` = тема не встречалась в предыдущем периоде такой же длины.
+     */
+    private function topics(Carbon $start, Carbon $end): array
+    {
+        $current = AiRun::query()
+            ->whereBetween('created_at', [$start, $end])
+            ->whereNotNull('intent')
+            ->where('intent', '!=', '')
+            ->selectRaw('intent, count(*) as count')
+            ->groupBy('intent')
+            ->orderByDesc('count')
+            ->limit(15)
+            ->pluck('count', 'intent');
+
+        [$prevStart, $prevEnd] = $this->range->previousPeriod($start, $end);
+        $previous = AiRun::query()
+            ->whereBetween('created_at', [$prevStart, $prevEnd])
+            ->whereNotNull('intent')
+            ->where('intent', '!=', '')
+            ->selectRaw('intent, count(*) as count')
+            ->groupBy('intent')
+            ->pluck('count', 'intent');
+
+        $total = (int) $current->sum();
+
+        return $current->map(function (int $count, string $intent) use ($previous, $total): array {
+            $previousCount = (int) ($previous[$intent] ?? 0);
+
+            return [
+                'topic' => $intent,
+                'count' => $count,
+                'percent' => $total > 0 ? round($count / $total * 100, 1) : 0.0,
+                'change_percent' => $previousCount > 0 ? round((($count - $previousCount) / $previousCount) * 100, 1) : ($count > 0 ? 100.0 : 0.0),
+                'is_new' => $previousCount === 0 && $count > 0,
+            ];
+        })->values()->all();
+    }
+
+    /** ТЗ раздел 12 — статистика по операторам (диалоги с назначенным сотрудником). */
+    private function operators(Carbon $start, Carbon $end): array
+    {
+        $conversations = Conversation::query()
+            ->whereNotNull('assigned_user_id')
+            ->whereBetween('last_message_at', [$start, $end])
+            ->get(['id', 'assigned_user_id', 'status']);
+
+        if ($conversations->isEmpty()) {
+            return [];
+        }
+
+        $analysisByConversation = ConversationAnalysis::query()
+            ->whereIn('conversation_id', $conversations->pluck('id'))
+            ->get(['conversation_id', 'quality_score', 'outcome', 'sentiment'])
+            ->keyBy('conversation_id');
+
+        $userIds = $conversations->pluck('assigned_user_id')->unique()->values();
+        $users = User::query()->whereIn('id', $userIds)->get(['id', 'name'])->keyBy('id');
+
+        return $conversations->groupBy('assigned_user_id')->map(function ($group, $userId) use ($analysisByConversation, $users): array {
+            $scores = $group->map(fn (Conversation $c) => $analysisByConversation[$c->id]->quality_score ?? null)->filter(fn ($v) => $v !== null);
+            $unhappyCount = $group->filter(fn (Conversation $c) => in_array($analysisByConversation[$c->id]->sentiment ?? null, ConversationAnalysis::UNHAPPY_SENTIMENTS, true))->count();
+
+            return [
+                'user_id' => (int) $userId,
+                'name' => $users[$userId]->name ?? '—',
+                'conversations' => $group->count(),
+                'closed' => $group->where('status', 'closed')->count(),
+                'avg_quality_score' => $scores->count() > 0 ? round($scores->avg(), 1) : null,
+                'unhappy_count' => $unhappyCount,
+            ];
+        })->values()->all();
     }
 }

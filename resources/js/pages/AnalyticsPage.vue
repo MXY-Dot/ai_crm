@@ -8,10 +8,18 @@ import { apiRequest } from '../lib/apiClient';
 import AiPerformancePanel, { type AiPerformance } from '../components/dashboard/analytics/AiPerformancePanel.vue';
 import AnalyticsExportMenu from '../components/dashboard/analytics/AnalyticsExportMenu.vue';
 import AnalyticsKpis from '../components/dashboard/analytics/AnalyticsKpis.vue';
+import DissatisfiedCustomersPanel, { type DissatisfiedCustomerRow } from '../components/dashboard/analytics/DissatisfiedCustomersPanel.vue';
+import KnowledgeGapsPanel from '../components/dashboard/analytics/KnowledgeGapsPanel.vue';
+import LlmUsagePanel, { type LlmUsageRow } from '../components/dashboard/analytics/LlmUsagePanel.vue';
 import LoadHeatmap from '../components/dashboard/analytics/LoadHeatmap.vue';
 import MessageLoadDonut from '../components/dashboard/analytics/MessageLoadDonut.vue';
+import OperatorsPanel, { type OperatorRow } from '../components/dashboard/analytics/OperatorsPanel.vue';
+import OutcomesPanel, { type OutcomeRow } from '../components/dashboard/analytics/OutcomesPanel.vue';
 import PriorityBreakdown from '../components/dashboard/analytics/PriorityBreakdown.vue';
 import SalesAnalyticsPanel, { type SalesAnalytics } from '../components/dashboard/analytics/SalesAnalyticsPanel.vue';
+import SentimentPanel, { type SentimentRow } from '../components/dashboard/analytics/SentimentPanel.vue';
+import SlaPanel, { type Sla } from '../components/dashboard/analytics/SlaPanel.vue';
+import TopicsPanel, { type TopicRow } from '../components/dashboard/analytics/TopicsPanel.vue';
 import DialogsTrendChart from '../components/dashboard/overview/DialogsTrendChart.vue';
 import DateRangeFilter, { type DateRangeGranularity } from '../components/dashboard/DateRangeFilter.vue';
 import { Skeleton } from '../components/ui/skeleton';
@@ -22,6 +30,13 @@ type Analytics = {
     raw: { conversations: Conversation[]; messages: Message[]; ai_runs: AiRun[] };
     ai_performance: AiPerformance;
     sales: SalesAnalytics;
+    llm_usage: LlmUsageRow[];
+    sla: Sla;
+    outcomes: OutcomeRow[];
+    sentiment: SentimentRow[];
+    dissatisfied_customers: DissatisfiedCustomerRow[];
+    topics: TopicRow[];
+    operators: OperatorRow[];
 };
 
 const dashboard = useCrmDashboardStore();
@@ -87,6 +102,25 @@ defineOptions({ layout: AppLayout });
 
             <AiPerformancePanel :data="data?.ai_performance ?? null" :loading="loading" />
             <SalesAnalyticsPanel :data="data?.sales ?? null" :loading="loading" />
+
+            <div class="grid gap-6 lg:grid-cols-2">
+                <OutcomesPanel :data="data?.outcomes ?? null" :loading="loading" />
+                <SentimentPanel :data="data?.sentiment ?? null" :loading="loading" />
+            </div>
+
+            <DissatisfiedCustomersPanel :data="data?.dissatisfied_customers ?? null" :loading="loading" @changed="load" />
+
+            <div class="grid gap-6 lg:grid-cols-2">
+                <TopicsPanel :data="data?.topics ?? null" :loading="loading" />
+                <KnowledgeGapsPanel :granularity="granularity" :anchor-date="anchorDate" :tenant-slug="tenant?.slug ?? ''" />
+            </div>
+
+            <OperatorsPanel :data="data?.operators ?? null" :loading="loading" />
+
+            <div class="grid gap-6 lg:grid-cols-2">
+                <LlmUsagePanel :data="data?.llm_usage ?? null" :loading="loading" />
+                <SlaPanel :data="data?.sla ?? null" :loading="loading" />
+            </div>
         </div>
     </section>
 </template>
