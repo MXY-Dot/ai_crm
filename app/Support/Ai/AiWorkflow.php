@@ -390,6 +390,15 @@ class AiWorkflow
             // express confusion about mixed/transliterated text — just respond
             // naturally, matching their language and register.
             'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
+            // Found live on a real tenant's Telegram bot: short colloquial Tajik
+            // messages occasionally got a reply in Uzbek, Kazakh, or Kyrgyz instead
+            // (once literally "Саламатсыз", a Kazakh/Kyrgyz greeting) — models
+            // trained mostly on the much larger Uzbek/Kazakh Cyrillic corpora can
+            // mistake short, diacritic-free Tajik Cyrillic for a related Turkic
+            // language. This is the only two languages this business operates in —
+            // spell that out explicitly rather than relying on the model to infer
+            // "same language as the customer" correctly on its own.
+            'This business operates in Tajikistan and communicates only in Tajik (Tajikistan dialect, Cyrillic script — literary or colloquial, diacritics present or dropped, exactly as described above) and Russian. Never reply in Uzbek, Kazakh, Kyrgyz, Turkmen, Farsi/Dari (Iran/Afghanistan dialects), Pashto, or any other language, even if a short or ambiguous customer message superficially resembles one of those — always default to Tajik or Russian, matching whichever the customer actually used.',
             $this->languageExamples($agent->tenant, $tajik['normalized_text']),
             // Versioned Tajik/Russian language-handling supplement, maintained by
             // super_admin on /super-admin/language-quality (Качество AI -> Языковые
@@ -552,7 +561,11 @@ class AiWorkflow
 
         $formatted = $selected->map(fn (array $row): string => 'Customer: '.$row['example']->customer_message."\nGood reply: ".$row['example']->good_reply)->implode("\n\n");
 
-        return "Example good responses from this company's own past conversations — match this tone and phrasing style where relevant:\n".$formatted;
+        // Found live: with only a couple of examples on file, the model would
+        // sometimes echo one back near-verbatim as its actual answer to the
+        // current, different question, instead of treating it as a style
+        // reference — spelling that out explicitly now.
+        return "Example good responses from this company's own past conversations, for STYLE AND TONE reference only — never copy one of these verbatim or reuse it as your actual reply; always write a fresh answer to the customer's current message below:\n".$formatted;
     }
 
     /** Best-effort: normalization is a debugging/search aid, never allowed to block the actual reply. */

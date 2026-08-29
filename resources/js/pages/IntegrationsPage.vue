@@ -39,19 +39,19 @@ defineOptions({ layout: AppLayout });
         </div>
 
         <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4" data-tour="channels-grid">
-            <ChannelCard :icon="TelegramIcon" name="Telegram" brand="telegram" :status="telegramChannel?.status" :health-status="telegramChannel?.health_status" :last-synced-at="telegramChannel?.last_synced_at">
+            <ChannelCard :icon="TelegramIcon" name="Telegram" brand="telegram" :status="telegramChannel?.status" :health-status="telegramChannel?.health_status" :last-synced-at="telegramChannel?.last_synced_at" external-url="https://t.me/BotFather">
                 <TelegramChannelSettings :settings="integrationSettings?.telegram ?? null" :busy="busy" />
             </ChannelCard>
 
-            <ChannelCard :icon="WhatsappIcon" name="WhatsApp" brand="whatsapp" :status="whatsappChannel?.status" :last-synced-at="whatsappChannel?.last_synced_at">
+            <ChannelCard :icon="WhatsappIcon" name="WhatsApp" brand="whatsapp" :status="whatsappChannel?.status" :last-synced-at="whatsappChannel?.last_synced_at" external-url="https://developers.facebook.com/apps/">
                 <WhatsappChannelSettings :settings="integrationSettings?.whatsapp ?? null" :busy="busy" />
             </ChannelCard>
 
-            <ChannelCard :icon="InstagramIcon" name="Instagram" brand="instagram" :status="instagramChannel?.status" :last-synced-at="instagramChannel?.last_synced_at">
+            <ChannelCard :icon="InstagramIcon" name="Instagram" brand="instagram" :status="instagramChannel?.status" :last-synced-at="instagramChannel?.last_synced_at" external-url="https://developers.facebook.com/apps/">
                 <InstagramChannelSettings :settings="integrationSettings?.instagram ?? null" :busy="busy" />
             </ChannelCard>
 
-            <ChannelCard :icon="FacebookIcon" name="Facebook" brand="facebook" :status="facebookChannel?.status" :last-synced-at="facebookChannel?.last_synced_at">
+            <ChannelCard :icon="FacebookIcon" name="Facebook" brand="facebook" :status="facebookChannel?.status" :last-synced-at="facebookChannel?.last_synced_at" external-url="https://developers.facebook.com/apps/">
                 <FacebookChannelSettings :settings="integrationSettings?.facebook ?? null" :busy="busy" />
             </ChannelCard>
 
