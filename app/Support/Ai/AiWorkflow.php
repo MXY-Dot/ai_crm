@@ -415,8 +415,8 @@ class AiWorkflow
             // super_admin on /super-admin/language-quality (Качество AI -> Языковые
             // датасеты) -- separate from the general base-knowledge-document below.
             AiSystemPrompt::active()?->content ?? '',
-            // Platform-wide reference (glossary/tone/terminology) maintained by
-            // super_admin on /super-admin/llm-providers -- applies to every
+            // Platform-wide reference (glossary/tone/terminology/scope limits),
+            // also maintained on /super-admin/language-quality -- applies to every
             // tenant's replies the same way, regardless of that tenant's own
             // knowledge base language or content.
             $this->platform->baseKnowledgeDocument() !== ''

@@ -124,6 +124,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('language-quality/eval-examples', [SuperAdminLanguageQualityController::class, 'storeEvalExample']);
         Route::delete('language-quality/eval-examples/{aiEvalExample}', [SuperAdminLanguageQualityController::class, 'destroyEvalExample']);
         Route::post('language-quality/run-eval', [SuperAdminLanguageQualityController::class, 'runEval'])->middleware('throttle:5,10');
+        Route::patch('language-quality/base-knowledge-document', [SuperAdminLanguageQualityController::class, 'updateBaseKnowledgeDocument']);
 
         Route::get('business-types', [SuperAdminBusinessModulesController::class, 'businessTypes']);
         Route::patch('business-types/{businessType}', [SuperAdminBusinessModulesController::class, 'updateBusinessType']);
@@ -133,7 +134,6 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('integration-requests/{integrationRequest}/messages', [SuperAdminBusinessModulesController::class, 'storeIntegrationRequestMessage']);
         Route::patch('llm-providers/primary', [SuperAdminLlmProviderController::class, 'updatePrimary']);
         Route::patch('llm-providers/{provider}/key', [SuperAdminLlmProviderController::class, 'updateKey']);
-        Route::patch('llm-providers/base-knowledge-document', [SuperAdminLlmProviderController::class, 'updateBaseKnowledgeDocument']);
         Route::post('llm-providers/{provider}/test', [SuperAdminLlmProviderController::class, 'test'])->middleware('throttle:10,1');
         Route::get('companies/lookup', [SuperAdminCompanyController::class, 'lookup']);
         Route::get('companies', [SuperAdminCompanyController::class, 'index']);

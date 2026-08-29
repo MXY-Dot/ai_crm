@@ -9,16 +9,24 @@ use App\Models\AiSystemPrompt;
 use App\Models\LanguageExample;
 use App\Support\Ai\LanguageEvalRunner;
 use App\Support\Audit\AuditLogger;
+use App\Support\Integrations\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
  * Super Admin -> Качество AI -> Языковые датасеты. Deliberately NOT under
  * /super-admin/llm-providers -- this is language-quality content (prompt
- * versions, few-shot examples, eval set/results), not provider credentials.
+ * versions, few-shot examples, eval set/results, and the base knowledge
+ * document below), not provider credentials/keys. Everything an admin can
+ * use to shape what the AI knows and how it answers across every tenant on
+ * the platform lives on this one page.
  */
 class SuperAdminLanguageQualityController extends Controller
 {
+    public function __construct(private readonly PlatformSettings $platform)
+    {
+    }
+
     public function index(): JsonResponse
     {
         $prompts = AiSystemPrompt::query()->latest('id')->limit(20)->get();
@@ -46,6 +54,7 @@ class SuperAdminLanguageQualityController extends Controller
             : collect();
 
         return response()->json([
+            'base_knowledge_document' => $this->platform->baseKnowledgeDocument(),
             'prompts' => $prompts,
             'active_prompt' => AiSystemPrompt::active(),
             'examples' => $examples,
@@ -69,6 +78,25 @@ class SuperAdminLanguageQualityController extends Controller
                 'created_at' => $r->created_at,
             ]),
         ]);
+    }
+
+    /**
+     * Moved here from SuperAdminLlmProviderController (llm-providers is
+     * credentials/keys only) — this text is injected into every tenant's AI
+     * system prompt regardless of their own knowledge base, so it belongs
+     * with the rest of the platform's language/knowledge controls.
+     */
+    public function updateBaseKnowledgeDocument(Request $request, AuditLogger $audit): JsonResponse
+    {
+        $data = $request->validate([
+            'content' => ['nullable', 'string', 'max:8000'],
+        ]);
+
+        $previous = $this->platform->baseKnowledgeDocument();
+        $this->platform->setBaseKnowledgeDocument($data['content'] ?? '');
+        $audit->record('platform_base_knowledge.updated', 'PlatformSettings', ['length' => mb_strlen($data['content'] ?? '')], ['length' => mb_strlen($previous)], $request);
+
+        return response()->json(['ok' => true, 'content' => $this->platform->baseKnowledgeDocument()]);
     }
 
     public function storeSystemPrompt(Request $request, AuditLogger $audit): JsonResponse

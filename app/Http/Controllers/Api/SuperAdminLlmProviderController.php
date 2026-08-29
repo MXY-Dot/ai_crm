@@ -76,7 +76,6 @@ class SuperAdminLlmProviderController extends Controller
             'dify' => ['configured' => $difyKey !== '', 'key_mask' => $this->platform->mask($difyKey)],
             'primary_provider' => $this->platform->primaryLlmProvider(),
             'backup_provider' => $this->platform->backupLlmProvider(),
-            'base_knowledge_document' => $this->platform->baseKnowledgeDocument(),
             'usage' => [
                 'top_tenants' => $this->topTenants($rows),
                 'requests_this_month' => $rows->where('created_at', '>=', now()->startOfMonth())->count(),
@@ -133,19 +132,6 @@ class SuperAdminLlmProviderController extends Controller
             'primary_provider' => $data['primary_provider'],
             'backup_provider' => $data['backup_provider'] ?? null,
         ]);
-    }
-
-    public function updateBaseKnowledgeDocument(Request $request, AuditLogger $audit): JsonResponse
-    {
-        $data = $request->validate([
-            'content' => ['nullable', 'string', 'max:8000'],
-        ]);
-
-        $previous = $this->platform->baseKnowledgeDocument();
-        $this->platform->setBaseKnowledgeDocument($data['content'] ?? '');
-        $audit->record('platform_base_knowledge.updated', 'PlatformSettings', ['length' => mb_strlen($data['content'] ?? '')], ['length' => mb_strlen($previous)], $request);
-
-        return response()->json(['ok' => true, 'content' => $this->platform->baseKnowledgeDocument()]);
     }
 
     private function validateProvider(string $provider): void

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { CheckCircle2, Languages, PlayCircle, Plus, Save, Trash2, XCircle } from '@lucide/vue';
+import { BookOpen, CheckCircle2, Languages, PlayCircle, Plus, Save, Trash2, XCircle } from '@lucide/vue';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import { Badge } from '@/components/ui/badge';
@@ -35,9 +35,10 @@ async function load(): Promise<void> {
     loading.value = true;
     try {
         const data = await apiRequest<{
-            prompts: SystemPrompt[]; active_prompt: SystemPrompt | null; examples: LanguageExampleRow[];
+            base_knowledge_document: string; prompts: SystemPrompt[]; active_prompt: SystemPrompt | null; examples: LanguageExampleRow[];
             examples_approved_count: number; eval_examples: EvalExample[]; latest_results: EvalResult[];
         }>('/api/admin/language-quality');
+        baseKnowledgeInput.value = data.base_knowledge_document;
         prompts.value = data.prompts;
         activePrompt.value = data.active_prompt;
         promptDraft.version = '';
@@ -54,6 +55,26 @@ async function load(): Promise<void> {
 }
 
 onMounted(load);
+
+// --- base knowledge document (platform-wide, every tenant's prompt) ---
+const baseKnowledgeInput = ref('');
+const savingBaseKnowledge = ref(false);
+
+async function saveBaseKnowledge(): Promise<void> {
+    savingBaseKnowledge.value = true;
+    try {
+        await apiRequest('/api/admin/language-quality/base-knowledge-document', {
+            method: 'PATCH',
+            body: { content: baseKnowledgeInput.value },
+        });
+        toast.success('Базовый документ сохранён');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось сохранить документ');
+    } finally {
+        savingBaseKnowledge.value = false;
+    }
+}
 
 // --- system prompt ---
 const promptDraft = reactive({ version: '', content: '' });
@@ -167,8 +188,9 @@ function formatDate(value: string): string {
         <p class="text-xs font-semibold uppercase tracking-wide text-primary">Качество AI</p>
         <h2 class="font-display text-xl font-bold ui-text">Языковые датасеты</h2>
         <p class="mt-1 text-sm ui-subtle">
-            Нормализатор таджикского текста, системный промпт для языковой обработки, одобренные примеры диалогов
-            и eval-тестирование ответов Groq/DeepSeek — всё в одном месте, отдельно от учётных данных LLM-провайдеров.
+            Единая точка управления знаниями и языком AI для всей платформы: базовый документ знаний, системный
+            промпт для языковой обработки, одобренные примеры диалогов и eval-тестирование ответов Groq/DeepSeek —
+            отдельно от учётных данных LLM-провайдеров. Всё, что попадает сюда, применяется сразу ко всем компаниям.
         </p>
     </div>
 
@@ -179,6 +201,22 @@ function formatDate(value: string): string {
     </div>
 
     <template v-else>
+        <section class="mt-6 rounded-xl border border-primary/30 bg-card p-5">
+            <h3 class="mb-1 flex items-center gap-2 font-display text-base font-semibold ui-text">
+                <BookOpen class="h-4 w-4 text-primary" />Базовые знания для всех компаний
+            </h3>
+            <p class="mb-3 text-sm ui-subtle">
+                Этот текст добавляется в системный промпт AI для КАЖДОЙ компании на платформе, независимо от их
+                собственной базы знаний — глоссарий терминов, правильные формулировки на таджикском и русском,
+                рамки/ограничения, за которые AI не должен выходить. То, что вы зададите здесь, действует сразу
+                на всех клиентов платформы.
+            </p>
+            <Textarea v-model="baseKnowledgeInput" class="min-h-40 font-mono text-sm" placeholder="Например: глоссарий терминов, правила вежливого обращения, типовые таджикско-русские формулировки, запрещённые темы..." />
+            <Button variant="primary" size="sm" class="mt-3" :disabled="savingBaseKnowledge" @click="saveBaseKnowledge">
+                <Save class="h-4 w-4" />Сохранить документ
+            </Button>
+        </section>
+
         <section class="mt-6 rounded-xl border border-border bg-card p-5">
             <h3 class="mb-1 flex items-center gap-2 font-display text-base font-semibold ui-text">
                 <Languages class="h-4 w-4 text-primary" />Системный промпт (Tajik/Russian)
