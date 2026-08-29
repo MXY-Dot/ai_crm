@@ -60,6 +60,16 @@ return [
         'rate_limit' => env('DEEPSEEK_RATE_LIMIT_PER_MINUTE', 60),
     ],
 
+    // Meta (WhatsApp Cloud API / Messenger / Instagram) webhook is registered
+    // once per platform App in Meta's developer console, not per tenant like
+    // Telegram — this app_secret/verify_token pair is shared across every
+    // tenant; which tenant an event belongs to is resolved from the payload
+    // itself (see App\Support\Integrations\MetaChannelResolver).
+    'meta' => [
+        'app_secret' => env('META_APP_SECRET'),
+        'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
+    ],
+
     'telegram_moderator' => [
         'bot_token' => env('TELEGRAM_MODERATOR_BOT_TOKEN'),
         'chat_id' => env('TELEGRAM_MODERATOR_CHAT_ID'),

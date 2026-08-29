@@ -220,16 +220,19 @@ export type IntegrationSettings = {
         access_token_mask: string | null;
         phone_number_id: string | null;
         business_account_id: string | null;
+        webhook_url: string;
     };
     instagram?: {
         page_access_token_configured: boolean;
         page_access_token_mask: string | null;
         business_account_id: string | null;
+        webhook_url: string;
     };
     facebook?: {
         page_access_token_configured: boolean;
         page_access_token_mask: string | null;
         page_id: string | null;
+        webhook_url: string;
     };
 };
 

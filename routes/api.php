@@ -9,8 +9,11 @@ use App\Http\Controllers\Api\ConversationAiDraftController;
 use App\Http\Controllers\Api\ChatwootWebhookController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\FacebookWebhookController;
+use App\Http\Controllers\Api\InstagramWebhookController;
 use App\Http\Controllers\Api\ResourceController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\WhatsAppWebhookController;
 use App\Http\Controllers\Api\ConversationAttachmentController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\ConversationMessageController;
@@ -58,6 +61,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('chatwoot/webhook', ChatwootWebhookController::class)->middleware('throttle:30,1');
 Route::post('telegram/webhook', TelegramWebhookController::class)->middleware('throttle:30,1');
+
+// Meta webhooks (WhatsApp/Instagram/Facebook) — one shared platform-level URL
+// per provider (registered once in the Meta App dashboard, not per tenant);
+// GET is Meta's subscribe-time verification handshake, POST is the actual
+// event delivery. See FacebookWebhookController's docblock for why these
+// can't carry a ?tenant_slug= the way Telegram's per-tenant bot URL does.
+Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::class)->middleware('throttle:60,1');
+Route::match(['get', 'post'], 'instagram/webhook', InstagramWebhookController::class)->middleware('throttle:60,1');
+Route::match(['get', 'post'], 'facebook/webhook', FacebookWebhookController::class)->middleware('throttle:60,1');
 
 // Public, unauthenticated — a website visitor's browser, not a logged-in User.
 // See WidgetController's docblock for the trust model (site key = public app id).

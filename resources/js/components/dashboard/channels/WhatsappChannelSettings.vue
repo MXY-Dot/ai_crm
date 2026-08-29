@@ -46,6 +46,11 @@ async function testConnection(): Promise<void> {
             <Input v-model="form.businessAccountId" placeholder="Необязательно" />
         </label>
         <p class="text-xs ui-subtle">Данные из Meta for Developers → WhatsApp → API Setup. Прямое подключение через WhatsApp Cloud API, без единого инбокса.</p>
+        <div v-if="settings?.webhook_url" class="rounded-md border border-dashed p-2">
+            <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Webhook URL для Meta App → Webhooks</span>
+            <p class="break-all text-xs ui-subtle">{{ settings.webhook_url }}</p>
+            <p class="mt-1 text-xs ui-subtle">Один URL для всех клиентов — регистрируется один раз в настройках приложения Meta, не здесь.</p>
+        </div>
         <div class="flex gap-2">
             <Button size="sm" variant="primary" type="submit" class="flex-1" :disabled="busy">
                 <Save class="h-4 w-4" /> {{ busy ? locale.t('common.waiting') : locale.t('settings.save') }}

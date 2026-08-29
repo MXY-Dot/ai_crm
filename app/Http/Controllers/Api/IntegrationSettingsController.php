@@ -535,16 +535,24 @@ class IntegrationSettingsController extends Controller
                 'access_token_mask' => $this->secrets->mask($whatsappToken),
                 'phone_number_id' => $this->secrets->whatsappPhoneNumberId($tenant) ?: null,
                 'business_account_id' => $this->secrets->whatsappBusinessAccountId($tenant) ?: null,
+                // Unlike Telegram's webhook_url, this is the SAME url for every tenant —
+                // WhatsApp/Instagram/Facebook webhooks are registered once per platform
+                // App in Meta's developer console, not per tenant (see
+                // FacebookWebhookController's docblock). Shown here so whoever is doing
+                // the Meta App setup knows what to paste into the App's Webhooks config.
+                'webhook_url' => url('/api/whatsapp/webhook'),
             ],
             'instagram' => [
                 'page_access_token_configured' => $instagramToken !== '',
                 'page_access_token_mask' => $this->secrets->mask($instagramToken),
                 'business_account_id' => $this->secrets->instagramBusinessAccountId($tenant) ?: null,
+                'webhook_url' => url('/api/instagram/webhook'),
             ],
             'facebook' => [
                 'page_access_token_configured' => $facebookToken !== '',
                 'page_access_token_mask' => $this->secrets->mask($facebookToken),
                 'page_id' => $this->secrets->facebookPageId($tenant) ?: null,
+                'webhook_url' => url('/api/facebook/webhook'),
             ],
         ];
     }

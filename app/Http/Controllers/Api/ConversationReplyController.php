@@ -7,9 +7,12 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Chatwoot\ChatwootClient;
+use App\Support\FacebookClient;
 use App\Support\Inbox\ConversationStatus;
+use App\Support\InstagramClient;
 use App\Support\TelegramClient;
 use App\Support\Tenancy\TenantContext;
+use App\Support\WhatsAppClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -22,8 +25,16 @@ use RuntimeException;
 
 class ConversationReplyController extends Controller
 {
-    public function __invoke(Request $request, Conversation $conversation, TenantContext $context, ChatwootClient $chatwoot, TelegramClient $telegram): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        Conversation $conversation,
+        TenantContext $context,
+        ChatwootClient $chatwoot,
+        TelegramClient $telegram,
+        WhatsAppClient $whatsapp,
+        InstagramClient $instagram,
+        FacebookClient $facebook,
+    ): JsonResponse {
         $tenant = Tenant::query()->findOrFail($context->id());
         Gate::authorize('update', $tenant);
 
@@ -57,7 +68,18 @@ class ConversationReplyController extends Controller
         }
 
         try {
-            [$externalId, $meta] = $this->send($tenant, $conversation->loadMissing('channel'), $body, $attachment, $data['reply_to_message_id'] ?? null, $chatwoot, $telegram);
+            [$externalId, $meta] = $this->send(
+                $tenant,
+                $conversation->loadMissing('channel'),
+                $body,
+                $attachment,
+                $data['reply_to_message_id'] ?? null,
+                $chatwoot,
+                $telegram,
+                $whatsapp,
+                $instagram,
+                $facebook,
+            );
         } catch (RuntimeException $error) {
             throw ValidationException::withMessages(['reply' => $error->getMessage()]);
         }
@@ -91,8 +113,61 @@ class ConversationReplyController extends Controller
         ], 201);
     }
 
-    private function send(Tenant $tenant, Conversation $conversation, string $body, ?array $attachment, int|string|null $replyToMessageId, ChatwootClient $chatwoot, TelegramClient $telegram): array
-    {
+    private function send(
+        Tenant $tenant,
+        Conversation $conversation,
+        string $body,
+        ?array $attachment,
+        int|string|null $replyToMessageId,
+        ChatwootClient $chatwoot,
+        TelegramClient $telegram,
+        WhatsAppClient $whatsapp,
+        InstagramClient $instagram,
+        FacebookClient $facebook,
+    ): array {
+        $provider = $conversation->channel?->provider;
+
+        if ($provider === 'whatsapp') {
+            $to = str_replace('whatsapp-', '', (string) $conversation->external_id);
+            $replyId = $this->resolveExternalReplyId($tenant, $conversation, $replyToMessageId, 'whatsapp-'.$to.'-');
+
+            $payload = $attachment
+                ? $whatsapp->sendMedia($tenant, $to, $attachment['type'], $attachment['url'], $body, $replyId)
+                : $whatsapp->sendMessage($tenant, $to, $body, $replyId);
+            $messageId = Arr::get($payload, 'messages.0.id');
+
+            return [
+                'whatsapp-'.$to.'-'.$messageId,
+                ['whatsapp' => $payload, 'direction' => 'outgoing'],
+            ];
+        }
+
+        if ($provider === 'instagram') {
+            $igsid = str_replace('instagram-', '', (string) $conversation->external_id);
+            $payload = $attachment
+                ? $instagram->sendMedia($tenant, $igsid, $attachment['type'], $attachment['url'], $body)
+                : $instagram->sendMessage($tenant, $igsid, $body);
+            $messageId = Arr::get($payload, 'message_id');
+
+            return [
+                'instagram-'.$igsid.'-'.($messageId ?? Str::random(12)),
+                ['instagram' => $payload, 'direction' => 'outgoing'],
+            ];
+        }
+
+        if ($provider === 'facebook') {
+            $psid = str_replace('facebook-', '', (string) $conversation->external_id);
+            $payload = $attachment
+                ? $facebook->sendMedia($tenant, $psid, $attachment['type'], $attachment['url'], $body)
+                : $facebook->sendMessage($tenant, $psid, $body);
+            $messageId = Arr::get($payload, 'message_id');
+
+            return [
+                'facebook-'.$psid.'-'.($messageId ?? Str::random(12)),
+                ['facebook' => $payload, 'direction' => 'outgoing'],
+            ];
+        }
+
         if ($conversation->channel?->provider === 'telegram') {
             $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
             $telegramReplyId = $this->resolveTelegramReplyId($tenant, $conversation, $replyToMessageId);
@@ -134,6 +209,31 @@ class ConversationReplyController extends Controller
             (string) (Arr::get($payload, 'id') ?? Arr::get($payload, 'payload.id') ?? 'outgoing-'.sha1($conversation->id.'|'.$text.'|'.now()->timestamp)),
             ['chatwoot' => $payload, 'direction' => 'outgoing'],
         ];
+    }
+
+    /**
+     * Same idea as resolveTelegramReplyId() below, generalized by external_id prefix —
+     * used for WhatsApp, the only one of the three Meta channels whose send API actually
+     * supports threading a reply (`context.message_id`); Messenger/Instagram's send API
+     * has no equivalent, so their branches above don't attempt it.
+     */
+    private function resolveExternalReplyId(Tenant $tenant, Conversation $conversation, int|string|null $replyToMessageId, string $prefix): ?string
+    {
+        if (! $replyToMessageId) {
+            return null;
+        }
+
+        $externalId = Message::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('conversation_id', $conversation->id)
+            ->where('id', $replyToMessageId)
+            ->value('external_id');
+
+        if (! $externalId || ! str_starts_with($externalId, $prefix)) {
+            return null;
+        }
+
+        return Str::after($externalId, $prefix) ?: null;
     }
 
     /**

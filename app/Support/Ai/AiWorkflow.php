@@ -18,7 +18,9 @@ use App\Support\Chatwoot\ChatwootClient;
 use App\Support\Emergency\AutoAssignmentService;
 use App\Support\Emergency\EmergencyStateManager;
 use App\Support\Emergency\FallbackMessageResolver;
+use App\Support\FacebookClient;
 use App\Support\Inbox\ConversationStatus;
+use App\Support\InstagramClient;
 use App\Support\Integrations\PlatformSettings;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\Language\LanguageDetector;
@@ -26,6 +28,7 @@ use App\Support\Language\TajikTextNormalizer;
 use App\Support\Security\PromptInjectionDetector;
 use App\Support\Sentiment\SentimentDetector;
 use App\Support\TelegramClient;
+use App\Support\WhatsAppClient;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -38,6 +41,9 @@ class AiWorkflow
         private readonly LlmClient $llm,
         private readonly ChatwootClient $chatwoot,
         private readonly TelegramClient $telegram,
+        private readonly WhatsAppClient $whatsapp,
+        private readonly InstagramClient $instagram,
+        private readonly FacebookClient $facebook,
         private readonly TenantIntegrationSettings $secrets,
         private readonly PlatformSettings $platform,
         private readonly EmergencyStateManager $emergency,
@@ -855,7 +861,7 @@ class AiWorkflow
 
         $provider = $conversation->channel?->provider;
 
-        if (! in_array($provider, ['chatwoot', 'website', 'telegram'], true)) {
+        if (! in_array($provider, ['chatwoot', 'website', 'telegram', 'whatsapp', 'instagram', 'facebook'], true)) {
             return;
         }
 
@@ -866,6 +872,12 @@ class AiWorkflow
         if ($provider === 'website') {
             $draft->forceFill(['meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true]])->save();
             $conversation->markFirstResponse();
+
+            return;
+        }
+
+        if (in_array($provider, ['whatsapp', 'instagram', 'facebook'], true)) {
+            $this->autoReplyMeta($tenant, $conversation, $draft, $provider);
 
             return;
         }
@@ -895,6 +907,32 @@ class AiWorkflow
         $draft->forceFill([
             'external_id' => $externalId,
             'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $conversation->channel?->provider => $payload],
+        ])->save();
+        $conversation->markFirstResponse();
+    }
+
+    /** WhatsApp/Instagram/Facebook branch of autoReply() — same job as the Telegram/Chatwoot block above, split out because each of the three has its own recipient-id prefix and reply payload shape (mirrors ConversationReplyController::send()'s equivalent branches for operator-sent replies). */
+    private function autoReplyMeta(Tenant $tenant, Conversation $conversation, Message $draft, string $provider): void
+    {
+        $recipient = str_replace($provider.'-', '', (string) $conversation->external_id);
+
+        try {
+            $payload = match ($provider) {
+                'whatsapp' => $this->whatsapp->sendMessage($tenant, $recipient, $draft->body),
+                'instagram' => $this->instagram->sendMessage($tenant, $recipient, $draft->body),
+                default => $this->facebook->sendMessage($tenant, $recipient, $draft->body),
+            };
+        } catch (RuntimeException $error) {
+            $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $error->getMessage()]])->save();
+
+            return;
+        }
+
+        $messageId = $provider === 'whatsapp' ? Arr::get($payload, 'messages.0.id') : Arr::get($payload, 'message_id');
+
+        $draft->forceFill([
+            'external_id' => $provider.'-'.$recipient.'-'.($messageId ?? Str::random(12)),
+            'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $provider => $payload],
         ])->save();
         $conversation->markFirstResponse();
     }
