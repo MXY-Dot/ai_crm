@@ -133,7 +133,7 @@ function formatTime(value: string | null): string {
                         <button
                             v-if="message.reply_to"
                             type="button"
-                            class="mb-1.5 block w-full rounded-md border-l-2 px-2 py-1 text-left text-xs text-inherit opacity-80 transition hover:opacity-100 border-current/40 bg-black/5 dark:bg-white/5"
+                            class="mb-1.5 block w-full rounded-md border-l-2 px-2 py-1 text-left text-xs text-inherit opacity-80 transition hover:opacity-100 border-current/40 bg-black/5 dark:bg-black/30 dark:text-white dark:opacity-90 dark:hover:opacity-100"
                             @click="jumpToReplied"
                         >
                             <span class="block font-semibold">{{ message.reply_to.sender_name ?? 'Сообщение' }}</span>

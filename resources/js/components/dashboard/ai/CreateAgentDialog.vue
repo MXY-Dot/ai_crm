@@ -1,32 +1,23 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { Bot, Lock, Plus } from '@lucide/vue';
+import { Bot, Plus } from '@lucide/vue';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import { sourceLabels } from '../../../lib/statusLabels';
-import { planById, plans, providerForModel } from '../../../lib/plans';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/dialog';
 import { Input } from '../../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Textarea } from '../../ui/textarea';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { knowledgeDocuments } = storeToRefs(store);
 const open = ref(false);
-const form = reactive({ name: '', instructions: '', handoff_threshold: 70, model: '', modelCustom: '' });
+const form = reactive({ name: '', instructions: '', handoff_threshold: 70 });
 const selectedDocIds = ref<number[]>([]);
 const selectedChannels = ref<string[]>([]);
 
-const MODEL_OPTIONS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'deepseek-chat', 'deepseek-reasoner', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'gemini-1.5-pro', 'gemini-1.5-flash'];
-const currentPlan = computed(() => planById(store.tenant?.settings?.billing?.plan));
-function isModelLocked(model: string): boolean {
-    const provider = providerForModel(model);
-    return provider !== null && ! currentPlan.value.aiProviders.includes(provider);
-}
-const maxAiProviders = Math.max(...plans.map((plan) => plan.aiProviders.length));
 const CHANNEL_OPTIONS = ['telegram', 'whatsapp', 'instagram', 'facebook', 'website'];
 const CHANNEL_STYLES: Record<string, string> = {
     telegram: 'border-brand-telegram/50 bg-brand-telegram/15 text-brand-telegram',
@@ -52,17 +43,16 @@ function toggleChannel(channel: string): void {
 async function submit(): Promise<void> {
     if (! form.name.trim()) return;
 
-    const model = form.model === '__custom__' ? form.modelCustom.trim() : form.model;
-
+    // No model picker here anymore — AiAgentController::store() defaults it to
+    // the platform's primary model (PlatformSettings::defaultModel()) when omitted.
     await store.createAiAgent({
         name: form.name.trim(),
         instructions: form.instructions.trim() || undefined,
         handoff_threshold: Number(form.handoff_threshold),
-        model: model || undefined,
         channels: selectedChannels.value,
     }, selectedDocIds.value);
 
-    Object.assign(form, { name: '', instructions: '', handoff_threshold: 70, model: '', modelCustom: '' });
+    Object.assign(form, { name: '', instructions: '', handoff_threshold: 70 });
     selectedDocIds.value = [];
     selectedChannels.value = [];
     open.value = false;
@@ -94,26 +84,6 @@ async function submit(): Promise<void> {
                         <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Порог handoff</span>
                         <Input v-model="form.handoff_threshold" type="number" min="1" max="100" />
                     </label>
-                    <div>
-                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('ai.modelLabel') }}</span>
-                        <Select v-model="form.model">
-                            <SelectTrigger class="w-full"><SelectValue placeholder="Модель по умолчанию" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="model in MODEL_OPTIONS" :key="model" :value="model" :disabled="isModelLocked(model)">
-                                    <span class="flex items-center gap-1.5">
-                                        <Lock v-if="isModelLocked(model)" class="h-3 w-3 ui-subtle" />
-                                        {{ model }}
-                                    </span>
-                                </SelectItem>
-                                <SelectItem value="__custom__">{{ locale.t('ai.modelCustom') }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Input v-if="form.model === '__custom__'" v-model="form.modelCustom" class="mt-2" placeholder="Название модели" />
-                        <p class="mt-1 text-[11px] ui-subtle">{{ locale.t('ai.modelHint') }}</p>
-                        <p v-if="currentPlan.aiProviders.length < maxAiProviders" class="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-                            На тарифе «{{ currentPlan.name }}» доступны: {{ currentPlan.aiProviders.join(', ') }}.
-                        </p>
-                    </div>
                     <div>
                         <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('ai.channelsLabel') }}</span>
                         <div class="flex flex-wrap gap-2">

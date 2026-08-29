@@ -1,22 +1,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Bot, BrainCircuit, HelpCircle, Inbox, Languages, ListChecks, Workflow } from '@lucide/vue';
+import { Bot, BrainCircuit, Languages } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
-import { Card } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import AiAgentActivityPanel from './ai/AiAgentActivityPanel.vue';
 import AiAgentList from './ai/AiAgentList.vue';
 import AiAgentSettingsForm from './ai/AiAgentSettingsForm.vue';
 import LanguageExamplesPanel from './ai/LanguageExamplesPanel.vue';
-import AiHandoffCenter from './AiHandoffCenter.vue';
-import HelpAssistantPanel from './HelpAssistantPanel.vue';
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
-const { aiAgents, aiRuns, aiHandoffs, knowledgeDocuments, busy } = storeToRefs(store);
+const { aiAgents, aiRuns, knowledgeDocuments, busy } = storeToRefs(store);
 const activeTab = ref('agent');
 const selectedAgentId = ref<number | null>(null);
 
@@ -27,20 +24,10 @@ watch(aiAgents, (agents) => {
 const selectedAgent = computed(() => aiAgents.value.find((agent) => agent.id === selectedAgentId.value) ?? null);
 const agentDocuments = computed(() => knowledgeDocuments.value.filter((doc) => doc.ai_agent_id === selectedAgentId.value));
 
-const summary = computed(() => [
-    { label: locale.t('ai.summary.agents'), value: aiAgents.value.length, icon: Bot, tab: 'agent' },
-    { label: locale.t('ai.summary.knowledge'), value: knowledgeDocuments.value.length, icon: BrainCircuit, tab: 'knowledge' },
-    { label: locale.t('ai.summary.handoffs'), value: aiHandoffs.value.length, icon: Inbox, tab: 'handoff' },
-    { label: locale.t('ai.summary.runs'), value: aiRuns.value.length, icon: Workflow, tab: 'runs' },
-]);
 const tabs = computed(() => [
     { value: 'agent', label: locale.t('ai.tabs.agent'), icon: Bot },
-    { value: 'overview', label: locale.t('ai.tabs.overview'), icon: ListChecks },
     { value: 'knowledge', label: locale.t('ai.tabs.knowledge'), icon: BrainCircuit },
     { value: 'examples', label: locale.t('languageExamples.title'), icon: Languages },
-    { value: 'handoff', label: locale.t('ai.tabs.handoff'), icon: Inbox },
-    { value: 'runs', label: locale.t('ai.tabs.runs'), icon: Workflow },
-    { value: 'help', label: locale.t('ai.tabs.help'), icon: HelpCircle },
 ]);
 </script>
 
@@ -67,25 +54,6 @@ const tabs = computed(() => [
             </div>
         </TabsContent>
 
-        <TabsContent value="overview" class="mt-0">
-            <p class="mb-4 text-sm ui-subtle">Сводка по ассистентам, знаниям, передачам оператору и запускам — нажмите на карточку, чтобы открыть вкладку.</p>
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <button v-for="item in summary" :key="item.label" type="button" class="text-left" @click="activeTab = item.tab">
-                    <Card class="min-h-28 transition hover:ring-primary/40">
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <p class="text-sm ui-subtle">{{ item.label }}</p>
-                                <p class="mt-2 font-display text-3xl font-bold ui-text">{{ item.value }}</p>
-                            </div>
-                            <div class="grid h-10 w-10 place-items-center rounded-lg bg-muted text-primary">
-                                <component :is="item.icon" class="h-5 w-5" />
-                            </div>
-                        </div>
-                    </Card>
-                </button>
-            </div>
-        </TabsContent>
-
         <TabsContent value="knowledge" class="mt-0">
             <KnowledgeBasePanel />
         </TabsContent>
@@ -93,32 +61,6 @@ const tabs = computed(() => [
         <TabsContent value="examples" class="mt-0">
             <p class="mb-4 text-sm ui-subtle">{{ locale.t('languageExamples.subtitle') }}</p>
             <LanguageExamplesPanel />
-        </TabsContent>
-
-        <TabsContent value="handoff" class="mt-0">
-            <AiHandoffCenter />
-        </TabsContent>
-
-        <TabsContent value="runs" class="mt-0">
-            <Card :title="locale.t('ai.runsTitle')" :subtitle="locale.t('ai.runsSubtitle')">
-                <div class="grid gap-3">
-                    <article v-for="run in aiRuns" :key="run.id" class="rounded-xl border p-4 border-border bg-muted">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <p class="font-medium ui-text">{{ run.intent ?? locale.t('common.unknown') }}</p>
-                                <p class="mt-1 text-xs ui-subtle">{{ run.conversation?.subject }}</p>
-                            </div>
-                            <span class="rounded px-2 py-0.5 text-xs font-semibold bg-card">{{ run.confidence }}%</span>
-                        </div>
-                        <p class="mt-3 text-sm leading-6 ui-subtle">{{ run.summary }}</p>
-                        <p class="mt-3 flex items-center gap-2 text-sm text-primary"><Workflow class="h-4 w-4" />{{ run.next_action }}</p>
-                    </article>
-                </div>
-            </Card>
-        </TabsContent>
-
-        <TabsContent value="help" class="mt-0">
-            <HelpAssistantPanel />
         </TabsContent>
     </Tabs>
 </template>
