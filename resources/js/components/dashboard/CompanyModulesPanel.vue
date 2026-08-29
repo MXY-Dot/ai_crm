@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
 import { Blocks } from '@lucide/vue';
 import { apiRequest } from '../../lib/apiClient';
+import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { Card } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
 import { Switch } from '../ui/switch';
 
 type ModuleRow = { key: string; label: string; enabled: boolean };
+
+const store = useCrmDashboardStore();
+const { tenant } = storeToRefs(store);
+const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 const modules = ref<ModuleRow[]>([]);
 const businessTypeName = ref<string | null>(null);
@@ -16,7 +22,7 @@ const loading = ref(true);
 async function load(): Promise<void> {
     loading.value = true;
     try {
-        const data = await apiRequest<{ modules: ModuleRow[]; business_type: { name: string } | null }>('/api/company-modules');
+        const data = await apiRequest<{ modules: ModuleRow[]; business_type: { name: string } | null }>('/api/company-modules', { tenant: tenantSlug.value });
         modules.value = data.modules;
         businessTypeName.value = data.business_type?.name ?? null;
     } catch (error) {
@@ -32,7 +38,7 @@ async function toggle(row: ModuleRow): Promise<void> {
     const next = ! row.enabled;
     row.enabled = next;
     try {
-        await apiRequest('/api/company-modules/toggle', { method: 'POST', body: { module_key: row.key, enabled: next } });
+        await apiRequest('/api/company-modules/toggle', { method: 'POST', body: { module_key: row.key, enabled: next }, tenant: tenantSlug.value });
     } catch (error) {
         row.enabled = ! next;
         toast.error(error instanceof Error ? error.message : 'Не удалось изменить модуль');

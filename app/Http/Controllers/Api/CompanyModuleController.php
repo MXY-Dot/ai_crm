@@ -5,17 +5,20 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\CompanyModule;
+use App\Models\Tenant;
 use App\Support\Audit\AuditLogger;
 use App\Support\Business\ModuleRegistry;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /** ТЗ раздел 8 — "Компания может позднее открыть раздел «Модули» и включить дополнительные функции." */
 class CompanyModuleController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, TenantContext $context): JsonResponse
     {
-        $company = Company::query()->where('tenant_id', $request->user()->tenant_id)->firstOrFail();
+        $tenant = Tenant::query()->findOrFail($context->id());
+        $company = Company::query()->where('tenant_id', $tenant->id)->firstOrFail();
         $enabled = CompanyModule::query()
             ->where('company_id', $company->id)
             ->pluck('enabled', 'module_key');
@@ -29,7 +32,7 @@ class CompanyModuleController extends Controller
         return response()->json(['modules' => $modules, 'business_type' => $company->businessType]);
     }
 
-    public function toggle(Request $request, AuditLogger $audit): JsonResponse
+    public function toggle(Request $request, TenantContext $context, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([
             'module_key' => ['required', 'string'],
@@ -38,10 +41,11 @@ class CompanyModuleController extends Controller
 
         abort_unless(ModuleRegistry::isValid($data['module_key']), 422, 'Неизвестный модуль.');
 
-        $company = Company::query()->where('tenant_id', $request->user()->tenant_id)->firstOrFail();
+        $tenant = Tenant::query()->findOrFail($context->id());
+        $company = Company::query()->where('tenant_id', $tenant->id)->firstOrFail();
 
         $module = CompanyModule::query()->updateOrCreate(
-            ['tenant_id' => $request->user()->tenant_id, 'company_id' => $company->id, 'module_key' => $data['module_key']],
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'module_key' => $data['module_key']],
             ['enabled' => $data['enabled']]
         );
 
