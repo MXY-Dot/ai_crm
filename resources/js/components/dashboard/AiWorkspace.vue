@@ -5,7 +5,6 @@ import { storeToRefs } from 'pinia';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import AiAgentActivityPanel from './ai/AiAgentActivityPanel.vue';
 import AiAgentList from './ai/AiAgentList.vue';
 import AiAgentSettingsForm from './ai/AiAgentSettingsForm.vue';
 import LanguageExamplesPanel from './ai/LanguageExamplesPanel.vue';
@@ -47,10 +46,9 @@ const tabs = computed(() => [
         </div>
 
         <TabsContent value="agent" class="mt-0">
-            <div class="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)_320px]" data-tour="ai-agent-columns">
+            <div class="flex flex-col gap-5" data-tour="ai-agent-columns">
                 <AiAgentList :agents="aiAgents" :ai-runs="aiRuns" :selected-id="selectedAgentId" @select="selectedAgentId = $event" />
                 <AiAgentSettingsForm :agent="selectedAgent" :documents="agentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
-                <AiAgentActivityPanel :agent="selectedAgent" :ai-runs="aiRuns" />
             </div>
         </TabsContent>
 

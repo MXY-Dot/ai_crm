@@ -203,6 +203,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('customer-feedback', [CustomerFeedbackController::class, 'store']);
         Route::post('ai-agents', [AiAgentController::class, 'store']);
         Route::patch('ai-agents/{aiAgent}', [AiAgentController::class, 'update']);
+        Route::delete('ai-agents/{aiAgent}', [AiAgentController::class, 'destroy']);
         Route::get('conversations', [ConversationController::class, 'index']);
         Route::get('conversations/unread-total', [ConversationController::class, 'unreadTotal']);
         Route::patch('conversations/{conversation}/assignment', [ConversationController::class, 'assign']);

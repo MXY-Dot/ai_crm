@@ -87,4 +87,20 @@ class AiAgentController extends Controller
 
         return response()->json($aiAgent->refresh());
     }
+
+    /** ai_runs.ai_agent_id cascades on delete (see 2026_07_05_000002_create_inbox_ai_tables.php) -- deleting an agent also deletes its run history. Linked knowledge_documents just get unlinked (nullOnDelete), not deleted. */
+    public function destroy(Request $request, AiAgent $aiAgent, TenantContext $context, AuditLogger $audit): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('update', $tenant);
+
+        if ((int) $aiAgent->tenant_id !== (int) $tenant->id) {
+            abort(404);
+        }
+
+        $audit->record('ai_agent.deleted', $aiAgent, [], $aiAgent->only(['name', 'status', 'provider', 'model', 'channels']), $request);
+        $aiAgent->delete();
+
+        return response()->json(['ok' => true]);
+    }
 }

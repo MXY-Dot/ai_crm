@@ -700,6 +700,13 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         }), 'toast.agentUpdated');
     }
 
+    async function deleteAiAgent(id: number): Promise<void> {
+        await mutate(() => apiRequest(`/api/ai-agents/${id}`, {
+            method: 'DELETE',
+            tenant: tenantSlug.value,
+        }), 'toast.agentDeleted');
+    }
+
     async function syncAgentKnowledge(agentId: number, documentIds: number[]): Promise<void> {
         await mutate(async () => {
             const current = knowledgeDocuments.value.filter((doc) => doc.ai_agent_id === agentId).map((doc) => doc.id);
