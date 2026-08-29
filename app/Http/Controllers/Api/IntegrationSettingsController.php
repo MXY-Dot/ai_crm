@@ -361,6 +361,8 @@ class IntegrationSettingsController extends Controller
             return $this->connectionResult(false, 'whatsapp', 'http_'.$response->status(), Arr::get($json, 'error.message', 'Meta вернул ошибку.'));
         }
 
+        $this->markChannelConnected($tenant, 'whatsapp', 'WhatsApp');
+
         return $this->connectionResult(true, 'whatsapp', 'connected', 'Номер '.Arr::get($json, 'display_phone_number', $phoneNumberId).' подтверждён.', [
             'display_phone_number' => Arr::get($json, 'display_phone_number'),
             'verified_name' => Arr::get($json, 'verified_name'),
@@ -390,6 +392,8 @@ class IntegrationSettingsController extends Controller
             return $this->connectionResult(false, 'instagram', 'http_'.$response->status(), Arr::get($json, 'error.message', 'Meta вернул ошибку.'));
         }
 
+        $this->markChannelConnected($tenant, 'instagram', 'Instagram Direct');
+
         return $this->connectionResult(true, 'instagram', 'connected', 'Аккаунт @'.Arr::get($json, 'username', $accountId).' подтверждён.', [
             'username' => Arr::get($json, 'username'),
         ]);
@@ -418,9 +422,34 @@ class IntegrationSettingsController extends Controller
             return $this->connectionResult(false, 'facebook', 'http_'.$response->status(), Arr::get($json, 'error.message', 'Meta вернул ошибку.'));
         }
 
+        $this->markChannelConnected($tenant, 'facebook', 'Facebook Messenger');
+
         return $this->connectionResult(true, 'facebook', 'connected', 'Страница «'.Arr::get($json, 'name', $pageId).'» подтверждена.', [
             'page_name' => Arr::get($json, 'name'),
         ]);
+    }
+
+    /**
+     * Unlike Telegram (Channel row created as part of registering the webhook on
+     * save), WhatsApp/Instagram/Facebook have no such save-time API call — their
+     * webhook is subscribed once, manually, in the Meta App dashboard, not per
+     * tenant. A successful "Проверить" (test connection) is the first point WERO
+     * actually confirms the credentials work, so that's what flips the channel
+     * card from "требуется настройка" to "подключено" here, mirroring what
+     * registerTelegramWebhook() does for Telegram.
+     */
+    private function markChannelConnected(Tenant $tenant, string $provider, string $name): void
+    {
+        $company = Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->first();
+
+        if (! $company) {
+            return;
+        }
+
+        Channel::withoutGlobalScopes()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'provider' => $provider, 'name' => $name],
+            ['status' => 'connected', 'last_synced_at' => now()]
+        );
     }
 
     private function hasFilledSecret(array $input, string $key): bool

@@ -854,6 +854,12 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
             });
             notify(result.message, result.ok ? 'success' : 'error');
 
+            // A successful test on a direct Meta channel (whatsapp/instagram/facebook)
+            // flips its Channel row to 'connected' server-side (see
+            // IntegrationSettingsController::markChannelConnected()) -- refresh so the
+            // channel card reflects that without waiting for a full page reload.
+            if (result.ok) await refreshDashboard();
+
             return result;
         } catch (caught) {
             const locale = useLocaleStore();
