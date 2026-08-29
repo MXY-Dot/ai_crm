@@ -150,12 +150,18 @@ class TenantIntegrationSettings
         }
     }
 
+    /**
+     * Fixed-width regardless of the secret's real length (WhatsApp permanent
+     * tokens in particular run 200+ chars) — scaling the asterisk run with
+     * strlen() used to produce a mask that long, which broke the settings
+     * dialog's layout by forcing it wider than the viewport.
+     */
     public function mask(string $value): ?string
     {
         if ($value === '') {
             return null;
         }
 
-        return str_repeat('*', max(4, strlen($value) - 4)).substr($value, -4);
+        return str_repeat('*', 8).substr($value, -4);
     }
 }

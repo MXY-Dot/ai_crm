@@ -35,7 +35,7 @@ async function testConnection(): Promise<void> {
         <label class="block text-sm">
             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Bot token</span>
             <Input v-model="form.botToken" type="password" placeholder="Токен от @BotFather" autocomplete="new-password" />
-            <span v-if="settings?.bot_token_mask" class="mt-1 block text-xs ui-subtle">Текущий: {{ settings.bot_token_mask }}</span>
+            <span v-if="settings?.bot_token_mask" class="mt-1 block break-all text-xs ui-subtle">Текущий: {{ settings.bot_token_mask }}</span>
             <span v-else class="mt-1 block text-xs ui-subtle">Получите токен у @BotFather в Telegram (команда /newbot)</span>
         </label>
         <label class="block text-sm">

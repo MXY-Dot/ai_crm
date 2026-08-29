@@ -207,7 +207,7 @@ const totalRequests30d = computed(() => (data.value?.providers ?? []).reduce((su
                     <label class="block text-sm">
                         <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">API-ключ (платформенный)</span>
                         <Input v-model="keyInput[p.provider]" type="password" placeholder="sk-..." autocomplete="new-password" />
-                        <span v-if="p.key_mask" class="mt-1 block text-xs ui-subtle">Текущий: {{ p.key_mask }}</span>
+                        <span v-if="p.key_mask" class="mt-1 block break-all text-xs ui-subtle">Текущий: {{ p.key_mask }}</span>
                     </label>
                     <div v-if="testResult[p.provider]" class="rounded-lg border p-3 text-xs" :class="testResult[p.provider]?.ok ? 'border-primary/20 bg-primary/5' : 'border-destructive/20 bg-destructive/5'">
                         <p class="mb-1.5 flex items-center gap-1.5 font-semibold" :class="testResult[p.provider]?.ok ? 'text-primary' : 'text-destructive'">

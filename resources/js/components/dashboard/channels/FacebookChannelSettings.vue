@@ -34,7 +34,7 @@ async function testConnection(): Promise<void> {
         <label class="block text-sm">
             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Page access token</span>
             <Input v-model="form.pageAccessToken" type="password" placeholder="Токен страницы Facebook" autocomplete="new-password" />
-            <span v-if="settings?.page_access_token_mask" class="mt-1 block text-xs ui-subtle">Текущий: {{ settings.page_access_token_mask }}</span>
+            <span v-if="settings?.page_access_token_mask" class="mt-1 block break-all text-xs ui-subtle">Текущий: {{ settings.page_access_token_mask }}</span>
         </label>
         <label class="block text-sm">
             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Page ID</span>

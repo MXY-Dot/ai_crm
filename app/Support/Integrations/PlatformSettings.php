@@ -130,13 +130,14 @@ class PlatformSettings
         $this->set('ai.base_knowledge_document', trim($value), encrypt: false);
     }
 
+    /** Fixed-width regardless of the secret's real length — see TenantIntegrationSettings::mask()'s docblock for why. */
     public function mask(string $value): ?string
     {
         if ($value === '') {
             return null;
         }
 
-        return str_repeat('*', max(4, strlen($value) - 4)).substr($value, -4);
+        return str_repeat('*', 8).substr($value, -4);
     }
 
     private function get(string $key, bool $encrypted = true): ?string

@@ -35,7 +35,7 @@ async function testConnection(): Promise<void> {
         <label class="block text-sm">
             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Access token</span>
             <Input v-model="form.accessToken" type="password" placeholder="Permanent token из Meta for Developers" autocomplete="new-password" />
-            <span v-if="settings?.access_token_mask" class="mt-1 block text-xs ui-subtle">Текущий: {{ settings.access_token_mask }}</span>
+            <span v-if="settings?.access_token_mask" class="mt-1 block break-all text-xs ui-subtle">Текущий: {{ settings.access_token_mask }}</span>
         </label>
         <label class="block text-sm">
             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Phone number ID</span>
