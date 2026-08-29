@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { FlaskConical, Pencil, Trash2, X } from '@lucide/vue';
 import CreateAgentDialog from './CreateAgentDialog.vue';
 import AiAgentActivityPanel from './AiAgentActivityPanel.vue';
-import type { AiAgent, AiRun } from '../../../stores/crmDashboard';
+import AiAgentSettingsForm from './AiAgentSettingsForm.vue';
+import type { AiAgent, AiRun, KnowledgeDocument } from '../../../stores/crmDashboard';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import { sourceLabels } from '../../../lib/statusLabels';
 import { Button } from '../../ui/button';
+import { Dialog, DialogContent } from '../../ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerHeader, DrawerTitle } from '../../ui/drawer';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '../../ui/alert-dialog';
 
-const props = defineProps<{ agents: AiAgent[]; aiRuns: AiRun[]; selectedId: number | null }>();
-const emit = defineEmits<{ select: [id: number] }>();
+const props = defineProps<{ agents: AiAgent[]; aiRuns: AiRun[]; knowledgeDocuments: KnowledgeDocument[]; busy: boolean }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 
@@ -36,6 +47,18 @@ const CHANNEL_STYLES: Record<string, string> = {
     chatwoot: 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-300',
 };
 
+// Editing opens a Dialog (window) with the full settings form — including
+// channels, which the inline panel this replaced never actually exposed for
+// an already-created agent (only at creation time, via CreateAgentDialog).
+const editAgent = ref<AiAgent | null>(null);
+const editOpen = ref(false);
+const editAgentDocuments = computed(() => props.knowledgeDocuments.filter((doc) => doc.ai_agent_id === editAgent.value?.id));
+
+function openEdit(agent: AiAgent): void {
+    editAgent.value = agent;
+    editOpen.value = true;
+}
+
 // "Последние запуски" is shown per agent via a slide-out Drawer instead of a
 // permanently-docked third column — one shared Drawer instance driven by
 // activityAgent, rather than one per table row.
@@ -47,9 +70,18 @@ function openActivity(agent: AiAgent): void {
     activityOpen.value = true;
 }
 
-async function remove(agent: AiAgent): Promise<void> {
-    if (! confirm(`Удалить ассистента «${agent.name}»? История его запусков тоже будет удалена.`)) return;
-    await store.deleteAiAgent(agent.id);
+const deleteTarget = ref<AiAgent | null>(null);
+const deleteOpen = ref(false);
+
+function askDelete(agent: AiAgent): void {
+    deleteTarget.value = agent;
+    deleteOpen.value = true;
+}
+
+async function confirmDelete(): Promise<void> {
+    if (! deleteTarget.value) return;
+    await store.deleteAiAgent(deleteTarget.value.id);
+    deleteOpen.value = false;
 }
 </script>
 
@@ -76,9 +108,8 @@ async function remove(agent: AiAgent): Promise<void> {
                         <tr
                             v-for="agent in agents"
                             :key="agent.id"
-                            class="cursor-pointer border-l-4 transition"
-                            :class="selectedId === agent.id ? 'border-primary bg-muted' : 'border-transparent hover:bg-muted'"
-                            @click="emit('select', agent.id)"
+                            class="cursor-pointer transition hover:bg-muted"
+                            @click="openEdit(agent)"
                         >
                             <td class="py-2.5 pl-4 pr-3">
                                 <p class="font-semibold ui-text">{{ agent.name }}</p>
@@ -101,10 +132,10 @@ async function remove(agent: AiAgent): Promise<void> {
                                     <Button variant="ghost" size="icon-xs" title="Последние запуски" aria-label="Последние запуски" @click="openActivity(agent)">
                                         <FlaskConical class="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon-xs" title="Открыть настройки" aria-label="Открыть настройки" @click="emit('select', agent.id)">
+                                    <Button variant="ghost" size="icon-xs" title="Изменить" aria-label="Изменить" @click="openEdit(agent)">
                                         <Pencil class="h-4 w-4" />
                                     </Button>
-                                    <Button variant="destructive" size="icon-xs" title="Удалить" aria-label="Удалить" @click="remove(agent)">
+                                    <Button variant="destructive" size="icon-xs" title="Удалить" aria-label="Удалить" @click="askDelete(agent)">
                                         <Trash2 class="h-4 w-4" />
                                     </Button>
                                 </div>
@@ -115,6 +146,12 @@ async function remove(agent: AiAgent): Promise<void> {
             </div>
             <p v-if="! agents.length" class="p-6 text-center text-sm ui-subtle">Нет ассистентов</p>
         </div>
+
+        <Dialog v-model:open="editOpen">
+            <DialogContent class="max-h-[85vh] max-w-4xl overflow-y-auto rounded-xl p-0 ring-0" @click.stop>
+                <AiAgentSettingsForm :agent="editAgent" :documents="editAgentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
+            </DialogContent>
+        </Dialog>
 
         <Drawer v-model:open="activityOpen" direction="right">
             <DrawerContent class="sm:max-w-md">
@@ -129,5 +166,18 @@ async function remove(agent: AiAgent): Promise<void> {
                 </div>
             </DrawerContent>
         </Drawer>
+
+        <AlertDialog v-model:open="deleteOpen">
+            <AlertDialogContent @click.stop>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Удалить ассистента «{{ deleteTarget?.name }}»?</AlertDialogTitle>
+                    <AlertDialogDescription>История его запусков тоже будет удалена без возможности восстановления.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogAction :disabled="busy" @click="confirmDelete">Удалить</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
 </template>

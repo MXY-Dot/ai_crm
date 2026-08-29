@@ -4,6 +4,7 @@ import { Bot, BookOpen, Save, SlidersHorizontal } from '@lucide/vue';
 import type { AiAgent, KnowledgeDocument } from '../../../stores/crmDashboard';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
+import { sourceLabels } from '../../../lib/statusLabels';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
@@ -27,14 +28,31 @@ const PERSONA_OPTIONS = [
     { value: 'strict', label: 'Строгий' },
 ];
 
+const CHANNEL_OPTIONS = ['telegram', 'whatsapp', 'instagram', 'facebook', 'website'];
+const CHANNEL_STYLES: Record<string, string> = {
+    telegram: 'border-brand-telegram/50 bg-brand-telegram/15 text-brand-telegram',
+    whatsapp: 'border-brand-whatsapp/50 bg-brand-whatsapp/15 text-brand-whatsapp',
+    instagram: 'border-brand-instagram-to/50 bg-brand-instagram-to/15 text-brand-instagram-to',
+    facebook: 'border-[#1877F2]/50 bg-[#1877F2]/15 text-[#1877F2]',
+    website: 'border-sky-600/50 bg-sky-600/15 text-sky-700 dark:text-sky-300',
+};
+
 const form = reactive({ name: '', status: 'active' as 'active' | 'paused' | 'disabled', handoff_threshold: 70, goal: '', goalCustom: '', persona: '', personaCustom: '', maxDiscountPercent: null as number | null, forbiddenTopics: '', instructions: '' });
 const selectedDocIds = ref<number[]>([]);
+const selectedChannels = ref<string[]>([]);
+
+function toggleChannel(channel: string): void {
+    selectedChannels.value = selectedChannels.value.includes(channel)
+        ? selectedChannels.value.filter((item) => item !== channel)
+        : [...selectedChannels.value, channel];
+}
 
 watch(() => props.agent, (agent) => {
     if (! agent) return;
     form.name = agent.name;
     form.status = ['active', 'paused', 'disabled'].includes(agent.status) ? agent.status as typeof form.status : 'active';
     form.handoff_threshold = agent.handoff_threshold;
+    selectedChannels.value = [...(agent.channels ?? [])];
     const goal = agent.goal ?? '';
     if (goal && ! GOAL_OPTIONS.some((option) => option.value === goal)) {
         form.goal = '__custom__';
@@ -85,6 +103,7 @@ async function save(): Promise<void> {
         max_discount_percent: form.maxDiscountPercent === null || form.maxDiscountPercent === undefined || (form.maxDiscountPercent as unknown as string) === '' ? null : Number(form.maxDiscountPercent),
         forbidden_topics: forbiddenTopics,
         instructions: form.instructions.trim(),
+        channels: selectedChannels.value,
     });
     await store.syncAgentKnowledge(props.agent.id, documentIds);
 }
@@ -92,7 +111,7 @@ async function save(): Promise<void> {
 
 <template>
     <div class="flex flex-col rounded-xl border border-border bg-card">
-        <div class="flex items-center justify-between border-b p-4 border-border">
+        <div class="flex items-center justify-between border-b p-4 pr-14 border-border">
             <h2 class="flex items-center gap-2 font-display text-base font-semibold ui-text"><Bot class="h-4 w-4 text-primary" />{{ agent ? `Настройки: ${agent.name}` : 'Выберите ассистента' }}</h2>
             <Button v-if="agent" variant="outline" size="sm" :disabled="busy" @click="save"><Save class="h-4 w-4" />{{ busy ? locale.t('common.waiting') : locale.t('ai.saveAgent') }}</Button>
         </div>
@@ -120,6 +139,22 @@ async function save(): Promise<void> {
                                     </SelectContent>
                                 </Select>
                             </label>
+                        </div>
+                        <div>
+                            <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('ai.channelsLabel') }}</span>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-for="channel in CHANNEL_OPTIONS"
+                                    :key="channel"
+                                    type="button"
+                                    class="rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+                                    :class="selectedChannels.includes(channel) ? CHANNEL_STYLES[channel] : 'border-border ui-subtle hover:bg-muted'"
+                                    @click="toggleChannel(channel)"
+                                >
+                                    {{ sourceLabels[channel] ?? channel }}
+                                </button>
+                            </div>
+                            <p class="mt-1 text-[11px] ui-subtle">{{ locale.t('ai.channelsHint') }}</p>
                         </div>
                         <label>
                             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('ai.instructions') }}</span>

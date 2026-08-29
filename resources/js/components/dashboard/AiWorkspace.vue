@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { Bot, BrainCircuit, Languages } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import AiAgentList from './ai/AiAgentList.vue';
-import AiAgentSettingsForm from './ai/AiAgentSettingsForm.vue';
 import LanguageExamplesPanel from './ai/LanguageExamplesPanel.vue';
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue';
 
@@ -14,14 +13,6 @@ const store = useCrmDashboardStore();
 const locale = useLocaleStore();
 const { aiAgents, aiRuns, knowledgeDocuments, busy } = storeToRefs(store);
 const activeTab = ref('agent');
-const selectedAgentId = ref<number | null>(null);
-
-watch(aiAgents, (agents) => {
-    if (! selectedAgentId.value && agents[0]) selectedAgentId.value = agents[0].id;
-}, { immediate: true });
-
-const selectedAgent = computed(() => aiAgents.value.find((agent) => agent.id === selectedAgentId.value) ?? null);
-const agentDocuments = computed(() => knowledgeDocuments.value.filter((doc) => doc.ai_agent_id === selectedAgentId.value));
 
 const tabs = computed(() => [
     { value: 'agent', label: locale.t('ai.tabs.agent'), icon: Bot },
@@ -45,11 +36,8 @@ const tabs = computed(() => [
             </TabsList>
         </div>
 
-        <TabsContent value="agent" class="mt-0">
-            <div class="flex flex-col gap-5" data-tour="ai-agent-columns">
-                <AiAgentList :agents="aiAgents" :ai-runs="aiRuns" :selected-id="selectedAgentId" @select="selectedAgentId = $event" />
-                <AiAgentSettingsForm :agent="selectedAgent" :documents="agentDocuments" :all-documents="knowledgeDocuments" :busy="busy" />
-            </div>
+        <TabsContent value="agent" class="mt-0" data-tour="ai-agent-columns">
+            <AiAgentList :agents="aiAgents" :ai-runs="aiRuns" :knowledge-documents="knowledgeDocuments" :busy="busy" />
         </TabsContent>
 
         <TabsContent value="knowledge" class="mt-0">
