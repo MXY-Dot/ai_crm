@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { BarChart3, Blocks, Bot, BookOpen, CalendarCheck, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Plug, Settings, Target, Users, Users2 } from '@lucide/vue';
+import { BarChart3, Blocks, Bot, BookOpen, CalendarCheck, CalendarClock, CreditCard, Inbox, LayoutDashboard, LifeBuoy, Plug, Scissors, Settings, Target, Users, Users2 } from '@lucide/vue';
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { canAccessPage } from '../../lib/permissions';
 import { useLocaleStore } from '../../stores/locale';
@@ -17,6 +17,8 @@ const allItems: Array<{ id: DashboardPage; label: string; icon: unknown }> = [
     { id: 'inbox', label: 'nav.inbox', icon: Inbox },
     { id: 'leads', label: 'nav.leads', icon: Target },
     { id: 'contacts', label: 'nav.contacts', icon: Users },
+    { id: 'booking', label: 'nav.booking', icon: CalendarClock },
+    { id: 'booking-settings', label: 'nav.bookingSettings', icon: Scissors },
     { id: 'ai', label: 'nav.ai', icon: Bot },
     { id: 'knowledge', label: 'nav.knowledge', icon: BookOpen },
     { id: 'analytics', label: 'nav.analytics', icon: BarChart3 },

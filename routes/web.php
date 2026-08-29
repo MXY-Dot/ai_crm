@@ -90,6 +90,10 @@ Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])-
         $dashboardPage($request, $dashboard, 'AiPage'))->name('ai');
     Route::get('/knowledge', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'KnowledgePage'))->name('knowledge');
+    Route::get('/booking', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'BookingCalendarPage'))->name('booking');
+    Route::get('/booking-settings', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'BookingSettingsPage'))->name('booking-settings');
     Route::get('/analytics', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'AnalyticsPage'))->name('analytics');
     Route::get('/integrations', fn (Request $request, DashboardData $dashboard) =>

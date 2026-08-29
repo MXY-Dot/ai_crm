@@ -1,4 +1,4 @@
-export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'contacts' | 'vip' | 'campaigns' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'marketplace' | 'team' | 'support' | 'billing' | 'settings' | 'profile';
+export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'contacts' | 'vip' | 'campaigns' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'marketplace' | 'team' | 'support' | 'billing' | 'settings' | 'profile' | 'booking' | 'booking-settings';
 
 export const pagePaths: Record<DashboardPage, string> = {
     overview: '/app',
@@ -18,6 +18,8 @@ export const pagePaths: Record<DashboardPage, string> = {
     billing: '/billing',
     settings: '/settings',
     profile: '/profile',
+    booking: '/booking',
+    'booking-settings': '/booking-settings',
 };
 
 export function pathForRecord(kind: 'lead' | 'customer' | 'conversation'): string {

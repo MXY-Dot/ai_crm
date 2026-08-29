@@ -1,0 +1,71 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
+import { apiRequest } from '../../../lib/apiClient';
+import { useLocaleStore } from '../../../stores/locale';
+import { Button } from '../../ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
+import { Input } from '../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+
+export type ResourceRow = { id: number; name: string; type: string; is_active: boolean };
+
+const props = defineProps<{ open: boolean; resource: ResourceRow | null; companyId: number; tenantSlug: string }>();
+const emit = defineEmits<{ 'update:open': [boolean]; saved: [] }>();
+const locale = useLocaleStore();
+
+const form = ref({ name: '', type: 'other' });
+const saving = ref(false);
+
+watch(() => props.open, (open) => {
+    if (! open) return;
+    form.value = props.resource ? { name: props.resource.name, type: props.resource.type } : { name: '', type: 'other' };
+});
+
+async function submit(): Promise<void> {
+    saving.value = true;
+    try {
+        const payload = { ...form.value, company_id: props.companyId };
+        if (props.resource) {
+            await apiRequest(`/api/resources/${props.resource.id}`, { method: 'PATCH', body: payload, tenant: props.tenantSlug });
+        } else {
+            await apiRequest('/api/resources', { method: 'POST', body: payload, tenant: props.tenantSlug });
+        }
+        toast.success(locale.t('booking.saved'));
+        emit('update:open', false);
+        emit('saved');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        saving.value = false;
+    }
+}
+</script>
+
+<template>
+    <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
+        <DialogContent class="sm:max-w-sm">
+            <form @submit.prevent="submit">
+                <DialogHeader>
+                    <DialogTitle>{{ resource ? locale.t('booking.editResource') : locale.t('booking.addResource') }}</DialogTitle>
+                </DialogHeader>
+                <div class="grid gap-3 py-4">
+                    <Input v-model="form.name" :placeholder="locale.t('booking.resourceName')" required />
+                    <Select v-model="form.type">
+                        <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="chair">{{ locale.t('booking.resourceTypes.chair') }}</SelectItem>
+                            <SelectItem value="cabinet">{{ locale.t('booking.resourceTypes.cabinet') }}</SelectItem>
+                            <SelectItem value="room">{{ locale.t('booking.resourceTypes.room') }}</SelectItem>
+                            <SelectItem value="equipment">{{ locale.t('booking.resourceTypes.equipment') }}</SelectItem>
+                            <SelectItem value="other">{{ locale.t('booking.resourceTypes.other') }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <DialogFooter>
+                    <Button type="submit" :disabled="saving">{{ locale.t('booking.save') }}</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+</template>

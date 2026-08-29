@@ -2,10 +2,15 @@
 
 use App\Http\Controllers\Api\AiAgentController;
 use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CancellationPolicyController;
 use App\Http\Controllers\Api\ChatwootSyncController;
 use App\Http\Controllers\Api\ConversationAiDraftController;
 use App\Http\Controllers\Api\ChatwootWebhookController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\ResourceController;
+use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\ConversationAttachmentController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\ConversationMessageController;
@@ -214,5 +219,27 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('knowledge-documents/{knowledgeDocument}/content', [KnowledgeDocumentController::class, 'updateContent']);
         Route::get('knowledge-documents/{knowledgeDocument}/file', [KnowledgeDocumentController::class, 'file']);
         Route::apiResource('knowledge-documents', KnowledgeDocumentController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        // ТЗ раздел 10-19 (модуль салона) — услуги, специалисты, ресурсы, календарь и брони.
+        Route::apiResource('services', ServiceController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::apiResource('resources', ResourceController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::apiResource('employees', EmployeeController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::put('employees/{employee}/schedule', [EmployeeController::class, 'updateSchedule']);
+        Route::put('employees/{employee}/services', [EmployeeController::class, 'updateServices']);
+        Route::post('employees/{employee}/time-off', [EmployeeController::class, 'storeTimeOff']);
+        Route::delete('employees/{employee}/time-off/{timeOff}', [EmployeeController::class, 'destroyTimeOff']);
+
+        Route::get('cancellation-policy', [CancellationPolicyController::class, 'show']);
+        Route::patch('cancellation-policy', [CancellationPolicyController::class, 'update']);
+
+        Route::get('bookings', [BookingController::class, 'index']);
+        Route::get('bookings/availability', [BookingController::class, 'availability']);
+        Route::post('bookings', [BookingController::class, 'store']);
+        Route::get('bookings/{booking}', [BookingController::class, 'show']);
+        Route::patch('bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
+        Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel']);
+        Route::patch('bookings/{booking}/status', [BookingController::class, 'updateStatus']);
+        Route::post('bookings/{booking}/payment-proof', [BookingController::class, 'storePaymentProof'])->middleware('throttle:20,1');
+        Route::patch('bookings/{booking}/payment-proof/{paymentProof}', [BookingController::class, 'reviewPaymentProof']);
     });
 });
