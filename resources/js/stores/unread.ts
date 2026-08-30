@@ -96,18 +96,31 @@ function playNotificationSound(): void {
         const ctx = audioContext;
         const now = ctx.currentTime;
 
-        [880, 1320].forEach((freq, i) => {
-            const start = now + i * 0.09;
+        // Softened per feedback: the original was too sharp (fast 0.01s attack, loud
+        // 0.15 peak gain, quick 0.15s decay, brighter 880/1320Hz). This is lower and
+        // warmer (660/990Hz, still a consonant perfect-fifth interval), quieter (0.09
+        // peak), eased in/out slowly (0.04s attack, 0.4s exponential decay for a
+        // bell-like fade instead of a beep), and rounded off with a gentle lowpass
+        // filter to take the edge off the sine tone's brightness.
+        [660, 990].forEach((freq, i) => {
+            const start = now + i * 0.14;
             const oscillator = ctx.createOscillator();
+            const filter = ctx.createBiquadFilter();
             const gain = ctx.createGain();
+
             oscillator.type = 'sine';
             oscillator.frequency.value = freq;
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 2200;
+
             gain.gain.setValueAtTime(0, start);
-            gain.gain.linearRampToValueAtTime(0.15, start + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
-            oscillator.connect(gain).connect(ctx.destination);
+            gain.gain.linearRampToValueAtTime(0.09, start + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+
+            oscillator.connect(filter).connect(gain).connect(ctx.destination);
             oscillator.start(start);
-            oscillator.stop(start + 0.16);
+            oscillator.stop(start + 0.42);
         });
     } catch {
         // Web Audio unsupported/blocked — the toast itself still shows.
