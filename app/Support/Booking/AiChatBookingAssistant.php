@@ -9,6 +9,7 @@ use App\Models\Message;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Support\Ai\AiDecision;
+use App\Support\Payments\AlifPayClient;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +43,7 @@ class AiChatBookingAssistant
         private readonly BookingChatContext $context,
         private readonly BookingIntentExtractor $extractor,
         private readonly BookingService $bookings,
+        private readonly AlifPayClient $alif,
     ) {
     }
 
@@ -79,29 +81,71 @@ class AiChatBookingAssistant
 
         $intent = $this->extractor->extract($tenant, $conversation, $message, $services, $offeredSlots, $activeBookings);
 
-        if ($intent === null) {
-            return $decision;
+        if ($intent !== null) {
+            $continued = $this->continueFlow($tenant, $company, $conversation, $lastMeta, $intent, $decision);
+
+            if ($continued !== null) {
+                return $continued;
+            }
+
+            if ($intent['wants_cancel']) {
+                return $this->startCancel($activeBookings, $intent, $decision);
+            }
+
+            if ($intent['wants_reschedule']) {
+                return $this->startReschedule($company, $activeBookings, $intent, $decision);
+            }
+
+            if ($intent['wants_booking']) {
+                return $this->startNewBooking($tenant, $company, $conversation, $services, $intent, $decision);
+            }
         }
 
-        $continued = $this->continueFlow($tenant, $company, $conversation, $lastMeta, $intent, $decision);
+        // Safety net: a real offer (specific slot times, or which of the customer's
+        // bookings) is still outstanding from the previous turn, and neither a failed
+        // extraction call ($intent === null) nor a resolved-but-unmatched intent above
+        // turned it into an action. Never let the underlying reply engine's own free
+        // text stand in here — found live: once real service/price context is injected
+        // into its prompt (BookingChatContext::promptSection()), it can write something
+        // that reads exactly like "Готово, вы записаны" without any booking actually
+        // existing. Once real options are on the table, every reply must either act on
+        // a real pick or explicitly re-ask, never fall through unconstrained.
+        return $this->reofferForPendingFlow($lastMeta, $decision) ?? $decision;
+    }
 
-        if ($continued !== null) {
-            return $continued;
+    /** @see handle()'s own docblock comment for why this exists. */
+    private function reofferForPendingFlow(array $lastMeta, AiDecision $decision): ?AiDecision
+    {
+        $flow = $lastMeta['flow'] ?? null;
+
+        if (in_array($flow, ['new_booking', 'reschedule'], true)) {
+            $offeredSlots = is_array($lastMeta['offered_slots'] ?? null) ? $lastMeta['offered_slots'] : [];
+
+            if ($offeredSlots === []) {
+                return null;
+            }
+
+            $intro = $flow === 'reschedule'
+                ? 'Уточните, пожалуйста, какой из предложенных вариантов переноса вам подходит:'
+                : 'Уточните, пожалуйста, какой из предложенных вариантов вам подходит:';
+
+            return $this->withReply($decision, 'booking_reoffer', $intro."\n".$this->formatOffers($offeredSlots), meta: $lastMeta);
         }
 
-        if ($intent['wants_cancel']) {
-            return $this->startCancel($activeBookings, $intent, $decision);
+        if (in_array($flow, ['disambiguate_cancel', 'disambiguate_reschedule'], true)) {
+            $offeredBookings = is_array($lastMeta['offered_bookings'] ?? null) ? $lastMeta['offered_bookings'] : [];
+
+            if ($offeredBookings === []) {
+                return null;
+            }
+
+            $lines = collect($offeredBookings)->map(fn (array $booking, int $i): string => ($i + 1).') '.$booking['service_name'].' — '.$this->formatWhen($booking['starts_at']).' — '.$booking['employee_name']);
+            $text = 'Уточните, пожалуйста, какую запись вы имеете в виду:'."\n".$lines->implode("\n");
+
+            return $this->withReply($decision, 'booking_reoffer', $text, meta: $lastMeta);
         }
 
-        if ($intent['wants_reschedule']) {
-            return $this->startReschedule($company, $activeBookings, $intent, $decision);
-        }
-
-        if ($intent['wants_booking']) {
-            return $this->startNewBooking($tenant, $company, $conversation, $services, $intent, $decision);
-        }
-
-        return $decision;
+        return null;
     }
 
     /** Resolves a pending pick from the PREVIOUS turn's offer, based on what that offer was for. Returns null when there's nothing to continue -- a fresh intent this turn, handled by the caller. */
@@ -286,13 +330,39 @@ class AiChatBookingAssistant
         }
 
         $when = $this->formatWhen($slot['starts_at']);
-        $paymentNote = $booking->prepayment_amount > 0
-            ? ' Для подтверждения потребуется предоплата '.number_format((float) $booking->prepayment_amount, 0, ',', ' ').' смн — с вами свяжется администратор.'
-            : '';
+        $paymentNote = $booking->prepayment_amount > 0 ? $this->paymentNote($booking) : '';
 
         $text = "Готово! Записал(а) вас на «{$slot['service_name']}» — {$when}, мастер {$slot['employee_name']}.{$paymentNote} Если нужно перенести или отменить запись — просто напишите об этом здесь.";
 
         return $this->withReply($decision, 'booking_confirmed', $text);
+    }
+
+    /**
+     * Tries to generate a real Alif Pay checkout link and hand it straight to the
+     * customer instead of the old "an administrator will contact you" placeholder --
+     * closes the loop with the payment-gateway architecture built earlier. Falls back
+     * to that same placeholder text on ANY failure (most commonly: this tenant hasn't
+     * configured Alif credentials at all yet, which AlifPayClient rejects instantly
+     * with no network call -- see its own docblock on why Tajikistan support itself
+     * is still unverified). A failed gateway attempt must never break the booking
+     * confirmation the customer is actually waiting for.
+     */
+    private function paymentNote(Booking $booking): string
+    {
+        $amount = number_format((float) $booking->prepayment_amount, 0, ',', ' ');
+
+        try {
+            $payment = $this->bookings->initiateGatewayPayment($booking, 'alif', $this->alif, null);
+        } catch (Throwable $error) {
+            Log::info('AiChatBookingAssistant: gateway payment link unavailable, falling back to manual contact', [
+                'booking_id' => $booking->id,
+                'error' => $error->getMessage(),
+            ]);
+
+            return " Для подтверждения потребуется предоплата {$amount} смн — с вами свяжется администратор.";
+        }
+
+        return " Для подтверждения нужна предоплата {$amount} смн. Оплатить: {$payment->checkout_url}";
     }
 
     /** @param array{employee_id:int, employee_name:string, service_id:int, service_name:string, starts_at:string, ends_at:string} $slot */

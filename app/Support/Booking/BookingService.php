@@ -254,7 +254,7 @@ class BookingService
      * PaymentGatewayWebhookController later finds its way back to the right
      * booking with no tenant/booking identifiers needed in the callback itself.
      */
-    public function initiateGatewayPayment(Booking $booking, string $gateway, PaymentGatewayClient $client, User $actor): BookingGatewayPayment
+    public function initiateGatewayPayment(Booking $booking, string $gateway, PaymentGatewayClient $client, ?User $actor): BookingGatewayPayment
     {
         if (! in_array($booking->status, [Booking::STATUS_AWAITING_PAYMENT, Booking::STATUS_TEMP_HOLD], true)) {
             throw new BookingConflictException('Для этой записи оплата через шлюз недоступна в текущем статусе.');
