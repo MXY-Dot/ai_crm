@@ -422,7 +422,18 @@ class IntegrationSettingsController extends Controller
         ]);
     }
 
-    /** Direct Facebook Graph API (Meta) — Page access token, no Chatwoot involved. */
+    /**
+     * Direct Facebook Graph API (Meta) — Page access token, no Chatwoot involved.
+     * Checks /{page-id}/subscribed_apps rather than reading the page's own name —
+     * found live: a page connected through OAuth with only pages_show_list/
+     * pages_manage_metadata/pages_messaging (everything real messaging actually
+     * needs — confirmed the same token successfully sends/receives) gets HTTP 400
+     * "requires the 'pages_read_engagement' permission" from a plain GET
+     * /{page-id}?fields=name, a permission this integration has no reason to
+     * request. subscribed_apps works with the permissions already granted and is
+     * a more meaningful check anyway — it's literally asking "will this page's
+     * messages reach our webhook," not just "can we read its display name."
+     */
     private function testFacebook(Tenant $tenant, array $draft): array
     {
         $token = (string) ($draft['page_access_token'] ?? $this->secrets->facebookPageAccessToken($tenant));
@@ -434,7 +445,7 @@ class IntegrationSettingsController extends Controller
 
         try {
             $response = Http::timeout(10)->connectTimeout(4)->acceptJson()
-                ->get('https://graph.facebook.com/v21.0/'.$pageId, ['fields' => 'name', 'access_token' => $token]);
+                ->get('https://graph.facebook.com/v21.0/'.$pageId.'/subscribed_apps', ['access_token' => $token]);
         } catch (Throwable $error) {
             return $this->connectionResult(false, 'facebook', 'request_failed', $error->getMessage());
         }
@@ -445,11 +456,22 @@ class IntegrationSettingsController extends Controller
             return $this->connectionResult(false, 'facebook', 'http_'.$response->status(), Arr::get($json, 'error.message', 'Meta вернул ошибку.'));
         }
 
+        $subscribed = collect(Arr::get($json, 'data', []))->contains(fn ($app) => in_array('messages', $app['subscribed_fields'] ?? [], true));
+
+        if (! $subscribed) {
+            try {
+                Http::post('https://graph.facebook.com/v21.0/'.$pageId.'/subscribed_apps', [
+                    'subscribed_fields' => 'messages,messaging_postbacks',
+                    'access_token' => $token,
+                ])->throw();
+            } catch (Throwable $error) {
+                return $this->connectionResult(false, 'facebook', 'subscribe_failed', $error->getMessage());
+            }
+        }
+
         $this->markChannelConnected($tenant, 'facebook', 'Facebook Messenger');
 
-        return $this->connectionResult(true, 'facebook', 'connected', 'Страница «'.Arr::get($json, 'name', $pageId).'» подтверждена.', [
-            'page_name' => Arr::get($json, 'name'),
-        ]);
+        return $this->connectionResult(true, 'facebook', 'connected', 'Страница подтверждена и подписана на сообщения.');
     }
 
     /**
