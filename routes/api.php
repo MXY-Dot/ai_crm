@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AiAgentController;
+use App\Http\Controllers\Api\AiAnalyticsReportController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CancellationPolicyController;
@@ -174,6 +175,8 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
     Route::middleware(ResolveTenant::class)->group(function (): void {
         Route::get('analytics', [AnalyticsController::class, 'index']);
         Route::get('analytics/knowledge-gaps', [AnalyticsController::class, 'knowledgeGaps']);
+        Route::get('analytics/reports', [AiAnalyticsReportController::class, 'index']);
+        Route::post('analytics/reports/generate', [AiAnalyticsReportController::class, 'generate'])->middleware('throttle:5,10');
         Route::get('integration-settings', [IntegrationSettingsController::class, 'show']);
         Route::patch('integration-settings', [IntegrationSettingsController::class, 'update']);
         Route::post('integration-settings/test', [IntegrationSettingsController::class, 'test'])->middleware('throttle:10,1');

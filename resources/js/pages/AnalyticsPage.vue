@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner';
 import type { AiRun, Conversation, Message } from '../stores/crmDashboard';
 import { apiRequest } from '../lib/apiClient';
 import AiPerformancePanel, { type AiPerformance } from '../components/dashboard/analytics/AiPerformancePanel.vue';
+import AiReportsPanel from '../components/dashboard/analytics/AiReportsPanel.vue';
 import AnalyticsExportMenu from '../components/dashboard/analytics/AnalyticsExportMenu.vue';
 import AnalyticsKpis from '../components/dashboard/analytics/AnalyticsKpis.vue';
 import DissatisfiedCustomersPanel, { type DissatisfiedCustomerRow } from '../components/dashboard/analytics/DissatisfiedCustomersPanel.vue';
@@ -113,6 +114,7 @@ defineOptions({ layout: AppLayout });
         <div v-else ref="exportTarget" class="space-y-6 p-1">
             <PeriodComparisonPanel v-if="compare" :current="data?.kpis ?? null" :previous="data?.previous_kpis ?? null" />
             <AnalyticsKpis data-tour="analytics-kpis" :conversations="data?.raw.conversations ?? []" :open-tasks="openTasks" :ai-runs="data?.raw.ai_runs ?? []" />
+            <AiReportsPanel :tenant-slug="tenant?.slug ?? ''" />
 
             <div class="grid gap-6 lg:grid-cols-3" data-tour="analytics-charts">
                 <DialogsTrendChart :conversations="data?.raw.conversations ?? []" />

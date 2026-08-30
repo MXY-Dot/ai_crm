@@ -11,6 +11,7 @@ use App\Models\Lead;
 use App\Models\LlmCallFailure;
 use App\Models\Message;
 use App\Models\User;
+use App\Support\Analytics\AnalyticsSnapshot;
 use App\Support\Analytics\DateRangeResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -37,7 +38,7 @@ class AnalyticsController extends Controller
 
     private const LLM_PROVIDERS = ['groq', 'openai', 'anthropic', 'google', 'deepseek'];
 
-    public function __construct(private readonly DateRangeResolver $range)
+    public function __construct(private readonly DateRangeResolver $range, private readonly AnalyticsSnapshot $snapshot)
     {
     }
 
@@ -59,19 +60,19 @@ class AnalyticsController extends Controller
             'range' => ['start' => $start->toIso8601String(), 'end' => $end->toIso8601String()],
             'previous_range' => $compare ? ['start' => $previousStart->toIso8601String(), 'end' => $previousEnd->toIso8601String()] : null,
             'raw' => $this->raw($start, $end),
-            'kpis' => $this->kpis($start, $end),
-            'previous_kpis' => $compare ? $this->kpis($previousStart, $previousEnd) : null,
+            'kpis' => $this->snapshot->kpis($start, $end),
+            'previous_kpis' => $compare ? $this->snapshot->kpis($previousStart, $previousEnd) : null,
             'message_trend' => $this->messageTrend($start, $end, $bucket),
             'leads_funnel' => $this->leadsFunnel(),
             'ai_performance' => $this->aiPerformance($start, $end),
             'llm_usage' => $this->llmUsage($start, $end),
-            'sales' => $this->sales($start, $end, $bucket),
-            'previous_sales' => $compare ? $this->sales($previousStart, $previousEnd, $bucket) : null,
+            'sales' => $this->snapshot->sales($start, $end, $bucket),
+            'previous_sales' => $compare ? $this->snapshot->sales($previousStart, $previousEnd, $bucket) : null,
             'sla' => $this->sla($start, $end),
-            'outcomes' => $this->outcomes($start, $end),
-            'sentiment' => $this->sentimentBreakdown($start, $end),
+            'outcomes' => $this->snapshot->outcomes($start, $end),
+            'sentiment' => $this->snapshot->sentimentBreakdown($start, $end),
             'dissatisfied_customers' => $this->dissatisfiedCustomers($start, $end),
-            'topics' => $this->topics($start, $end),
+            'topics' => $this->snapshot->topics($start, $end),
             'operators' => $this->operators($start, $end),
         ]);
     }
@@ -111,24 +112,6 @@ class AnalyticsController extends Controller
                 ->orderByDesc('finished_at')
                 ->limit(2000)
                 ->get(['id', 'ai_agent_id', 'conversation_id', 'lead_id', 'status', 'confidence', 'intent', 'summary', 'next_action', 'finished_at', 'payload']),
-        ];
-    }
-
-    private function kpis(Carbon $start, Carbon $end): array
-    {
-        $totalLeads = Lead::query()->count();
-        $wonLeads = Lead::query()->where('status', 'won')->count();
-        $runs = AiRun::query()->whereBetween('created_at', [$start, $end]);
-
-        return [
-            'messages' => Message::query()->whereBetween('sent_at', [$start, $end])->count(),
-            'conversations' => Conversation::query()->whereBetween('created_at', [$start, $end])->count(),
-            'total_leads' => $totalLeads,
-            'conversion_rate' => $totalLeads > 0 ? round($wonLeads / $totalLeads * 100, 1) : 0.0,
-            'ai_runs' => (clone $runs)->count(),
-            'avg_confidence' => (int) round((clone $runs)->avg('confidence') ?? 0),
-            'avg_latency_ms' => (int) round((clone $runs)->avg('latency_ms') ?? 0),
-            'ai_replacement_rate' => $this->replacementRate($runs),
         ];
     }
 
@@ -173,24 +156,8 @@ class AnalyticsController extends Controller
             'avg_confidence' => (int) round((clone $runs)->avg('confidence') ?? 0),
             'avg_latency_ms' => (int) round((clone $runs)->avg('latency_ms') ?? 0),
             'handoff_rate' => $runsCount > 0 ? round($handoffCount / $runsCount * 100, 1) : 0.0,
-            'ai_replacement_rate' => $this->replacementRate($runs),
+            'ai_replacement_rate' => $this->snapshot->replacementRate($runs),
         ];
-    }
-
-    /** Share of AI runs that did NOT require a human handoff — "AI resolved it alone." */
-    private function replacementRate(Builder $runs): float
-    {
-        $total = (clone $runs)->count();
-
-        if ($total === 0) {
-            return 0.0;
-        }
-
-        $resolved = (clone $runs)->where(function ($query): void {
-            $query->whereNull('payload->handoff_required')->orWhere('payload->handoff_required', false);
-        })->count();
-
-        return round($resolved / $total * 100, 1);
     }
 
     /** 19.4 Groq/LLM Performance Analytics — per provider, always all 5 in a fixed order even at zero. */
@@ -229,45 +196,6 @@ class AnalyticsController extends Controller
         })->values()->all();
     }
 
-    /** 19.5 Sales Analytics. */
-    private function sales(Carbon $start, Carbon $end, string $bucket): array
-    {
-        $wonInRange = Lead::query()->where('status', 'won')->whereBetween('won_at', [$start, $end]);
-        $totalRevenue = (float) (clone $wonInRange)->sum('amount');
-        $wonCount = (clone $wonInRange)->count();
-
-        $funnel = Lead::query()->selectRaw('status, count(*) as count, sum(amount) as amount_sum')->groupBy('status')->get()->keyBy('status');
-
-        $bySource = Lead::query()
-            ->selectRaw("coalesce(source, 'unknown') as source, count(*) as count")
-            ->groupBy('source')
-            ->orderByDesc('count')
-            ->get();
-
-        $column = $bucket === 'hour' ? 'extract(hour from won_at)' : 'DATE(won_at)';
-        $trendRows = (clone $wonInRange)
-            ->selectRaw("{$column} as bucket_key, sum(amount) as amount")
-            ->groupBy('bucket_key')
-            ->get()
-            ->mapWithKeys(fn ($row) => [$bucket === 'hour' ? (int) $row->bucket_key : (string) $row->bucket_key => (float) $row->amount]);
-
-        return [
-            'total_revenue' => $totalRevenue,
-            'won_count' => $wonCount,
-            'avg_deal_size' => $wonCount > 0 ? round($totalRevenue / $wonCount, 2) : 0.0,
-            'funnel' => collect(self::LEAD_STATUSES)->map(fn (string $status) => [
-                'status' => $status,
-                'count' => (int) ($funnel[$status]->count ?? 0),
-                'amount_sum' => (float) ($funnel[$status]->amount_sum ?? 0),
-            ])->values()->all(),
-            'by_source' => $bySource->map(fn ($row) => ['source' => $row->source, 'count' => (int) $row->count])->values()->all(),
-            'trend' => array_map(
-                fn (array $point): array => ['date' => $point['date'], 'label' => $point['label'], 'amount' => round($point['value'], 2)],
-                $this->range->fillSeries($start, $end, $bucket, $trendRows->all()),
-            ),
-        ];
-    }
-
     /**
      * ЭТАП 13.6 — real measured numbers only, no invented SLA target/threshold.
      * "Time to first response" is approximated as first_response_at minus the
@@ -296,44 +224,6 @@ class AnalyticsController extends Controller
             'avg_resolution_hours' => $avgResolutionSeconds !== null ? round($avgResolutionSeconds / 3600, 1) : null,
             'resolved_count' => (clone $resolved)->count(),
         ];
-    }
-
-    /** ТЗ раздел 3 — распределение результатов диалогов, только ненулевые. */
-    private function outcomes(Carbon $start, Carbon $end): array
-    {
-        $counts = ConversationAnalysis::query()
-            ->whereBetween('analyzed_at', [$start, $end])
-            ->selectRaw('outcome, count(*) as count')
-            ->groupBy('outcome')
-            ->pluck('count', 'outcome');
-        $total = (int) $counts->sum();
-
-        return collect(ConversationAnalysis::OUTCOMES)
-            ->map(fn (string $outcome): array => [
-                'outcome' => $outcome,
-                'count' => (int) ($counts[$outcome] ?? 0),
-                'percent' => $total > 0 ? round(((int) ($counts[$outcome] ?? 0)) / $total * 100, 1) : 0.0,
-            ])
-            ->filter(fn (array $row): bool => $row['count'] > 0)
-            ->values()
-            ->all();
-    }
-
-    /** ТЗ раздел 5 — распределение настроения клиентов на конец диалога. */
-    private function sentimentBreakdown(Carbon $start, Carbon $end): array
-    {
-        $counts = ConversationAnalysis::query()
-            ->whereBetween('analyzed_at', [$start, $end])
-            ->selectRaw('sentiment, count(*) as count')
-            ->groupBy('sentiment')
-            ->pluck('count', 'sentiment');
-        $total = (int) $counts->sum();
-
-        return collect(ConversationAnalysis::SENTIMENTS)->map(fn (string $sentiment): array => [
-            'sentiment' => $sentiment,
-            'count' => (int) ($counts[$sentiment] ?? 0),
-            'percent' => $total > 0 ? round(((int) ($counts[$sentiment] ?? 0)) / $total * 100, 1) : 0.0,
-        ])->values()->all();
     }
 
     /** ТЗ раздел 6 — «Клиенты, требующие внимания». */
@@ -371,47 +261,6 @@ class AnalyticsController extends Controller
             ])
             ->values()
             ->all();
-    }
-
-    /**
-     * ТЗ разделы 7-8 — актуальные и новые вопросы, из `AiRun.intent` (уже
-     * извлекается на каждый ответ AI, отдельная кластеризация не нужна).
-     * `is_new` = тема не встречалась в предыдущем периоде такой же длины.
-     */
-    private function topics(Carbon $start, Carbon $end): array
-    {
-        $current = AiRun::query()
-            ->whereBetween('created_at', [$start, $end])
-            ->whereNotNull('intent')
-            ->where('intent', '!=', '')
-            ->selectRaw('intent, count(*) as count')
-            ->groupBy('intent')
-            ->orderByDesc('count')
-            ->limit(15)
-            ->pluck('count', 'intent');
-
-        [$prevStart, $prevEnd] = $this->range->previousPeriod($start, $end);
-        $previous = AiRun::query()
-            ->whereBetween('created_at', [$prevStart, $prevEnd])
-            ->whereNotNull('intent')
-            ->where('intent', '!=', '')
-            ->selectRaw('intent, count(*) as count')
-            ->groupBy('intent')
-            ->pluck('count', 'intent');
-
-        $total = (int) $current->sum();
-
-        return $current->map(function (int $count, string $intent) use ($previous, $total): array {
-            $previousCount = (int) ($previous[$intent] ?? 0);
-
-            return [
-                'topic' => $intent,
-                'count' => $count,
-                'percent' => $total > 0 ? round($count / $total * 100, 1) : 0.0,
-                'change_percent' => $previousCount > 0 ? round((($count - $previousCount) / $previousCount) * 100, 1) : ($count > 0 ? 100.0 : 0.0),
-                'is_new' => $previousCount === 0 && $count > 0,
-            ];
-        })->values()->all();
     }
 
     /** ТЗ раздел 12 — статистика по операторам (диалоги с назначенным сотрудником). */
