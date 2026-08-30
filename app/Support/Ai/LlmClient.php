@@ -216,7 +216,7 @@ class LlmClient
      *
      * @return array{text: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float}|null
      */
-    public function complete(Tenant $tenant, string $provider, string $model, string $systemPrompt, string $userPrompt): ?array
+    public function complete(Tenant $tenant, string $provider, string $model, string $systemPrompt, string $userPrompt, int $maxTokens = 600): ?array
     {
         $apiKey = $this->apiKey($tenant, $provider);
 
@@ -247,9 +247,9 @@ class LlmClient
 
         try {
             $result = match ($provider) {
-                'openai', 'deepseek', 'groq' => $this->completeOpenAiCompatible($provider, $apiKey, $model, $systemPrompt, $userPrompt),
-                'anthropic' => $this->completeAnthropic($apiKey, $model, $systemPrompt, $userPrompt),
-                'google' => $this->completeGoogle($apiKey, $model, $systemPrompt, $userPrompt),
+                'openai', 'deepseek', 'groq' => $this->completeOpenAiCompatible($provider, $apiKey, $model, $systemPrompt, $userPrompt, $maxTokens),
+                'anthropic' => $this->completeAnthropic($apiKey, $model, $systemPrompt, $userPrompt, $maxTokens),
+                'google' => $this->completeGoogle($apiKey, $model, $systemPrompt, $userPrompt, $maxTokens),
                 default => null,
             };
         } catch (ProviderRateLimitedException) {
@@ -402,7 +402,7 @@ class LlmClient
      *
      * @return array{text: ?string, tokens_in: ?int, tokens_out: ?int}|null
      */
-    private function completeOpenAiCompatible(string $provider, string $apiKey, string $model, string $systemPrompt, string $userPrompt): ?array
+    private function completeOpenAiCompatible(string $provider, string $apiKey, string $model, string $systemPrompt, string $userPrompt, int $maxTokens = 600): ?array
     {
         $baseUrl = self::OPENAI_COMPATIBLE_BASE_URLS[$provider];
         $response = Http::timeout(15)->connectTimeout(4)->retry(2, 500)->acceptJson()->withToken($apiKey)
@@ -413,7 +413,7 @@ class LlmClient
                     ['role' => 'user', 'content' => $userPrompt],
                 ],
                 'temperature' => 0.4,
-                'max_tokens' => 600,
+                'max_tokens' => $maxTokens,
             ]);
 
         if ($response->status() === 429) {
@@ -439,7 +439,7 @@ class LlmClient
     /**
      * @return array{text: ?string, tokens_in: ?int, tokens_out: ?int}|null
      */
-    private function completeAnthropic(string $apiKey, string $model, string $systemPrompt, string $userPrompt): ?array
+    private function completeAnthropic(string $apiKey, string $model, string $systemPrompt, string $userPrompt, int $maxTokens = 600): ?array
     {
         $response = Http::timeout(15)->connectTimeout(4)->retry(2, 500)->acceptJson()
             ->withHeaders(['x-api-key' => $apiKey, 'anthropic-version' => '2023-06-01'])
@@ -449,7 +449,7 @@ class LlmClient
                 'messages' => [
                     ['role' => 'user', 'content' => $userPrompt],
                 ],
-                'max_tokens' => 600,
+                'max_tokens' => $maxTokens,
                 'temperature' => 0.4,
             ]);
 
@@ -476,7 +476,7 @@ class LlmClient
     /**
      * @return array{text: ?string, tokens_in: ?int, tokens_out: ?int}|null
      */
-    private function completeGoogle(string $apiKey, string $model, string $systemPrompt, string $userPrompt): ?array
+    private function completeGoogle(string $apiKey, string $model, string $systemPrompt, string $userPrompt, int $maxTokens = 600): ?array
     {
         $response = Http::timeout(15)->connectTimeout(4)->retry(2, 500)->acceptJson()
             ->post('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent?key='.urlencode($apiKey), [
@@ -484,7 +484,7 @@ class LlmClient
                 'contents' => [
                     ['role' => 'user', 'parts' => [['text' => $userPrompt]]],
                 ],
-                'generationConfig' => ['temperature' => 0.4, 'maxOutputTokens' => 600],
+                'generationConfig' => ['temperature' => 0.4, 'maxOutputTokens' => $maxTokens],
             ]);
 
         if ($response->status() === 429) {

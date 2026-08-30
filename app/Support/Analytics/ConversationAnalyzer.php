@@ -22,6 +22,16 @@ class ConversationAnalyzer
 
     private const MAX_BODY_LENGTH = 500;
 
+    // The response packs 9 fields, several free-text (summary, unhappy_reason,
+    // customer_wanted, ai_action, operator_action, recommendation) — LlmClient's
+    // default 600 (tuned for a short chat reply) is tight for that, especially
+    // in Russian/Tajik where Cyrillic tokenizes less densely than English. Seen
+    // live: "ConversationAnalyzer: could not parse LLM JSON" on tenant 5's
+    // conversation #58, most likely the response getting cut off mid-string
+    // (both json_decode attempts in parseJson() below failed, which a
+    // truncated/unterminated string would explain) rather than a quoting issue.
+    private const MAX_RESPONSE_TOKENS = 1500;
+
     public function __construct(
         private readonly LlmClient $llm,
         private readonly PlatformSettings $platform,
@@ -58,13 +68,14 @@ class ConversationAnalyzer
 
         $provider = $this->platform->primaryLlmProvider();
         $model = $this->platform->defaultModel();
-        $result = $this->llm->complete($tenant, $provider, $model, $systemPrompt, $userPrompt);
+        $result = $this->llm->complete($tenant, $provider, $model, $systemPrompt, $userPrompt, self::MAX_RESPONSE_TOKENS);
 
         if ($result === null) {
             $backupProvider = $this->platform->backupLlmProvider();
             if ($backupProvider) {
                 $backupModel = $this->platform->defaultModelFor($backupProvider);
-                $result = $this->llm->complete($tenant, $backupProvider, $backupModel, $systemPrompt, $userPrompt);
+                $result = $this->llm->complete($tenant, $backupProvider, $backupModel, $systemPrompt, $userPrompt, self::MAX_RESPONSE_TOKENS);
+                $provider = $backupProvider;
                 $model = $backupModel;
             }
         }
@@ -78,7 +89,18 @@ class ConversationAnalyzer
         $data = $this->parseJson($result['text']);
 
         if ($data === null) {
-            Log::warning('ConversationAnalyzer: could not parse LLM JSON', ['conversation_id' => $conversation->id, 'raw' => Str::limit($result['text'], 300)]);
+            // Kept short before (300 chars) purely for log-noise reasons, but that
+            // meant every past failure's log entry was itself too truncated to ever
+            // diagnose why parsing failed — json_last_error_msg() plus a much longer
+            // preview turns the next occurrence into an actual, fixable finding.
+            Log::warning('ConversationAnalyzer: could not parse LLM JSON', [
+                'conversation_id' => $conversation->id,
+                'provider' => $provider,
+                'model' => $model,
+                'json_error' => json_last_error_msg(),
+                'text_length' => mb_strlen($result['text']),
+                'raw' => Str::limit($result['text'], 4000),
+            ]);
 
             return null;
         }
@@ -156,13 +178,67 @@ PROMPT;
             return $decoded;
         }
 
-        if (preg_match('/\{.*\}/s', $text, $matches)) {
-            $decoded = json_decode($matches[0], true);
-
-            return is_array($decoded) ? $decoded : null;
+        if (! preg_match('/\{.*\}/s', $text, $matches)) {
+            return null;
         }
 
-        return null;
+        $candidate = $matches[0];
+        $decoded = json_decode($candidate, true);
+
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        // Models frequently write a literal newline/tab inside a string value
+        // (e.g. a multi-sentence "summary") instead of escaping it as \n — fine
+        // as plain text, but RFC 8259 requires control characters inside a JSON
+        // string to be escaped, so json_decode correctly rejects it as-is.
+        // Escaping only the control characters actually inside a string (not the
+        // pretty-printing whitespace between tokens) recovers this without
+        // touching anything that was already valid.
+        $decoded = json_decode($this->escapeControlCharsInStrings($candidate), true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private function escapeControlCharsInStrings(string $json): string
+    {
+        $result = '';
+        $inString = false;
+        $escaped = false;
+
+        foreach (str_split($json) as $char) {
+            if ($inString && $escaped) {
+                $result .= $char;
+                $escaped = false;
+                continue;
+            }
+
+            if ($inString && $char === '\\') {
+                $result .= $char;
+                $escaped = true;
+                continue;
+            }
+
+            if ($char === '"') {
+                $inString = ! $inString;
+                $result .= $char;
+                continue;
+            }
+
+            if ($inString && ($char === "\n" || $char === "\r" || $char === "\t")) {
+                $result .= match ($char) {
+                    "\n" => '\\n',
+                    "\r" => '\\r',
+                    default => '\\t',
+                };
+                continue;
+            }
+
+            $result .= $char;
+        }
+
+        return $result;
     }
 
     private function pickEnum(mixed $value, array $allowed, string $default): string
