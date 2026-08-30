@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\KnowledgeDocumentController;
 use App\Http\Controllers\Api\LanguageExampleController;
 use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\MetaOAuthController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SuperAdminAnalyticsController;
@@ -263,5 +264,17 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('bookings/{booking}/payment-proof', [BookingController::class, 'storePaymentProof'])->middleware('throttle:20,1');
         Route::patch('bookings/{booking}/payment-proof/{paymentProof}', [BookingController::class, 'reviewPaymentProof']);
         Route::post('bookings/{booking}/gateway-payment', [BookingController::class, 'initiateGatewayPayment'])->middleware('throttle:20,1');
+
+        Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
+        Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');
     });
+
+    // Meta redirects the browser straight back here after the consent dialog —
+    // it never carries our ?tenant_id= convention, only whatever we put in the
+    // registered redirect_uri/state, so these sit outside ResolveTenant and
+    // recover the tenant from the session MetaOAuthController::*Start() stashed.
+    Route::get('oauth/facebook/callback', [MetaOAuthController::class, 'facebookCallback']);
+    Route::get('oauth/facebook/pages', [MetaOAuthController::class, 'facebookPages']);
+    Route::post('oauth/facebook/select-page', [MetaOAuthController::class, 'facebookSelectPage'])->middleware('throttle:10,1');
+    Route::get('oauth/instagram/callback', [MetaOAuthController::class, 'instagramCallback']);
 });

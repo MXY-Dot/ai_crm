@@ -5,11 +5,19 @@ import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import InstagramIcon from '../../icons/InstagramIcon.vue';
 import type { IntegrationSettings } from '../../../stores/crmDashboard';
 
 const props = defineProps<{ settings: IntegrationSettings['instagram'] | null; busy: boolean }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
+
+/**
+ * Full browser navigation (not fetch) -- Instagram's own consent dialog and
+ * the redirect chain back have to happen in the actual address bar. See
+ * MetaOAuthController::instagramStart().
+ */
+const connectUrl = computed(() => `/api/oauth/instagram/start?tenant_id=${encodeURIComponent(store.tenant?.slug ?? '')}`);
 
 const form = reactive({ pageAccessToken: '', businessAccountId: props.settings?.business_account_id ?? '' });
 const testing = computed(() => store.busy);
@@ -31,6 +39,11 @@ async function testConnection(): Promise<void> {
 
 <template>
     <form class="space-y-3" @submit.prevent="save">
+        <Button as="a" :href="connectUrl" size="sm" variant="primary" class="w-full">
+            <InstagramIcon class="h-4 w-4" /> Подключить через Instagram
+        </Button>
+        <p class="text-center text-xs ui-subtle">или вставьте токен вручную —</p>
+
         <label class="block text-sm">
             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Page access token</span>
             <Input v-model="form.pageAccessToken" type="password" placeholder="Токен связанной Facebook-страницы" autocomplete="new-password" />
