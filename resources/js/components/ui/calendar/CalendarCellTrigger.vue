@@ -21,7 +21,7 @@ const forwardedProps = useForwardProps(delegatedProps)
       '[&[data-today]:not([data-selected])]:bg-accent [&[data-today]:not([data-selected])]:text-accent-foreground',
       'data-[selected]:bg-primary data-[selected]:text-primary-foreground data-[selected]:opacity-100 data-[selected]:hover:bg-primary data-[selected]:hover:text-primary-foreground data-[selected]:focus:bg-primary data-[selected]:focus:text-primary-foreground',
       'data-[disabled]:text-muted-foreground data-[disabled]:opacity-50',
-      'data-[unavailable]:text-destructive data-[unavailable]:line-through',
+      'data-[unavailable]:text-muted-foreground data-[unavailable]:opacity-40 data-[unavailable]:pointer-events-none data-[unavailable]:hover:bg-transparent',
       'data-[outside-view]:text-muted-foreground data-[outside-view]:opacity-50 [&[data-outside-view][data-selected]]:bg-accent/50 [&[data-outside-view][data-selected]]:text-muted-foreground [&[data-outside-view][data-selected]]:opacity-30',
       props.class,
     )"
