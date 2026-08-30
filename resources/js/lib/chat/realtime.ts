@@ -123,7 +123,10 @@ export class PollingChatRealtimeTransport implements ChatRealtimeTransport {
     }
 }
 
-type EchoChannel = { listen(event: string, callback: (payload: unknown) => void): EchoChannel };
+type EchoChannel = {
+    listen(event: string, callback: (payload: unknown) => void): EchoChannel;
+    stopListening(event: string, callback?: (payload: unknown) => void): EchoChannel;
+};
 
 /**
  * Message delivery over the Reverb WebSocket (see App\Events\MessageCreated /
@@ -136,6 +139,7 @@ export class WebSocketChatRealtimeTransport implements ChatRealtimeTransport {
     private readonly typingTransport: PollingChatRealtimeTransport;
     private conversationChannels = new Map<number, EchoChannel>();
     private tenantChannel: EchoChannel | null = null;
+    private tenantChannelListener: ((payload: unknown) => void) | null = null;
     private watchedTenantId: number | null = null;
     private watchedLastSeen = new Map<number, number>();
     private messageHandlers: Array<(conversationId: number, message: ChatMessage) => void> = [];
@@ -157,11 +161,21 @@ export class WebSocketChatRealtimeTransport implements ChatRealtimeTransport {
             this.unwatchConversation(conversationId);
         }
 
-        if (this.tenantChannel && this.watchedTenantId !== null) {
-            getEcho().leave(`tenant.${this.watchedTenantId}.conversations`);
-            this.tenantChannel = null;
-            this.watchedTenantId = null;
+        // Deliberately NOT getEcho().leave() here: this tenant-wide channel is shared
+        // with useUnreadStore, which subscribes to the exact same channel name for the
+        // whole session (started once in AppLayout.vue) — Echo dedupes same-named
+        // channels into one underlying subscription, so leave() here used to tear the
+        // whole thing down, silently killing the unread store's own listener the first
+        // time an operator opened then left /inbox, for the rest of the session (found
+        // live: notifications only ever fired for whichever channel/provider was tested
+        // before /inbox was ever opened once). stopListening() removes only this
+        // transport's own callback and leaves the shared channel intact.
+        if (this.tenantChannel && this.tenantChannelListener) {
+            this.tenantChannel.stopListening('.message.created', this.tenantChannelListener);
         }
+        this.tenantChannel = null;
+        this.tenantChannelListener = null;
+        this.watchedTenantId = null;
     }
 
     watchConversation(conversationId: number, lastMessageId: number): void {
@@ -221,12 +235,15 @@ export class WebSocketChatRealtimeTransport implements ChatRealtimeTransport {
         const id = this.tenantId();
         if (! id || this.tenantChannel) return;
 
+        const listener = (payload: unknown): void => {
+            const message = (payload as { message: ChatMessage }).message;
+            this.conversationTouchedHandlers.forEach((handler) => handler(message.conversation_id, message));
+        };
+
         this.tenantChannel = getEcho()
             .private(`tenant.${id}.conversations`)
-            .listen('.message.created', (payload) => {
-                const message = (payload as { message: ChatMessage }).message;
-                this.conversationTouchedHandlers.forEach((handler) => handler(message.conversation_id, message));
-            }) as unknown as EchoChannel;
+            .listen('.message.created', listener) as unknown as EchoChannel;
+        this.tenantChannelListener = listener;
 
         this.watchedTenantId = id;
     }
