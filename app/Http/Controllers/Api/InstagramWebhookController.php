@@ -79,6 +79,8 @@ class InstagramWebhookController extends Controller
         $messageId = (string) Arr::get($event, 'message.mid', sha1(json_encode($event)));
         $attachment = $this->downloadAttachment($tenant, $event, $instagram);
         $content = $this->content($event, $attachment);
+        $profile = $instagram->getUserProfile($tenant, $igsid);
+        $displayName = (string) (Arr::get($profile, 'name') ?: Arr::get($profile, 'username') ?: 'Instagram user');
 
         return [
             'event' => 'instagram_message',
@@ -91,8 +93,9 @@ class InstagramWebhookController extends Controller
                 'priority' => 'normal',
             ],
             'sender' => [
-                'name' => 'Instagram user',
+                'name' => $displayName,
                 'type' => 'customer',
+                'avatar_url' => Arr::get($profile, 'profile_pic'),
             ],
             'message' => [
                 'id' => 'instagram-'.$igsid.'-'.$messageId,

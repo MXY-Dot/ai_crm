@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Mail, Phone, Sparkles, SquareArrowOutUpRight } from '@lucide/vue';
 import type { Conversation } from '../../../stores/crmDashboard';
-import { Avatar, AvatarFallback } from '../../ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import ConversationAnalysisPanel from './ConversationAnalysisPanel.vue';
@@ -23,7 +23,10 @@ function initials(name: string): string {
 <template>
     <div class="flex h-full flex-col overflow-y-auto">
         <div class="flex flex-col items-center border-b p-5 text-center border-border">
-            <Avatar class="mb-3 size-16"><AvatarFallback class="text-xl">{{ initials(conversation.customer?.name ?? '?') }}</AvatarFallback></Avatar>
+            <Avatar class="mb-3 size-16">
+                <AvatarImage v-if="conversation.customer?.avatar_url" :src="conversation.customer.avatar_url" alt="" />
+                <AvatarFallback class="text-xl">{{ initials(conversation.customer?.name ?? '?') }}</AvatarFallback>
+            </Avatar>
             <h2 class="font-display text-base font-semibold ui-text">{{ conversation.customer?.name ?? locale.t('common.unknown') }}</h2>
             <p class="mt-1 text-xs ui-subtle">{{ conversation.channel?.name }}</p>
         </div>

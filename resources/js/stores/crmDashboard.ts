@@ -74,7 +74,7 @@ export type Conversation = {
     ai_summary: string | null;
     labels?: string[] | null;
     channel?: { id: number; provider: string; name: string } | null;
-    customer?: { id: number; name: string } | null;
+    customer?: { id: number; name: string; avatar_url?: string | null } | null;
     lead?: { id: number; title: string } | null;
 };
 

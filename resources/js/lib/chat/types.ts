@@ -35,7 +35,7 @@ export type ChatConversation = Conversation & {
     assigned_user: { id: number; name: string } | null;
     /** Personal to the requesting operator — see ConversationController::pin()/unpin(). Independent of `assigned_user`. */
     is_pinned: boolean;
-    customer: { id: number; name: string; phone: string | null } | null;
+    customer: { id: number; name: string; phone: string | null; avatar_url?: string | null } | null;
     unread_count: number;
 };
 

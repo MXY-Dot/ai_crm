@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { CheckCircle2, Menu, Tag, UserCheck, X } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
 import { useCrmDashboardStore } from '@/stores/crmDashboard';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,6 +85,7 @@ function removeLabel(value: string): void {
                 @click="$emit('open-info')"
             >
                 <Avatar class="size-9">
+                    <AvatarImage v-if="conversation.customer?.avatar_url" :src="conversation.customer.avatar_url" alt="" />
                     <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial }}</AvatarFallback>
                 </Avatar>
                 <div class="min-w-0">

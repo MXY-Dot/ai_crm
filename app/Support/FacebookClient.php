@@ -78,6 +78,31 @@ class FacebookClient
         return is_array($json) ? $json : [];
     }
 
+    /**
+     * The webhook payload only ever carries the sender's PSID, never a name — see
+     * InstagramClient::getUserProfile()'s identical rationale (both ride the same
+     * Messenger Platform "User Profile API"). Best-effort: never throws, so a
+     * profile-lookup failure never blocks ingesting the actual message.
+     */
+    public function getUserProfile(Tenant $tenant, string $psid): array
+    {
+        $token = $this->settings->facebookPageAccessToken($tenant);
+        if ($token === '') {
+            return [];
+        }
+
+        try {
+            $response = $this->http()->get(self::API_BASE.'/'.$psid, [
+                'fields' => 'first_name,last_name,profile_pic',
+                'access_token' => $token,
+            ]);
+        } catch (Throwable) {
+            return [];
+        }
+
+        return $response->successful() ? (array) $response->json() : [];
+    }
+
     /** Messenger's inbound attachment URL is directly fetchable, no bearer token needed — unlike Telegram/WhatsApp's two-hop resolve. */
     public function downloadAttachmentUrl(string $url): string
     {

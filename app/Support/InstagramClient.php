@@ -81,6 +81,33 @@ class InstagramClient
         return is_array($json) ? $json : [];
     }
 
+    /**
+     * The webhook payload only ever carries the sender's IGSID, never a name — this is
+     * the only way to learn who's actually messaging (matches Messenger Platform's own
+     * "User Profile API": name/username/profile_pic for anyone who's messaged the
+     * business, https://developers.facebook.com/docs/messenger-platform/instagram/features/user-profile).
+     * Best-effort: returns an empty array (never throws) so a profile-lookup failure
+     * never blocks ingesting the actual message.
+     */
+    public function getUserProfile(Tenant $tenant, string $igsid): array
+    {
+        $token = $this->settings->instagramPageAccessToken($tenant);
+        if ($token === '') {
+            return [];
+        }
+
+        try {
+            $response = $this->http()->get(self::API_BASE.'/'.$igsid, [
+                'fields' => 'name,username,profile_pic',
+                'access_token' => $token,
+            ]);
+        } catch (Throwable) {
+            return [];
+        }
+
+        return $response->successful() ? (array) $response->json() : [];
+    }
+
     /** Instagram's inbound attachment URL is directly fetchable, same as Messenger. */
     public function downloadAttachmentUrl(string $url): string
     {

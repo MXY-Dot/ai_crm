@@ -4,13 +4,14 @@ import type { Component } from 'vue';
 import { ChevronLeft, ChevronRight, Globe2, Pin, PinOff } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
 import type { ChatConversation } from '@/lib/chat/types';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import SearchInput from '@/components/dashboard/SearchInput.vue';
+import FacebookIcon from '@/components/icons/FacebookIcon.vue';
 import InstagramIcon from '@/components/icons/InstagramIcon.vue';
 import TelegramIcon from '@/components/icons/TelegramIcon.vue';
 import WhatsappIcon from '@/components/icons/WhatsappIcon.vue';
@@ -33,6 +34,7 @@ const channelIcons: Record<string, Component> = {
     telegram: TelegramIcon,
     whatsapp: WhatsappIcon,
     instagram: InstagramIcon,
+    facebook: FacebookIcon,
     website: Globe2,
     web: Globe2,
 };
@@ -45,6 +47,7 @@ const channelRingColors: Record<string, string> = {
     telegram: 'ring-[var(--brand-telegram)]/50',
     whatsapp: 'ring-[var(--brand-whatsapp)]/50',
     instagram: 'ring-[var(--brand-instagram-to)]/50',
+    facebook: 'ring-[var(--brand-facebook)]/50',
     website: 'ring-[var(--brand-website)]/50',
     web: 'ring-[var(--brand-website)]/50',
 };
@@ -113,6 +116,7 @@ function labelTone(value: string): 'green' | 'blue' | 'amber' | 'neutral' {
                             >
                                 <div class="relative shrink-0">
                                     <Avatar class="size-10 ring-2 ring-offset-2 ring-offset-card" :class="channelRing(conversation)">
+                                        <AvatarImage v-if="conversation.customer?.avatar_url" :src="conversation.customer.avatar_url" alt="" />
                                         <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial(conversation) }}</AvatarFallback>
                                     </Avatar>
                                     <Tooltip>

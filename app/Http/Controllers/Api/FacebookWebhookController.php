@@ -83,6 +83,8 @@ class FacebookWebhookController extends Controller
         $repliedId = Arr::get($event, 'message.reply_to.mid');
         $attachment = $this->downloadAttachment($tenant, $event, $facebook);
         $content = $this->content($event, $attachment);
+        $profile = $facebook->getUserProfile($tenant, $psid);
+        $displayName = trim(Arr::get($profile, 'first_name', '').' '.Arr::get($profile, 'last_name', '')) ?: 'Facebook user';
 
         return [
             'event' => 'facebook_message',
@@ -95,8 +97,9 @@ class FacebookWebhookController extends Controller
                 'priority' => 'normal',
             ],
             'sender' => [
-                'name' => 'Facebook user',
+                'name' => $displayName,
                 'type' => 'customer',
+                'avatar_url' => Arr::get($profile, 'profile_pic'),
             ],
             'message' => [
                 'id' => 'facebook-'.$psid.'-'.$messageId,

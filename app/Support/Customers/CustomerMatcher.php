@@ -25,7 +25,7 @@ class CustomerMatcher
     /**
      * @param array<string, mixed> $meta
      */
-    public function findOrCreate(Tenant $tenant, Company $company, ?string $name, ?string $phone, ?string $email, string $source, array $meta = []): Customer
+    public function findOrCreate(Tenant $tenant, Company $company, ?string $name, ?string $phone, ?string $email, string $source, array $meta = [], ?string $avatarUrl = null): Customer
     {
         $query = Customer::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
@@ -51,6 +51,7 @@ class CustomerMatcher
             'email' => $email,
             'source' => $source,
             'meta' => $meta ?: null,
+            'avatar_url' => $avatarUrl,
         ], fn ($value) => $value !== null);
 
         if ($customer) {

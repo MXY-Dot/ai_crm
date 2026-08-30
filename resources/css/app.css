@@ -58,6 +58,7 @@
     --brand-instagram-via: #dc2743;
     --brand-instagram-to: #bc1888;
     --brand-website: #2563eb;
+    --brand-facebook: #0866ff;
 }
 
 :root[data-theme='light'] {
@@ -265,6 +266,7 @@ summary,
     --color-brand-instagram-via: var(--brand-instagram-via);
     --color-brand-instagram-to: var(--brand-instagram-to);
     --color-brand-website: var(--brand-website);
+    --color-brand-facebook: var(--brand-facebook);
     --radius-sm: calc(var(--radius) - 4px);
     --radius-md: calc(var(--radius) - 2px);
     --radius-lg: var(--radius);

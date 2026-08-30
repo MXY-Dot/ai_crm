@@ -35,17 +35,21 @@ class ConversationAttachmentController extends Controller
         $mime = $data['file']->getClientMimeType();
         $size = $data['file']->getSize();
 
-        // Browser voice recordings come out as webm/opus, which Telegram's sendVoice
-        // rejects (it only accepts an Ogg/Opus container) — remux to .ogg here, once,
-        // at upload time, so both the CRM's own playback and the later Telegram send
-        // (ConversationReplyController) work off the same Telegram-compatible file.
+        // Browser voice recordings come out as webm/opus, which no destination
+        // platform accepts as-is — remux once at upload time, choosing the container
+        // the conversation's own provider actually requires (see remuxForProvider()):
+        // Ogg/Opus for Telegram/WhatsApp, AAC/M4A for Instagram/Facebook (Messenger
+        // Platform's Send API rejects Ogg/Opus outright — found live: real send
+        // attempts came back HTTP 400 "Формат вложения не поддерживается", error
+        // code 100/2534080, even though the exact same file was already valid and
+        // working for WhatsApp).
         if ($data['type'] === 'voice') {
-            $remuxed = $this->remuxToOggOpus($tenant->id, $path);
+            $provider = $conversation->loadMissing('channel')->channel?->provider;
+            $remuxed = $this->remuxForProvider($tenant->id, $path, $provider);
 
             if ($remuxed) {
-                $path = $remuxed;
-                $filename = pathinfo($filename, PATHINFO_FILENAME).'.ogg';
-                $mime = 'audio/ogg';
+                [$path, $mime, $extension] = $remuxed;
+                $filename = pathinfo($filename, PATHINFO_FILENAME).'.'.$extension;
                 $size = Storage::disk('public')->size($path);
             }
         }
@@ -60,8 +64,28 @@ class ConversationAttachmentController extends Controller
         ], 201);
     }
 
-    /** @return string|null the new .ogg storage path, or null if ffmpeg failed (caller falls back to the original file) */
-    private function remuxToOggOpus(int $tenantId, string $sourcePath): ?string
+    /**
+     * @return array{0: string, 1: string, 2: string}|null [storage path, mime, extension], or
+     *   null if ffmpeg failed (caller falls back to the original webm/opus recording)
+     */
+    private function remuxForProvider(int $tenantId, string $sourcePath, ?string $provider): ?array
+    {
+        // Messenger Platform (Instagram Direct + Facebook Messenger share the same Send
+        // API) rejects Ogg/Opus outright for the `audio` attachment type -- confirmed
+        // live via a direct API call: HTTP 400, "Формат вложения не поддерживается"
+        // (error code 100, subcode 2534080). Everything else (WhatsApp, Telegram) wants
+        // Ogg/Opus -- see the voip/vbr flags below, themselves found live the same way
+        // for WhatsApp specifically. AAC-in-M4A is Messenger's own documented supported
+        // format and plays fine in the CRM's own <audio> preview either way, so there's
+        // no downside to picking the right one per provider instead of one for all.
+        return match ($provider) {
+            'instagram', 'facebook' => $this->remuxToAac($tenantId, $sourcePath),
+            default => $this->remuxToOggOpus($tenantId, $sourcePath),
+        };
+    }
+
+    /** @return array{0: string, 1: string, 2: string}|null [storage path, mime, extension] */
+    private function remuxToOggOpus(int $tenantId, string $sourcePath): ?array
     {
         $sourceAbsolute = Storage::disk('public')->path($sourcePath);
         $targetRelative = 'attachments/'.$tenantId.'/'.pathinfo($sourcePath, PATHINFO_FILENAME).'.ogg';
@@ -96,6 +120,30 @@ class ConversationAttachmentController extends Controller
 
         Storage::disk('public')->delete($sourcePath);
 
-        return $targetRelative;
+        return [$targetRelative, 'audio/ogg', 'ogg'];
+    }
+
+    /** @return array{0: string, 1: string, 2: string}|null [storage path, mime, extension] */
+    private function remuxToAac(int $tenantId, string $sourcePath): ?array
+    {
+        $sourceAbsolute = Storage::disk('public')->path($sourcePath);
+        $targetRelative = 'attachments/'.$tenantId.'/'.pathinfo($sourcePath, PATHINFO_FILENAME).'.m4a';
+        $targetAbsolute = Storage::disk('public')->path($targetRelative);
+
+        $result = Process::timeout(20)->run([
+            'ffmpeg', '-y', '-i', $sourceAbsolute,
+            '-vn', '-ac', '1', '-ar', '44100', '-c:a', 'aac', '-b:a', '64k',
+            $targetAbsolute,
+        ]);
+
+        if (! $result->successful()) {
+            Log::warning('Voice note ffmpeg remux to aac/m4a failed', ['error' => $result->errorOutput()]);
+
+            return null;
+        }
+
+        Storage::disk('public')->delete($sourcePath);
+
+        return [$targetRelative, 'audio/mp4', 'm4a'];
     }
 }

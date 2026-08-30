@@ -49,7 +49,7 @@ class ConversationController extends Controller
         $label = trim((string) $request->query('label', ''));
 
         $query = Conversation::withoutGlobalScopes()
-            ->with(['channel:id,provider,name', 'customer:id,name,phone', 'lead:id,title', 'assignedUser:id,name'])
+            ->with(['channel:id,provider,name', 'customer:id,name,phone,avatar_url', 'lead:id,title', 'assignedUser:id,name'])
             ->where('tenant_id', $tenant->id)
             ->where('company_id', $company->id);
 

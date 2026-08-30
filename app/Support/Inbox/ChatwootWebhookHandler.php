@@ -161,8 +161,9 @@ class ChatwootWebhookHandler
         $phone = $this->string($payload, ['sender.phone_number', 'sender.phone', 'contact.phone_number', 'customer.phone']);
         $email = $this->string($payload, ['sender.email', 'contact.email', 'customer.email']);
         $source = $this->string($payload, ['channel.provider', 'provider'], 'chatwoot');
+        $avatarUrl = $this->string($payload, ['sender.avatar_url', 'contact.avatar_url']);
 
-        return $this->customers->findOrCreate($tenant, $company, $name, $phone, $email, $source, ['chatwoot' => true]);
+        return $this->customers->findOrCreate($tenant, $company, $name, $phone, $email, $source, ['chatwoot' => true], $avatarUrl !== '' ? $avatarUrl : null);
     }
 
     private function lead(Tenant $tenant, Company $company, Customer $customer, array $payload): Lead
