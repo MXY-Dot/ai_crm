@@ -36,21 +36,41 @@ const CHANNEL_BRAND_VAR: Record<string, string> = {
     web: '--brand-website',
 };
 
-/** Small soft-tinted chip (icon in the channel's brand color, low-opacity background of the same color) for the toast — same recipe as ChatSidebar's letter-fallback avatars, just reused here since vue-sonner's `icon` slot takes a raw component, not a template. */
-function channelToastIcon(provider: string | null | undefined): Component {
+/**
+ * The whole toast body, built via toast.custom() instead of toast.message() +
+ * an action button — per explicit feedback, clicking anywhere on the card
+ * should navigate, not just a dedicated "Открыть" button. Same soft-tinted
+ * channel-icon chip recipe as ChatSidebar's letter-fallback avatars.
+ */
+function newMessageToastBody(message: IncomingMessage, provider: string | null | undefined, onClick: () => void): Component {
     const IconComponent = (provider && CHANNEL_ICON[provider]) || MessageCircle;
     const brandVar = provider ? CHANNEL_BRAND_VAR[provider] : undefined;
+    const preview = message.body.length > 80 ? message.body.slice(0, 80) + '…' : message.body;
 
     return {
         render: () => h(
-            'span',
+            'button',
             {
-                class: 'grid size-6 shrink-0 place-items-center rounded-full',
-                style: brandVar
-                    ? { backgroundColor: `color-mix(in srgb, var(${brandVar}) 18%, transparent)`, color: `var(${brandVar})` }
-                    : undefined,
+                type: 'button',
+                onClick,
+                class: 'flex w-full items-start gap-2.5 rounded-2xl border border-border bg-popover p-3 text-left shadow-sm transition hover:bg-muted cursor-pointer',
             },
-            [h(IconComponent, { class: 'size-3.5' })],
+            [
+                h(
+                    'span',
+                    {
+                        class: 'mt-0.5 grid size-6 shrink-0 place-items-center rounded-full',
+                        style: brandVar
+                            ? { backgroundColor: `color-mix(in srgb, var(${brandVar}) 18%, transparent)`, color: `var(${brandVar})` }
+                            : undefined,
+                    },
+                    [h(IconComponent, { class: 'size-3.5' })],
+                ),
+                h('span', { class: 'min-w-0 flex-1' }, [
+                    h('span', { class: 'block text-sm font-medium text-popover-foreground' }, message.sender_name || 'Новое сообщение'),
+                    h('span', { class: 'mt-0.5 block truncate text-xs text-muted-foreground' }, preview || '📎 Вложение'),
+                ]),
+            ],
         ),
     };
 }
@@ -113,21 +133,18 @@ export const useUnreadStore = defineStore('unread', () => {
     function notifyNewMessage(message: IncomingMessage, provider: string | null | undefined): void {
         if (message.conversation_id === activeConversationId.value) return;
 
-        const preview = message.body.length > 80 ? message.body.slice(0, 80) + '…' : message.body;
         // Bottom-right + 10s (vs. the app's default top-right toasts) so this one is
         // impossible to miss and doesn't linger — per explicit user feedback that the
         // default placement was easy to miss. Scoped to this toast only via per-call
         // position/duration; the shared <Toaster> in AppLayout.vue stays top-right for
         // every other toast in the app.
-        toast.message(message.sender_name || 'Новое сообщение', {
-            description: preview || '📎 Вложение',
-            icon: channelToastIcon(provider),
+        const id = toast.custom(newMessageToastBody(message, provider, () => {
+            toast.dismiss(id);
+            router.visit(`/inbox?conversation=${message.conversation_id}`);
+        }), {
             position: 'bottom-right',
             duration: 10000,
-            action: {
-                label: 'Открыть',
-                onClick: () => router.visit(`/inbox?conversation=${message.conversation_id}`),
-            },
+            unstyled: true,
         });
 
         startBlink();
