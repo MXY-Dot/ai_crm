@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Channel;
 use App\Models\Company;
 use App\Models\Tenant;
+use App\Support\Integrations\MetaChannelResolver;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -53,8 +54,10 @@ class MetaOAuthController extends Controller
     private const FACEBOOK_SCOPES = 'pages_show_list,pages_manage_metadata,pages_messaging';
     private const INSTAGRAM_SCOPES = 'instagram_business_basic,instagram_business_manage_messages';
 
-    public function __construct(private readonly TenantIntegrationSettings $secrets)
-    {
+    public function __construct(
+        private readonly TenantIntegrationSettings $secrets,
+        private readonly MetaChannelResolver $resolver,
+    ) {
     }
 
     public function facebookStart(Request $request, TenantContext $context): RedirectResponse
@@ -104,7 +107,11 @@ class MetaOAuthController extends Controller
         }
 
         if (count($pages) === 1) {
-            $this->saveFacebookPage($tenant, $pages[0]);
+            try {
+                $this->saveFacebookPage($tenant, $pages[0]);
+            } catch (RuntimeException $error) {
+                return $this->redirectToSettings('facebook', $error->getMessage());
+            }
 
             return $this->redirectToSettings('facebook', 'connected');
         }
@@ -141,7 +148,13 @@ class MetaOAuthController extends Controller
         }
 
         Gate::authorize('update', $tenant);
-        $this->saveFacebookPage($tenant, $page);
+
+        try {
+            $this->saveFacebookPage($tenant, $page);
+        } catch (RuntimeException $error) {
+            abort(422, 'Эта страница уже подключена к другой компании на платформе.');
+        }
+
         $request->session()->forget(['meta_oauth_facebook_pages', 'meta_oauth_facebook_tenant_id']);
 
         return response()->json(['ok' => true]);
@@ -205,9 +218,30 @@ class MetaOAuthController extends Controller
             return $this->redirectToSettings('instagram', 'exchange_failed');
         }
 
-        $this->saveInstagramAccount($tenant, $userId, $longLivedToken);
+        try {
+            $this->saveInstagramAccount($tenant, $userId, $longLivedToken);
+        } catch (RuntimeException $error) {
+            return $this->redirectToSettings('instagram', $error->getMessage());
+        }
 
         return $this->redirectToSettings('instagram', 'connected', ['username' => Arr::get($profile, 'username')]);
+    }
+
+    /**
+     * Real accounts can't cross-connect by accident — Instagram/WhatsApp/Facebook
+     * login always requires that business's own credentials, a clothing shop's
+     * operator simply cannot authenticate as a toy shop's account. This guards
+     * the one case that's still possible: an agency (or anyone) with genuine
+     * admin access to more than one business's Page picks the wrong one here.
+     * Without this, MetaChannelResolver would end up with two tenants both
+     * claiming the same page_id — whichever tenant it resolves to (effectively
+     * whichever connected first) would silently receive the other's messages.
+     */
+    private function assertNotClaimedElsewhere(Tenant $tenant, ?Tenant $owner): void
+    {
+        if ($owner && $owner->id !== $tenant->id) {
+            throw new RuntimeException('already_connected');
+        }
     }
 
     /**
@@ -218,6 +252,8 @@ class MetaOAuthController extends Controller
      */
     private function saveFacebookPage(Tenant $tenant, array $page): void
     {
+        $this->assertNotClaimedElsewhere($tenant, $this->resolver->byFacebookPageId($page['id']));
+
         DB::transaction(function () use ($tenant, $page): void {
             $locked = Tenant::query()->lockForUpdate()->findOrFail($tenant->id);
             $settings = $locked->settings ?? [];
@@ -245,6 +281,8 @@ class MetaOAuthController extends Controller
 
     private function saveInstagramAccount(Tenant $tenant, string $accountId, string $token): void
     {
+        $this->assertNotClaimedElsewhere($tenant, $this->resolver->byInstagramBusinessAccountId($accountId));
+
         DB::transaction(function () use ($tenant, $accountId, $token): void {
             $locked = Tenant::query()->lockForUpdate()->findOrFail($tenant->id);
             $settings = $locked->settings ?? [];

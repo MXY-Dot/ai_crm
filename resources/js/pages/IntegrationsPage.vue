@@ -39,6 +39,7 @@ const OAUTH_STATUS_MESSAGES: Record<string, { tone: 'success' | 'error'; text: s
     state_mismatch: { tone: 'error', text: 'Сессия подключения истекла, попробуйте ещё раз' },
     exchange_failed: { tone: 'error', text: 'Meta не подтвердила подключение — попробуйте ещё раз' },
     no_pages: { tone: 'error', text: 'У этого аккаунта Facebook нет ни одной подключённой страницы' },
+    already_connected: { tone: 'error', text: 'Этот аккаунт уже подключён к другой компании на платформе' },
 };
 
 /**
