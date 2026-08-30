@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import { BotIcon, CopyIcon, FileTextIcon, MoreHorizontalIcon, PencilIcon, ReplyIcon, RotateCcwIcon, Trash2Icon, XIcon } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
-import { useThemeStore } from '@/stores/theme';
 import { useMessageScroller } from '@/components/ui/message-scroller';
 import type { ChatMessage } from '@/lib/chat/types';
 import { Attachment, AttachmentContent, AttachmentDescription, AttachmentMedia, AttachmentTitle, AttachmentTrigger } from '@/components/ui/attachment';
@@ -56,43 +55,6 @@ const bubbleVariant = computed(() => {
     if (isAi.value) return 'tinted';
     if (isMine.value) return 'default';
     return 'muted';
-});
-
-/**
- * Soft, channel-branded tint for an operator's own sent messages — like Telegram's
- * client tinting your own bubble by chat type, but subdued (low-lightness OKLCH mix,
- * same recipe the 'tinted' AI variant already uses off --primary) rather than the
- * full-saturation brand color, so it reads as a hint rather than fighting the rest
- * of the UI. Only applies to genuinely plain "mine" bubbles — failed/deleted states
- * keep their own distinct styling untouched. Inline style (not a class) because the
- * variant's background actually lives on BubbleContent via a descendant selector
- * generated from Bubble's own class, which a same-specificity class here can't
- * reliably out-rank; inline style always wins regardless.
- */
-const CHANNEL_BRAND_VAR: Record<string, string> = {
-    telegram: '--brand-telegram',
-    whatsapp: '--brand-whatsapp',
-    instagram: '--brand-instagram-to',
-    facebook: '--brand-facebook',
-    website: '--brand-website',
-    web: '--brand-website',
-};
-
-const theme = useThemeStore();
-
-const channelBubbleStyle = computed(() => {
-    if (bubbleVariant.value !== 'default') return undefined;
-
-    const provider = chat.activeConversation?.channel?.provider;
-    const brandVar = provider ? CHANNEL_BRAND_VAR[provider] : undefined;
-    if (! brandVar) return undefined;
-
-    const lightness = theme.isDark ? 0.3 : 0.93;
-
-    return {
-        backgroundColor: `oklch(from var(${brandVar}) ${lightness} calc(c*0.4) h)`,
-        color: 'var(--foreground)',
-    };
 });
 
 const editing = ref(false);
@@ -168,7 +130,7 @@ function formatTime(value: string | null): string {
                 <ContextMenu>
                 <ContextMenuTrigger as-child>
                 <Bubble :variant="bubbleVariant" :align="align">
-                    <BubbleContent :style="channelBubbleStyle">
+                    <BubbleContent>
                         <button
                             v-if="message.reply_to"
                             type="button"

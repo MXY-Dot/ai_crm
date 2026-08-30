@@ -43,17 +43,34 @@ function channelIcon(conversation: ChatConversation) {
     return channelIcons[conversation.channel?.provider ?? ''] ?? TelegramIcon;
 }
 
+// User feedback: the earlier /50-opacity ring was too subtle to actually notice at a
+// glance — this is the "which channel is this" cue (see also channelAvatarColors
+// below for the letter-fallback case), so it needs to read clearly, not just be a hint.
 const channelRingColors: Record<string, string> = {
-    telegram: 'ring-[var(--brand-telegram)]/50',
-    whatsapp: 'ring-[var(--brand-whatsapp)]/50',
-    instagram: 'ring-[var(--brand-instagram-to)]/50',
-    facebook: 'ring-[var(--brand-facebook)]/50',
-    website: 'ring-[var(--brand-website)]/50',
-    web: 'ring-[var(--brand-website)]/50',
+    telegram: 'ring-[var(--brand-telegram)]',
+    whatsapp: 'ring-[var(--brand-whatsapp)]',
+    instagram: 'ring-[var(--brand-instagram-to)]',
+    facebook: 'ring-[var(--brand-facebook)]',
+    website: 'ring-[var(--brand-website)]',
+    web: 'ring-[var(--brand-website)]',
 };
 
 function channelRing(conversation: ChatConversation): string {
     return channelRingColors[conversation.channel?.provider ?? ''] ?? 'ring-border';
+}
+
+/** Tints the letter-fallback avatar itself by channel — only shows when there's no real photo. */
+const channelAvatarColors: Record<string, string> = {
+    telegram: 'bg-[var(--brand-telegram)]/15 text-[var(--brand-telegram)]',
+    whatsapp: 'bg-[var(--brand-whatsapp)]/15 text-[var(--brand-whatsapp)]',
+    instagram: 'bg-[var(--brand-instagram-to)]/15 text-[var(--brand-instagram-to)]',
+    facebook: 'bg-[var(--brand-facebook)]/15 text-[var(--brand-facebook)]',
+    website: 'bg-[var(--brand-website)]/15 text-[var(--brand-website)]',
+    web: 'bg-[var(--brand-website)]/15 text-[var(--brand-website)]',
+};
+
+function channelAvatarColor(conversation: ChatConversation): string {
+    return channelAvatarColors[conversation.channel?.provider ?? ''] ?? 'bg-primary/10 text-primary';
 }
 
 function displayName(conversation: ChatConversation): string {
@@ -115,9 +132,9 @@ function labelTone(value: string): 'green' | 'blue' | 'amber' | 'neutral' {
                                 @click="chat.selectConversation(conversation.id)"
                             >
                                 <div class="relative shrink-0">
-                                    <Avatar class="size-10 ring-2 ring-offset-2 ring-offset-card" :class="channelRing(conversation)">
+                                    <Avatar class="size-10 ring-[3px] ring-offset-2 ring-offset-card" :class="channelRing(conversation)">
                                         <AvatarImage v-if="conversation.customer?.avatar_url" :src="conversation.customer.avatar_url" alt="" />
-                                        <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial(conversation) }}</AvatarFallback>
+                                        <AvatarFallback class="font-semibold" :class="channelAvatarColor(conversation)">{{ initial(conversation) }}</AvatarFallback>
                                     </Avatar>
                                     <Tooltip>
                                         <TooltipTrigger as-child>
