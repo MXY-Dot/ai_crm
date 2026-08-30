@@ -53,7 +53,11 @@ function newMessageToastBody(message: IncomingMessage, provider: string | null |
             {
                 type: 'button',
                 onClick,
-                class: 'flex w-full items-start gap-2.5 rounded-2xl border border-border bg-popover p-3 text-left shadow-sm transition hover:bg-muted cursor-pointer',
+                // Fixed 250x75 footprint per request, but min-height (not a hard cap) so a
+                // genuinely long message still wraps and reads in full instead of being cut
+                // off — it just grows taller than 75px rather than clipping.
+                style: { width: '250px', minHeight: '75px' },
+                class: 'flex items-start gap-2.5 rounded-2xl border border-border bg-popover p-3 text-left shadow-sm transition hover:bg-muted cursor-pointer',
             },
             [
                 h(
@@ -68,11 +72,46 @@ function newMessageToastBody(message: IncomingMessage, provider: string | null |
                 ),
                 h('span', { class: 'min-w-0 flex-1' }, [
                     h('span', { class: 'block text-sm font-medium text-popover-foreground' }, message.sender_name || 'Новое сообщение'),
-                    h('span', { class: 'mt-0.5 block truncate text-xs text-muted-foreground' }, preview || '📎 Вложение'),
+                    h('span', { class: 'mt-0.5 block whitespace-normal break-words text-xs text-muted-foreground' }, preview || '📎 Вложение'),
                 ]),
             ],
         ),
     };
+}
+
+let audioContext: AudioContext | null = null;
+
+/**
+ * Short two-tone chime, synthesized with the Web Audio API rather than a
+ * bundled sound file — no asset to fetch/host, works offline, and is trivial
+ * to tune. Best-effort: browsers block audio before the page has ever seen a
+ * user gesture, and this fires from a WebSocket push, not a click — silently
+ * no-ops rather than throwing if the context can't start.
+ */
+function playNotificationSound(): void {
+    try {
+        audioContext ??= new AudioContext();
+        if (audioContext.state === 'suspended') void audioContext.resume();
+
+        const ctx = audioContext;
+        const now = ctx.currentTime;
+
+        [880, 1320].forEach((freq, i) => {
+            const start = now + i * 0.09;
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = freq;
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.15, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+            oscillator.connect(gain).connect(ctx.destination);
+            oscillator.start(start);
+            oscillator.stop(start + 0.16);
+        });
+    } catch {
+        // Web Audio unsupported/blocked — the toast itself still shows.
+    }
 }
 
 /**
@@ -147,6 +186,7 @@ export const useUnreadStore = defineStore('unread', () => {
             unstyled: true,
         });
 
+        playNotificationSound();
         startBlink();
     }
 
