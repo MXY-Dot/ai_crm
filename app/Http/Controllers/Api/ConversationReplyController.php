@@ -144,9 +144,10 @@ class ConversationReplyController extends Controller
 
         if ($provider === 'instagram') {
             $igsid = str_replace('instagram-', '', (string) $conversation->external_id);
+            $quotedBody = $this->quotePrefix($tenant, $conversation, $replyToMessageId).$body;
             $payload = $attachment
-                ? $instagram->sendMedia($tenant, $igsid, $attachment['type'], $attachment['url'], $body)
-                : $instagram->sendMessage($tenant, $igsid, $body);
+                ? $instagram->sendMedia($tenant, $igsid, $attachment['type'], $attachment['url'], $quotedBody)
+                : $instagram->sendMessage($tenant, $igsid, $quotedBody);
             $messageId = Arr::get($payload, 'message_id');
 
             return [
@@ -157,9 +158,10 @@ class ConversationReplyController extends Controller
 
         if ($provider === 'facebook') {
             $psid = str_replace('facebook-', '', (string) $conversation->external_id);
+            $quotedBody = $this->quotePrefix($tenant, $conversation, $replyToMessageId).$body;
             $payload = $attachment
-                ? $facebook->sendMedia($tenant, $psid, $attachment['type'], $attachment['url'], $body)
-                : $facebook->sendMessage($tenant, $psid, $body);
+                ? $facebook->sendMedia($tenant, $psid, $attachment['type'], $attachment['url'], $quotedBody)
+                : $facebook->sendMessage($tenant, $psid, $quotedBody);
             $messageId = Arr::get($payload, 'message_id');
 
             return [
@@ -215,7 +217,9 @@ class ConversationReplyController extends Controller
      * Same idea as resolveTelegramReplyId() below, generalized by external_id prefix —
      * used for WhatsApp, the only one of the three Meta channels whose send API actually
      * supports threading a reply (`context.message_id`); Messenger/Instagram's send API
-     * has no equivalent, so their branches above don't attempt it.
+     * has no equivalent (confirmed — there's no reply/quote field on the outbound Send
+     * API for either, only inbound webhooks report a customer's own reply-to), so their
+     * branches above fall back to quotePrefix() instead of attempting real threading.
      */
     private function resolveExternalReplyId(Tenant $tenant, Conversation $conversation, int|string|null $replyToMessageId, string $prefix): ?string
     {
@@ -234,6 +238,36 @@ class ConversationReplyController extends Controller
         }
 
         return Str::after($externalId, $prefix) ?: null;
+    }
+
+    /**
+     * Instagram/Facebook's Send API has no reply/quote field to thread a message the way
+     * WhatsApp/Telegram do (see resolveExternalReplyId()'s docblock) — this fakes the same
+     * effect as plain text, prepended to whatever's actually being sent, so "Ответить" on
+     * these two channels still visibly shows what's being replied to instead of silently
+     * sending as if the reply target was never chosen. Returns '' (no-op) when there's no
+     * reply target, or the target message has no body to quote (e.g. it was attachment-only).
+     */
+    private function quotePrefix(Tenant $tenant, Conversation $conversation, int|string|null $replyToMessageId): string
+    {
+        if (! $replyToMessageId) {
+            return '';
+        }
+
+        $original = Message::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('conversation_id', $conversation->id)
+            ->where('id', $replyToMessageId)
+            ->first(['body', 'sender_name']);
+
+        if (! $original || trim((string) $original->body) === '') {
+            return '';
+        }
+
+        $excerpt = Str::limit(trim($original->body), 80);
+        $who = $original->sender_name ?: 'сообщение';
+
+        return "↩️ {$who}: {$excerpt}\n—\n";
     }
 
     /**
