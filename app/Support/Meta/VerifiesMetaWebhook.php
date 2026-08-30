@@ -34,9 +34,20 @@ trait VerifiesMetaWebhook
         return response((string) $request->query('hub_challenge'), 200);
     }
 
-    protected function guardSignature(Request $request): void
+    /**
+     * $secretConfigKey defaults to the main app's secret (WhatsApp and Facebook
+     * both ride the main CrmPublic app) — Instagram overrides this to
+     * 'services.meta.instagram_app_secret' since "Instagram API with Instagram
+     * Login" is a genuinely separate Meta app with its own credentials (see
+     * InstagramClient's docblock), and Meta signs each webhook payload with
+     * whichever app actually owns it. Found live: enabling this check with only
+     * the main secret silently 401'd every real Instagram webhook call, because
+     * the signature was computed with a different app's secret than the one
+     * actually used to sign it.
+     */
+    protected function guardSignature(Request $request, string $secretConfigKey = 'services.meta.app_secret'): void
     {
-        $secret = (string) config('services.meta.app_secret');
+        $secret = (string) config($secretConfigKey);
 
         if ($secret === '') {
             return;

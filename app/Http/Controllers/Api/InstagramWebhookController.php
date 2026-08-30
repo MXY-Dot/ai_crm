@@ -32,7 +32,7 @@ class InstagramWebhookController extends Controller
             return $this->handleSubscriptionVerification($request) ?? response('', 404);
         }
 
-        $this->guardSignature($request);
+        $this->guardSignature($request, 'services.meta.instagram_app_secret');
 
         if ($request->input('object') !== 'instagram') {
             return response()->json(['ok' => true, 'ignored' => true, 'reason' => 'unsupported_object']);
