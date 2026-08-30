@@ -22,7 +22,8 @@ use Throwable;
  */
 class BookingService
 {
-    public function create(array $data, User $actor): Booking
+    /** $actor is null only for AiChatBookingAssistant's AI-initiated bookings (no logged-in User exists there) -- $data must then carry an explicit 'tenant_id', since it can no longer be read off $actor. */
+    public function create(array $data, ?User $actor): Booking
     {
         return DB::transaction(function () use ($data, $actor) {
             $service = Service::query()->findOrFail($data['service_id']);
@@ -49,7 +50,7 @@ class BookingService
             $status = $prepayment > 0 ? Booking::STATUS_AWAITING_PAYMENT : Booking::STATUS_CONFIRMED;
 
             $booking = Booking::create([
-                'tenant_id' => $actor->tenant_id,
+                'tenant_id' => $actor?->tenant_id ?? $data['tenant_id'],
                 'company_id' => $data['company_id'],
                 'customer_id' => $data['customer_id'],
                 'service_id' => $service->id,
@@ -62,10 +63,10 @@ class BookingService
                 'prepayment_amount' => $prepayment,
                 'prepayment_status' => $prepayment > 0 ? 'pending' : 'none',
                 'notes' => $data['notes'] ?? null,
-                'created_by_user_id' => $actor->id,
+                'created_by_user_id' => $actor?->id,
             ]);
 
-            $this->logStatus($booking, null, $status, $actor, 'Запись создана');
+            $this->logStatus($booking, null, $status, $actor, $actor ? 'Запись создана' : 'Запись создана AI-ассистентом в чате');
 
             return $booking;
         });

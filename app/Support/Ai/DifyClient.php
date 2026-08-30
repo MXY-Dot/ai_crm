@@ -9,6 +9,7 @@ use App\Models\KnowledgeChunk;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\Booking\BookingChatContext;
 use App\Support\Emergency\HealthMonitor;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Support\Arr;
@@ -25,6 +26,7 @@ class DifyClient
         private readonly TenantIntegrationSettings $secrets,
         private readonly HealthMonitor $health,
         private readonly LlmClient $llm,
+        private readonly BookingChatContext $bookingContext,
     ) {
     }
 
@@ -412,7 +414,15 @@ class DifyClient
             'Cancellation policy: '.(is_array($brand) ? ($brand['cancellation_policy'] ?? '') : ''),
         ], fn (string $line): bool => trim(substr($line, strpos($line, ':') + 1)) !== '');
 
-        return implode("\n", $lines);
+        $profile = implode("\n", $lines);
+
+        // ТЗ раздел 12 — "запись через AI-чат": real service names/prices from
+        // BookingChatContext, so the model's own free-text answers about services/
+        // pricing stop being guesses. Empty string for any tenant without the
+        // booking module actually configured, so this changes nothing for them.
+        $bookingSection = $this->bookingContext->promptSection($company);
+
+        return $bookingSection !== '' ? $profile."\n\n".$bookingSection : $profile;
     }
     private function fallbackSummary(Conversation $conversation, Message $message): string
     {

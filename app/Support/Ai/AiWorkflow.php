@@ -14,6 +14,7 @@ use App\Models\KnowledgeGap;
 use App\Models\LanguageExample;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\Booking\AiChatBookingAssistant;
 use App\Support\Chatwoot\ChatwootClient;
 use App\Support\Emergency\AutoAssignmentService;
 use App\Support\Emergency\EmergencyStateManager;
@@ -53,6 +54,7 @@ class AiWorkflow
         private readonly SentimentDetector $sentimentDetector,
         private readonly PromptInjectionDetector $injectionDetector,
         private readonly TajikTextNormalizer $tajikNormalizer,
+        private readonly AiChatBookingAssistant $chatBooking,
     ) {
     }
 
@@ -98,6 +100,11 @@ class AiWorkflow
         $this->showTyping($tenant, $conversation, true);
         [$decision, $engine, $usage] = $this->decision($agent, $company, $conversation, $message, $lead, $isFirstMessage);
         $decision = $this->enforceBusinessRules($agent, $decision);
+        // ТЗ раздел 12 — "запись через AI-чат": may override $decision's reply
+        // (never its own free-text availability guess — see AiChatBookingAssistant's
+        // own docblock) with a real, availability-checked booking offer/confirmation.
+        // No-ops instantly for the vast majority of tenants without booking configured.
+        $decision = $this->chatBooking->maybeHandle($tenant, $company, $conversation, $message, $decision);
         $run = $this->run($tenant, $agent, $conversation, $lead, $message, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);
@@ -766,12 +773,12 @@ class AiWorkflow
             'body' => trim($decision->replyText),
             'external_id' => 'ai-run-'.$run->id,
             'sent_at' => now(),
-            'meta' => [
+            'meta' => array_merge([
                 'draft' => true,
                 'engine' => $engine,
                 'ai_run_id' => $run->id,
                 'next_action' => $decision->nextAction,
-            ],
+            ], $decision->meta ?? []),
         ]);
     }
 
