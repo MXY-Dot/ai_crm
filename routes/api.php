@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\SuperAdminLanguageQualityController;
 use App\Http\Controllers\Api\SuperAdminBusinessModulesController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\CompanyModuleController;
+use App\Http\Controllers\Api\PaymentGatewayWebhookController;
 use App\Http\Controllers\Api\SuperAdminOverviewController;
 use App\Http\Controllers\Api\SuperAdminSupportController;
 use App\Http\Controllers\Api\SuperAdminUserController;
@@ -70,6 +71,11 @@ Route::post('telegram/webhook', TelegramWebhookController::class)->middleware('t
 Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::class)->middleware('throttle:60,1');
 Route::match(['get', 'post'], 'instagram/webhook', InstagramWebhookController::class)->middleware('throttle:60,1');
 Route::match(['get', 'post'], 'facebook/webhook', FacebookWebhookController::class)->middleware('throttle:60,1');
+
+// Public, unauthenticated — the payment gateway calls this directly, no
+// X-Tenant-Id header possible. See PaymentGatewayWebhookController's docblock
+// for how the {paymentId} in the URL (not a header) resolves the tenant.
+Route::post('payments/{gateway}/webhook/{paymentId}', PaymentGatewayWebhookController::class)->middleware('throttle:60,1');
 
 // Public, unauthenticated — a website visitor's browser, not a logged-in User.
 // See WidgetController's docblock for the trust model (site key = public app id).
@@ -253,5 +259,6 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('bookings/{booking}/status', [BookingController::class, 'updateStatus']);
         Route::post('bookings/{booking}/payment-proof', [BookingController::class, 'storePaymentProof'])->middleware('throttle:20,1');
         Route::patch('bookings/{booking}/payment-proof/{paymentProof}', [BookingController::class, 'reviewPaymentProof']);
+        Route::post('bookings/{booking}/gateway-payment', [BookingController::class, 'initiateGatewayPayment'])->middleware('throttle:20,1');
     });
 });

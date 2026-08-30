@@ -70,6 +70,13 @@ return [
         'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
     ],
 
+    // Fallback default only -- each tenant can override base_url in their own
+    // integration settings (see AlifPayClient's docblock: the real Tajikistan
+    // endpoint is unconfirmed, this points at Alif's documented Uzbekistan one).
+    'alif' => [
+        'base_url' => env('ALIF_PAY_BASE_URL', 'https://api.alifpay.uz/v2'),
+    ],
+
     'telegram_moderator' => [
         'bot_token' => env('TELEGRAM_MODERATOR_BOT_TOKEN'),
         'chat_id' => env('TELEGRAM_MODERATOR_CHAT_ID'),

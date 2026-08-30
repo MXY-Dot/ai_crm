@@ -120,6 +120,24 @@ class TenantIntegrationSettings
         return (string) Arr::get($tenant->settings ?? [], 'integrations.facebook.page_id', '');
     }
 
+    /** Payment gateway (Alif Pay) -- see AlifPayClient's docblock for why base_url is tenant-editable, not hardcoded config. */
+    public function alifPayToken(Tenant $tenant): string
+    {
+        return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.alif.token'));
+    }
+
+    public function alifPayWebhookSecret(Tenant $tenant): string
+    {
+        return $this->decrypt(Arr::get($tenant->settings ?? [], 'integrations.alif.webhook_secret'));
+    }
+
+    public function alifPayBaseUrl(Tenant $tenant): string
+    {
+        $override = (string) Arr::get($tenant->settings ?? [], 'integrations.alif.base_url', '');
+
+        return rtrim($override !== '' ? $override : (string) config('services.alif.base_url'), '/');
+    }
+
     public function encrypt(?string $value): ?string
     {
         if ($value === null || $value === '') {

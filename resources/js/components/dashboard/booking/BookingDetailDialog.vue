@@ -11,6 +11,7 @@ import { Skeleton } from '../../ui/skeleton';
 import { Textarea } from '../../ui/textarea';
 
 type PaymentProof = { id: number; file_url: string; amount: number | null; operation_number: string | null; status: string; comment: string | null };
+type GatewayPayment = { id: number; gateway: string; checkout_url: string | null; status: string };
 type StatusEntry = { id: number; old_status: string | null; new_status: string; comment: string | null; changed_by: { name: string } | null; created_at: string };
 type BookingDetail = {
     id: number; status: string; starts_at: string; ends_at: string; price: number; prepayment_amount: number; prepayment_status: string; notes: string | null;
@@ -34,10 +35,12 @@ const cancelReason = ref('');
 const proofAmount = ref<number | null>(null);
 const proofOperation = ref('');
 const proofFile = ref<File | null>(null);
+const gatewayPayment = ref<GatewayPayment | null>(null);
 
 async function load(): Promise<void> {
     if (! props.bookingId) return;
     loading.value = true;
+    gatewayPayment.value = null;
     try {
         booking.value = await apiRequest<BookingDetail>(`/api/bookings/${props.bookingId}`, { tenant: props.tenantSlug });
         newStatus.value = booking.value.status;
@@ -128,6 +131,33 @@ async function uploadProof(): Promise<void> {
     }
 }
 
+async function createGatewayPayment(): Promise<void> {
+    if (! booking.value) return;
+    busy.value = true;
+    try {
+        gatewayPayment.value = await apiRequest<GatewayPayment>(`/api/bookings/${booking.value.id}/gateway-payment`, {
+            method: 'POST',
+            body: { gateway: 'alif' },
+            tenant: props.tenantSlug,
+        });
+        toast.success('Счёт создан — скопируйте ссылку и отправьте клиенту');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось создать счёт на оплату');
+    } finally {
+        busy.value = false;
+    }
+}
+
+async function copyCheckoutUrl(): Promise<void> {
+    if (! gatewayPayment.value?.checkout_url) return;
+    try {
+        await navigator.clipboard.writeText(gatewayPayment.value.checkout_url);
+        toast.success('Ссылка скопирована');
+    } catch {
+        toast.error('Не удалось скопировать');
+    }
+}
+
 async function reviewProof(proof: PaymentProof, decision: 'confirmed' | 'rejected'): Promise<void> {
     if (! booking.value) return;
     busy.value = true;
@@ -192,7 +222,15 @@ const pendingProof = computed(() => booking.value?.payment_proofs.find((p) => p.
                 </section>
 
                 <section v-else-if="isActive && booking.prepayment_amount > 0 && booking.prepayment_status !== 'confirmed'" class="grid gap-2 rounded-lg border border-border p-3">
-                    <p class="text-xs font-medium ui-subtle">{{ locale.t('booking.uploadProof') }}</p>
+                    <p class="text-xs font-medium ui-subtle">Оплата онлайн (Alif Pay)</p>
+                    <p v-if="! gatewayPayment" class="text-xs ui-subtle">Создать счёт и получить ссылку на оплату для клиента.</p>
+                    <Button v-if="! gatewayPayment?.checkout_url" size="sm" variant="outline" class="w-fit" :disabled="busy" @click="createGatewayPayment">Создать ссылку на оплату</Button>
+                    <template v-else>
+                        <p class="break-all font-mono text-xs ui-text">{{ gatewayPayment.checkout_url }}</p>
+                        <Button size="sm" variant="outline" class="w-fit" @click="copyCheckoutUrl">Скопировать ссылку</Button>
+                    </template>
+
+                    <p class="mt-2 text-xs font-medium ui-subtle">{{ locale.t('booking.uploadProof') }}</p>
                     <input type="file" accept="image/*,.pdf" class="text-xs" @change="onFileChange">
                     <div class="flex gap-2">
                         <Input v-model.number="proofAmount" type="number" :placeholder="locale.t('booking.proofAmount')" class="w-32" />

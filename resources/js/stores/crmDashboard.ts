@@ -234,6 +234,14 @@ export type IntegrationSettings = {
         page_id: string | null;
         webhook_url: string;
     };
+    alif?: {
+        token_configured: boolean;
+        token_mask: string | null;
+        webhook_secret_configured: boolean;
+        webhook_secret_mask: string | null;
+        base_url: string;
+        webhook_url_example: string;
+    };
 };
 
 export type IntegrationTestResult = {
@@ -274,6 +282,11 @@ export type IntegrationSettingsPayload = {
     facebook?: {
         page_access_token?: string;
         page_id?: string;
+    };
+    alif?: {
+        token?: string;
+        webhook_secret?: string;
+        base_url?: string;
     };
 };
 

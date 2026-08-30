@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { CalendarClock, Scissors, Settings2, Users2 } from '@lucide/vue';
+import { CalendarClock, CreditCard, Scissors, Settings2, Users2 } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CancellationPolicyPanel from '../components/dashboard/booking/CancellationPolicyPanel.vue';
 import EmployeesPanel from '../components/dashboard/booking/EmployeesPanel.vue';
+import PaymentGatewaySettingsPanel from '../components/dashboard/booking/PaymentGatewaySettingsPanel.vue';
 import ResourcesPanel from '../components/dashboard/booking/ResourcesPanel.vue';
 import ServicesPanel from '../components/dashboard/booking/ServicesPanel.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
@@ -38,6 +39,7 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
                 <TabsTrigger value="employees"><Users2 class="h-4 w-4" />{{ locale.t('booking.tabEmployees') }}</TabsTrigger>
                 <TabsTrigger value="resources"><CalendarClock class="h-4 w-4" />{{ locale.t('booking.tabResources') }}</TabsTrigger>
                 <TabsTrigger value="policy"><Settings2 class="h-4 w-4" />{{ locale.t('booking.tabPolicy') }}</TabsTrigger>
+                <TabsTrigger value="payment"><CreditCard class="h-4 w-4" />Оплата</TabsTrigger>
             </TabsList>
 
             <TabsContent value="services" class="mt-4">
@@ -51,6 +53,9 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
             </TabsContent>
             <TabsContent value="policy" class="mt-4">
                 <CancellationPolicyPanel :tenant-slug="tenantSlug" />
+            </TabsContent>
+            <TabsContent value="payment" class="mt-4">
+                <PaymentGatewaySettingsPanel />
             </TabsContent>
         </Tabs>
     </section>

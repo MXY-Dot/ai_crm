@@ -12,12 +12,14 @@ use App\Support\Audit\AuditLogger;
 use App\Support\Booking\AvailabilityCalculator;
 use App\Support\Booking\BookingConflictException;
 use App\Support\Booking\BookingService;
+use App\Support\Payments\AlifPayClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class BookingController extends Controller
 {
@@ -194,6 +196,30 @@ class BookingController extends Controller
         $proof = $bookingService->storePaymentProof($booking, $path, $data['amount'] ?? null, $data['operation_number'] ?? null, $request->user());
 
         return response()->json($proof, 201);
+    }
+
+    /** See AlifPayClient's docblock -- creates a real invoice call, but nothing here has been tested against a real Alif endpoint yet. */
+    public function initiateGatewayPayment(Request $request, Booking $booking, BookingService $bookingService, AlifPayClient $alif, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('update', $booking);
+
+        $data = $request->validate(['gateway' => ['required', Rule::in(['alif'])]]);
+
+        $client = match ($data['gateway']) {
+            'alif' => $alif,
+        };
+
+        try {
+            $payment = $bookingService->initiateGatewayPayment($booking, $data['gateway'], $client, $request->user());
+        } catch (BookingConflictException $e) {
+            throw ValidationException::withMessages(['booking' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            throw ValidationException::withMessages(['gateway' => 'Не удалось создать счёт на оплату: '.$e->getMessage()]);
+        }
+
+        $audit->record('booking.gateway_payment_initiated', $booking, ['gateway' => $data['gateway'], 'payment_id' => $payment->id], [], $request);
+
+        return response()->json($payment, 201);
     }
 
     public function reviewPaymentProof(Request $request, Booking $booking, BookingPaymentProof $paymentProof, BookingService $bookingService, AuditLogger $audit): JsonResponse

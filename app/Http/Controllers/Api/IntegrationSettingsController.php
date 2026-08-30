@@ -61,6 +61,9 @@ class IntegrationSettingsController extends Controller
             'instagram.business_account_id' => ['nullable', 'string', 'max:64'],
             'facebook.page_access_token' => ['nullable', 'string', 'max:255'],
             'facebook.page_id' => ['nullable', 'string', 'max:64'],
+            'alif.token' => ['nullable', 'string', 'max:255'],
+            'alif.webhook_secret' => ['nullable', 'string', 'max:255'],
+            'alif.base_url' => ['nullable', 'url', 'max:255'],
         ]);
 
         $oldAudit = $this->auditSettingsSnapshot($tenant);
@@ -140,6 +143,18 @@ class IntegrationSettingsController extends Controller
 
             if ($this->hasFilledSecret($data['facebook'] ?? [], 'page_access_token')) {
                 Arr::set($settings, 'integrations.facebook.page_access_token', $this->secrets->encrypt($data['facebook']['page_access_token']));
+            }
+
+            if (array_key_exists('base_url', $data['alif'] ?? [])) {
+                Arr::set($settings, 'integrations.alif.base_url', $data['alif']['base_url']);
+            }
+
+            if ($this->hasFilledSecret($data['alif'] ?? [], 'token')) {
+                Arr::set($settings, 'integrations.alif.token', $this->secrets->encrypt($data['alif']['token']));
+            }
+
+            if ($this->hasFilledSecret($data['alif'] ?? [], 'webhook_secret')) {
+                Arr::set($settings, 'integrations.alif.webhook_secret', $this->secrets->encrypt($data['alif']['webhook_secret']));
             }
 
             $locked->forceFill(['settings' => $settings])->save();
@@ -522,6 +537,12 @@ class IntegrationSettingsController extends Controller
                 'page_access_token_mask' => $payload['facebook']['page_access_token_mask'],
                 'page_id' => $payload['facebook']['page_id'],
             ],
+            'alif' => [
+                'token_configured' => $payload['alif']['token_configured'],
+                'token_mask' => $payload['alif']['token_mask'],
+                'webhook_secret_configured' => $payload['alif']['webhook_secret_configured'],
+                'base_url' => $payload['alif']['base_url'],
+            ],
         ];
     }
 
@@ -541,6 +562,8 @@ class IntegrationSettingsController extends Controller
         $whatsappToken = $this->secrets->whatsappAccessToken($tenant);
         $instagramToken = $this->secrets->instagramPageAccessToken($tenant);
         $facebookToken = $this->secrets->facebookPageAccessToken($tenant);
+        $alifToken = $this->secrets->alifPayToken($tenant);
+        $alifWebhookSecret = $this->secrets->alifPayWebhookSecret($tenant);
 
         return [
             'dify' => [
@@ -590,6 +613,17 @@ class IntegrationSettingsController extends Controller
                 'page_access_token_mask' => $this->secrets->mask($facebookToken),
                 'page_id' => $this->secrets->facebookPageId($tenant) ?: null,
                 'webhook_url' => url('/api/facebook/webhook'),
+            ],
+            'alif' => [
+                'token_configured' => $alifToken !== '',
+                'token_mask' => $this->secrets->mask($alifToken),
+                'webhook_secret_configured' => $alifWebhookSecret !== '',
+                'webhook_secret_mask' => $this->secrets->mask($alifWebhookSecret),
+                'base_url' => $this->secrets->alifPayBaseUrl($tenant),
+                // Unlike the other gateways, this isn't one fixed URL — a fresh one is
+                // generated per invoice (see BookingService::initiateGatewayPayment()),
+                // shown here only as an example of the shape Alif will actually call.
+                'webhook_url_example' => url('/api/payments/alif/webhook/{payment_id}'),
             ],
         ];
     }

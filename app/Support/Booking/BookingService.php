@@ -3,14 +3,17 @@
 namespace App\Support\Booking;
 
 use App\Models\Booking;
+use App\Models\BookingGatewayPayment;
 use App\Models\BookingPaymentProof;
 use App\Models\BookingStatusHistory;
 use App\Models\CancellationPolicy;
 use App\Models\Employee;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\Payments\PaymentGatewayClient;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * ТЗ раздел 10-19 (модуль салона) — создание/перенос/отмену брони и
@@ -233,6 +236,94 @@ class BookingService
         });
     }
 
+    /**
+     * Deliberately NOT one DB::transaction() around the whole method — the
+     * external HTTP call to the gateway sits in the middle of it, and an
+     * open transaction should never span a slow external request. That
+     * matters more than style here: wrapping the try/catch-and-mark-'failed'
+     * below inside a transaction that then re-throws would have Laravel roll
+     * the whole thing back, silently deleting the very 'failed' row the catch
+     * block just wrote — caught live while verifying this against a QA
+     * tenant with no real Alif token configured (the exact case this catch
+     * exists for).
+     *
+     * The local BookingGatewayPayment row is created FIRST (before calling
+     * the gateway) specifically so its own id can be embedded in the
+     * webhook_url handed to the gateway -- that id is how
+     * PaymentGatewayWebhookController later finds its way back to the right
+     * booking with no tenant/booking identifiers needed in the callback itself.
+     */
+    public function initiateGatewayPayment(Booking $booking, string $gateway, PaymentGatewayClient $client, User $actor): BookingGatewayPayment
+    {
+        if (! in_array($booking->status, [Booking::STATUS_AWAITING_PAYMENT, Booking::STATUS_TEMP_HOLD], true)) {
+            throw new BookingConflictException('Для этой записи оплата через шлюз недоступна в текущем статусе.');
+        }
+
+        $amount = $booking->prepayment_amount > 0 ? $booking->prepayment_amount : $booking->price;
+
+        $payment = BookingGatewayPayment::create([
+            'booking_id' => $booking->id,
+            'gateway' => $gateway,
+            'amount' => $amount,
+            'status' => 'pending',
+        ]);
+
+        $webhookUrl = url('/api/payments/'.$gateway.'/webhook/'.$payment->id);
+        $description = 'Запись: '.($booking->service?->name ?? 'услуга');
+
+        try {
+            $invoice = $client->createInvoice($booking->tenant, $description, $amount, $webhookUrl, null, $booking->customer?->phone);
+        } catch (Throwable $error) {
+            $payment->update(['status' => 'failed']);
+
+            throw $error;
+        }
+
+        return DB::transaction(function () use ($payment, $invoice, $booking, $gateway, $actor): BookingGatewayPayment {
+            $payment->update([
+                'external_id' => $invoice['external_id'],
+                'checkout_url' => $invoice['checkout_url'],
+                'raw_response' => $invoice['raw'],
+            ]);
+
+            $oldStatus = $booking->status;
+            $booking->update(['status' => Booking::STATUS_AWAITING_PAYMENT]);
+            $this->logStatus($booking, $oldStatus, Booking::STATUS_AWAITING_PAYMENT, $actor, 'Создан счёт на оплату через '.$gateway);
+
+            return $payment->fresh();
+        });
+    }
+
+    /** Idempotent: a gateway retrying the same webhook after we already processed it (status no longer 'pending') is a silent no-op, not an error. */
+    public function confirmGatewayPayment(BookingGatewayPayment $payment, array $parsedWebhook): Booking
+    {
+        return DB::transaction(function () use ($payment, $parsedWebhook) {
+            $payment = BookingGatewayPayment::query()->lockForUpdate()->findOrFail($payment->id);
+
+            if ($payment->status !== 'pending') {
+                return $payment->booking;
+            }
+
+            $payment->update([
+                'status' => $parsedWebhook['status'],
+                'webhook_payload' => $parsedWebhook,
+                'paid_at' => $parsedWebhook['status'] === 'succeeded' ? Carbon::now() : null,
+            ]);
+
+            $booking = $payment->booking;
+            $oldStatus = $booking->status;
+
+            if ($parsedWebhook['status'] === 'succeeded') {
+                $booking->update(['status' => Booking::STATUS_CONFIRMED, 'prepayment_status' => 'confirmed']);
+                $this->logStatus($booking, $oldStatus, Booking::STATUS_CONFIRMED, null, 'Оплата подтверждена через '.$payment->gateway);
+            } else {
+                $this->logStatus($booking, $oldStatus, $oldStatus, null, 'Оплата через '.$payment->gateway.' не прошла');
+            }
+
+            return $booking->refresh();
+        });
+    }
+
     public function policyFor(int $companyId, ?int $serviceId): CancellationPolicy
     {
         if ($serviceId) {
@@ -287,13 +378,14 @@ class BookingService
         }
     }
 
-    private function logStatus(Booking $booking, ?string $old, string $new, User $actor, ?string $comment): void
+    /** $actor is null for gateway-webhook-triggered transitions -- changed_by_user_id is nullable for exactly this. */
+    private function logStatus(Booking $booking, ?string $old, string $new, ?User $actor, ?string $comment): void
     {
         BookingStatusHistory::create([
             'booking_id' => $booking->id,
             'old_status' => $old,
             'new_status' => $new,
-            'changed_by_user_id' => $actor->id,
+            'changed_by_user_id' => $actor?->id,
             'comment' => $comment,
         ]);
     }
