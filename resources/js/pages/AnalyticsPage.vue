@@ -33,6 +33,7 @@ type Analytics = {
     previous_kpis: PeriodKpis | null;
     ai_performance: AiPerformance;
     sales: SalesAnalytics;
+    previous_sales: SalesAnalytics | null;
     llm_usage: LlmUsageRow[];
     sla: Sla;
     outcomes: OutcomeRow[];
@@ -124,7 +125,7 @@ defineOptions({ layout: AppLayout });
             </div>
 
             <AiPerformancePanel :data="data?.ai_performance ?? null" :loading="loading" />
-            <SalesAnalyticsPanel :data="data?.sales ?? null" :loading="loading" />
+            <SalesAnalyticsPanel :data="data?.sales ?? null" :previous="data?.previous_sales ?? null" :loading="loading" />
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <OutcomesPanel :data="data?.outcomes ?? null" :loading="loading" />
