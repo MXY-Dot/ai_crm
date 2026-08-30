@@ -384,7 +384,15 @@ class IntegrationSettingsController extends Controller
         ]);
     }
 
-    /** Direct Instagram Graph API (Meta) — Instagram Business Account, no Chatwoot involved. */
+    /**
+     * Instagram Graph API (Meta) — no Chatwoot involved. graph.instagram.com, not
+     * graph.facebook.com: found live testing a real tenant's connection today — a
+     * token from Meta's current "Instagram Business Login" (Instagram API with
+     * Instagram Login) flow, IGAA-prefixed, is rejected by graph.facebook.com with
+     * "Cannot parse access token" even though the token itself is completely valid.
+     * Confirmed the same token succeeds against graph.instagram.com/{id} (also
+     * against /me, which is what InstagramClient's own message-sending calls use).
+     */
     private function testInstagram(Tenant $tenant, array $draft): array
     {
         $token = (string) ($draft['page_access_token'] ?? $this->secrets->instagramPageAccessToken($tenant));
@@ -396,7 +404,7 @@ class IntegrationSettingsController extends Controller
 
         try {
             $response = Http::timeout(10)->connectTimeout(4)->acceptJson()
-                ->get('https://graph.facebook.com/v21.0/'.$accountId, ['fields' => 'username', 'access_token' => $token]);
+                ->get('https://graph.instagram.com/v21.0/'.$accountId, ['fields' => 'username', 'access_token' => $token]);
         } catch (Throwable $error) {
             return $this->connectionResult(false, 'instagram', 'request_failed', $error->getMessage());
         }

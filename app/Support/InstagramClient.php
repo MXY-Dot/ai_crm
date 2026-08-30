@@ -11,15 +11,20 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Direct Instagram messaging (Graph API) client — no Chatwoot involved.
- * Uses the same `/me/messages` edge as Messenger with the Page's access
- * token (this is the Page-linked Instagram messaging flow, matching the
- * `instagram.page_access_token` setting name — not the newer standalone
- * Instagram API with Instagram Login).
+ * Direct Instagram messaging (Graph API) client — no Chatwoot involved. Uses the
+ * `/me/messages` edge with the account's own access token via graph.instagram.com
+ * — Meta's current "Instagram Business Login" (Instagram API with Instagram Login)
+ * flow, which is what Meta's own setup wizard leads a new tenant to today. Found
+ * live: a token from this flow (IGAA-prefixed) is rejected by graph.facebook.com
+ * with "Cannot parse access token" even though it's completely valid — confirmed
+ * the same token succeeds against graph.instagram.com for both `/me` and a direct
+ * account-id lookup. The `instagram.page_access_token` setting name is legacy
+ * (predates this fix, when the client targeted the older Page-linked flow) but the
+ * value it holds is genuinely the Instagram account's own access token either way.
  */
 class InstagramClient
 {
-    private const API_BASE = 'https://graph.facebook.com/v21.0';
+    private const API_BASE = 'https://graph.instagram.com/v21.0';
 
     public function __construct(private readonly TenantIntegrationSettings $settings)
     {
