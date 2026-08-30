@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import { usePage } from '@inertiajs/vue3';
 import { BotIcon } from '@lucide/vue';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useChatStore } from '../../stores/chat';
@@ -42,10 +43,27 @@ const aiDraft = computed(() => {
         .find((message) => message.conversation_id === activeConversation.value?.id && message.sender_type === 'ai') ?? null;
 });
 
+const page = usePage();
+
+/**
+ * Deep-link from the new-message toast (useUnreadStore) or any other
+ * `/inbox?conversation=ID` link: open that thread directly instead of leaving
+ * the operator on the "Выберите диалог" empty state. Inertia reuses this
+ * component instance across same-page visits (no remount), so a watch on
+ * `page.url` catches a click while already on /inbox, not just onMounted.
+ */
+function applyConversationDeepLink(): void {
+    const id = Number(new URL(page.url, window.location.origin).searchParams.get('conversation'));
+    if (id) chat.selectConversation(id);
+}
+
 onMounted(() => {
     chat.init();
     if (! integrationSettings.value) dashboard.loadIntegrationSettings();
+    applyConversationDeepLink();
 });
+
+watch(() => page.url, applyConversationDeepLink);
 
 onBeforeUnmount(() => chat.dispose());
 

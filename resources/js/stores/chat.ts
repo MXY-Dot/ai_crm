@@ -101,6 +101,7 @@ export const useChatStore = defineStore('chat', () => {
         // start on the "Выберите диалог" empty state, not silently reopen
         // whatever was last active.
         activeConversationId.value = null;
+        unread.setActiveConversation(null);
     }
 
     async function loadConversations(opts: { page?: number; silent?: boolean } = {}): Promise<void> {
@@ -133,6 +134,7 @@ export const useChatStore = defineStore('chat', () => {
             realtime?.unwatchConversation(activeConversationId.value);
         }
         activeConversationId.value = conversationId;
+        unread.setActiveConversation(conversationId);
 
         if (! messagesByConversation[conversationId]) {
             await loadMessages(conversationId);
@@ -157,6 +159,7 @@ export const useChatStore = defineStore('chat', () => {
         stopViewHeartbeat();
         activeConversationId.value = null;
         replyTarget.value = null;
+        unread.setActiveConversation(null);
     }
 
     async function loadMessages(conversationId: number): Promise<void> {
