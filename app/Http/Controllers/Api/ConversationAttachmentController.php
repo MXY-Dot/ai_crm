@@ -67,9 +67,24 @@ class ConversationAttachmentController extends Controller
         $targetRelative = 'attachments/'.$tenantId.'/'.pathinfo($sourcePath, PATHINFO_FILENAME).'.ogg';
         $targetAbsolute = Storage::disk('public')->path($targetRelative);
 
+        // -application voip -vbr on -compression_level 10 are not cosmetic here — found
+        // live: WhatsApp's Cloud API rejected every voice note sent without them, always
+        // with the same error (code 131053, "uploaded with mimetype audio/ogg;
+        // codecs=opus, however on processing it is of type application/octet-stream"),
+        // even though the file was already a completely valid Ogg/Opus stream by every
+        // other measure (`file`, `ffprobe`, correct Content-Type, correct headers) and
+        // failed identically across three independent delivery paths (link-based send,
+        // pre-uploaded media id via Laravel's HTTP client, and the same upload via raw
+        // curl) -- ruling out the delivery method and HTTP client as the cause. Re-
+        // encoding the exact same source with just these three extra flags added was
+        // the only change that made WhatsApp accept it; confirmed end-to-end via the
+        // real delivery-status webhook (sent -> delivered -> read). Telegram (this
+        // method's original target) has no such requirement but accepts this encoding
+        // too, so this isn't a regression for that path.
         $result = Process::timeout(20)->run([
             'ffmpeg', '-y', '-i', $sourceAbsolute,
             '-vn', '-ac', '1', '-ar', '48000', '-c:a', 'libopus', '-b:a', '32k',
+            '-application', 'voip', '-vbr', 'on', '-compression_level', '10',
             $targetAbsolute,
         ]);
 

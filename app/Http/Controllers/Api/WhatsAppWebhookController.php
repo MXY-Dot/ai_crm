@@ -51,8 +51,25 @@ class WhatsAppWebhookController extends Controller
                 $value = Arr::get($change, 'value', []);
                 $messages = Arr::get($value, 'messages');
 
-                // Non-message changes (delivery/read `statuses`, template status
-                // updates, etc.) carry no `messages` key — nothing to ingest.
+                // Delivery-status updates for messages WE sent (e.g. a WhatsApp voice note
+                // that WhatsAppClient::sendMessage() got a real message id back for, but
+                // failed asynchronously afterward) arrive here too. There's nothing to
+                // ingest as a conversation message, but a `failed` status carries the exact
+                // reason (codec/format rejected, recipient unreachable, etc.) -- silently
+                // dropping that made "the API said success but nothing ever arrived" not
+                // diagnosable at all from WERO's side. Not surfaced to the operator UI yet,
+                // just logged, so a real delivery failure has a paper trail.
+                foreach ((array) Arr::get($value, 'statuses', []) as $status) {
+                    if (Arr::get($status, 'status') === 'failed') {
+                        Log::warning('WhatsApp webhook: outgoing message delivery failed', [
+                            'message_id' => Arr::get($status, 'id'),
+                            'errors' => Arr::get($status, 'errors'),
+                        ]);
+                    }
+                }
+
+                // Non-message changes (status updates handled above, template status
+                // updates, etc.) carry no `messages` key — nothing further to ingest.
                 if (! is_array($messages) || $messages === []) {
                     continue;
                 }
@@ -68,7 +85,7 @@ class WhatsAppWebhookController extends Controller
                     // case turned out to be an unpublished Meta App withholding live webhook
                     // data entirely (Meta's own dashboard warning), not a phone_number_id
                     // mismatch, but this stays cheap insurance for the mismatch case too.
-                    Log::info('WhatsApp webhook: no tenant matched this phone_number_id', ['phone_number_id' => $phoneNumberId]);
+                    Log::warning('WhatsApp webhook: no tenant matched this phone_number_id', ['phone_number_id' => $phoneNumberId]);
 
                     continue;
                 }
