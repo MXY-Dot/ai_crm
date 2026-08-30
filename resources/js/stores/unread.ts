@@ -73,8 +73,15 @@ export const useUnreadStore = defineStore('unread', () => {
         if (message.conversation_id === activeConversationId.value) return;
 
         const preview = message.body.length > 80 ? message.body.slice(0, 80) + '…' : message.body;
-        toast.message(message.sender_name || 'Новое сообщение', {
+        // Bottom-right + 10s (vs. the app's default top-right toasts) so this one is
+        // impossible to miss and doesn't linger — per explicit user feedback that the
+        // default placement was easy to miss. Scoped to this toast only via per-call
+        // position/duration; the shared <Toaster> in AppLayout.vue stays top-right for
+        // every other toast in the app.
+        toast.message(`💬 ${message.sender_name || 'Новое сообщение'}`, {
             description: preview || '📎 Вложение',
+            position: 'bottom-right',
+            duration: 10000,
             action: {
                 label: 'Открыть',
                 onClick: () => router.visit(`/inbox?conversation=${message.conversation_id}`),
