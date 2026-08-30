@@ -43,16 +43,17 @@ function channelIcon(conversation: ChatConversation) {
     return channelIcons[conversation.channel?.provider ?? ''] ?? TelegramIcon;
 }
 
-// User feedback: the earlier /50-opacity ring was too subtle to actually notice at a
-// glance — this is the "which channel is this" cue (see also channelAvatarColors
-// below for the letter-fallback case), so it needs to read clearly, not just be a hint.
+// User feedback: /50 opacity was too subtle to notice, but full opacity (first pass)
+// read as too harsh/contrasty — this middle ground is the "which channel is this" cue
+// (see also channelAvatarColors below for the letter-fallback case), visible without
+// fighting the rest of the muted UI.
 const channelRingColors: Record<string, string> = {
-    telegram: 'ring-[var(--brand-telegram)]',
-    whatsapp: 'ring-[var(--brand-whatsapp)]',
-    instagram: 'ring-[var(--brand-instagram-to)]',
-    facebook: 'ring-[var(--brand-facebook)]',
-    website: 'ring-[var(--brand-website)]',
-    web: 'ring-[var(--brand-website)]',
+    telegram: 'ring-[var(--brand-telegram)]/70',
+    whatsapp: 'ring-[var(--brand-whatsapp)]/70',
+    instagram: 'ring-[var(--brand-instagram-to)]/70',
+    facebook: 'ring-[var(--brand-facebook)]/70',
+    website: 'ring-[var(--brand-website)]/70',
+    web: 'ring-[var(--brand-website)]/70',
 };
 
 function channelRing(conversation: ChatConversation): string {
@@ -132,7 +133,7 @@ function labelTone(value: string): 'green' | 'blue' | 'amber' | 'neutral' {
                                 @click="chat.selectConversation(conversation.id)"
                             >
                                 <div class="relative shrink-0">
-                                    <Avatar class="size-10 ring-[3px] ring-offset-2 ring-offset-card" :class="channelRing(conversation)">
+                                    <Avatar class="size-10 ring-2 ring-offset-2 ring-offset-card" :class="channelRing(conversation)">
                                         <AvatarImage v-if="conversation.customer?.avatar_url" :src="conversation.customer.avatar_url" alt="" />
                                         <AvatarFallback class="font-semibold" :class="channelAvatarColor(conversation)">{{ initial(conversation) }}</AvatarFallback>
                                     </Avatar>
