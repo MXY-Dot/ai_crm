@@ -45,10 +45,16 @@ class Booking extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'hold_expires_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
             'price' => 'float',
             'prepayment_amount' => 'float',
             'reschedule_count' => 'integer',
         ];
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function customer(): BelongsTo
