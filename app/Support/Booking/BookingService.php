@@ -72,7 +72,7 @@ class BookingService
         });
     }
 
-    public function reschedule(Booking $booking, Carbon $newStart, User $actor, bool $isClientInitiated = false, ?string $comment = null): Booking
+    public function reschedule(Booking $booking, Carbon $newStart, ?User $actor, bool $isClientInitiated = false, ?string $comment = null): Booking
     {
         // Same UTC-normalization concern as create() -- defend here too regardless of what the caller passed in.
         $newStart = $newStart->copy()->utc();
@@ -122,7 +122,7 @@ class BookingService
         });
     }
 
-    public function cancel(Booking $booking, User $actor, string $reason, bool $isClientInitiated = false): Booking
+    public function cancel(Booking $booking, ?User $actor, string $reason, bool $isClientInitiated = false): Booking
     {
         return DB::transaction(function () use ($booking, $actor, $reason, $isClientInitiated) {
             if (! in_array($booking->status, Booking::ACTIVE_STATUSES, true)) {

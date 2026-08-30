@@ -83,18 +83,21 @@ class BookingChatContext
      * Real free slots for $service starting from $from, scanning forward up to SEARCH_DAYS
      * calendar days, capped at OFFER_LIMIT results. Each slot also carries service_id/
      * service_name so AiChatBookingAssistant can persist it in Message.meta and act on
-     * a customer's pick next turn without re-resolving anything.
+     * a customer's pick next turn without re-resolving anything. $employeeId pins the
+     * search to one specific employee -- used when rescheduling an existing booking, to
+     * keep the same master rather than potentially reassigning the customer to whoever's
+     * free; null (any eligible employee) is the right default for a brand-new booking.
      *
      * @return array<int, array{employee_id:int, employee_name:string, service_id:int, service_name:string, starts_at:string, ends_at:string}>
      */
-    public function nextAvailableSlots(Company $company, Service $service, Carbon $from): array
+    public function nextAvailableSlots(Company $company, Service $service, Carbon $from, ?int $employeeId = null): array
     {
         $timezone = $company->timezone ?: config('app.timezone');
         $cursor = $from->copy();
         $slots = [];
 
         for ($i = 0; $i < self::SEARCH_DAYS && count($slots) < self::OFFER_LIMIT; $i++) {
-            foreach ($this->calculator->slotsForDay($service, $cursor->copy(), null, $timezone) as $slot) {
+            foreach ($this->calculator->slotsForDay($service, $cursor->copy(), $employeeId, $timezone) as $slot) {
                 $slots[] = $slot + ['service_id' => $service->id, 'service_name' => $service->name];
 
                 if (count($slots) >= self::OFFER_LIMIT) {

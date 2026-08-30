@@ -35,11 +35,12 @@ class BookingIntentExtractor
     /**
      * @param Collection<int, \App\Models\Service> $services
      * @param array<int, array{employee_id:int, employee_name:string, starts_at:string, ends_at:string}> $offeredSlots
-     * @return array{wants_booking:bool, service_name:?string, selected_offer_index:?int, preferred_date:?string}|null
+     * @param Collection<int, \App\Models\Booking> $activeBookings
+     * @return array{wants_booking:bool, wants_reschedule:bool, wants_cancel:bool, service_name:?string, selected_offer_index:?int, selected_booking_index:?int, preferred_date:?string, cancel_reason:?string}|null
      */
-    public function extract(Tenant $tenant, Conversation $conversation, Message $message, Collection $services, array $offeredSlots): ?array
+    public function extract(Tenant $tenant, Conversation $conversation, Message $message, Collection $services, array $offeredSlots, Collection $activeBookings): ?array
     {
-        $system = $this->systemPrompt($services, $offeredSlots);
+        $system = $this->systemPrompt($services, $offeredSlots, $activeBookings);
         $user = "Последние сообщения переписки:\n".$this->dify->recentMessages($conversation)
             ."\n\nПоследнее сообщение клиента:\n".$message->body;
 
@@ -67,34 +68,57 @@ class BookingIntentExtractor
 
         return [
             'wants_booking' => filter_var($data['wants_booking'] ?? false, FILTER_VALIDATE_BOOL),
+            'wants_reschedule' => filter_var($data['wants_reschedule'] ?? false, FILTER_VALIDATE_BOOL),
+            'wants_cancel' => filter_var($data['wants_cancel'] ?? false, FILTER_VALIDATE_BOOL),
             'service_name' => is_string($data['service_name'] ?? null) && trim($data['service_name']) !== '' ? trim($data['service_name']) : null,
             'selected_offer_index' => is_numeric($data['selected_offer_index'] ?? null) ? (int) $data['selected_offer_index'] : null,
+            'selected_booking_index' => is_numeric($data['selected_booking_index'] ?? null) ? (int) $data['selected_booking_index'] : null,
             'preferred_date' => is_string($data['preferred_date'] ?? null) && trim($data['preferred_date']) !== '' ? trim($data['preferred_date']) : null,
+            'cancel_reason' => is_string($data['cancel_reason'] ?? null) && trim($data['cancel_reason']) !== '' ? trim($data['cancel_reason']) : null,
         ];
     }
 
-    private function systemPrompt(Collection $services, array $offeredSlots): string
+    /** @param Collection<int, \App\Models\Booking> $activeBookings */
+    private function systemPrompt(Collection $services, array $offeredSlots, Collection $activeBookings): string
     {
         $serviceNames = $services->pluck('name')->implode(', ');
         $offeredText = $offeredSlots === []
             ? 'Клиенту ничего не предлагалось.'
             : collect($offeredSlots)->map(fn (array $slot, int $i): string => $i.': '.Carbon::parse($slot['starts_at'])->format('d.m в H:i').' ('.$slot['employee_name'].')')->implode("\n");
 
-        return <<<PROMPT
-Ты определяешь, хочет ли клиент онлайн-запись на услугу, читая последнее сообщение в переписке. Доступные услуги: {$serviceNames}.
+        $bookingsText = $activeBookings->isEmpty()
+            ? 'У клиента нет активных записей.'
+            : $activeBookings->values()->map(function ($booking, int $i): string {
+                // Booking.starts_at casts to UTC -- must convert to the company's own
+                // timezone before formatting, same as AiChatBookingAssistant::localIso().
+                $timezone = $booking->company?->timezone ?: config('app.timezone');
+                $when = $booking->starts_at->copy()->setTimezone($timezone)->format('d.m в H:i');
 
-Ранее клиенту могли быть предложены конкретные варианты времени:
+                return $i.': '.$booking->service?->name.', '.$when.' ('.$booking->employee?->name.')';
+            })->implode("\n");
+
+        return <<<PROMPT
+Ты определяешь намерение клиента насчёт онлайн-записи, читая последнее сообщение в переписке. Доступные услуги: {$serviceNames}.
+
+Ранее клиенту могли быть предложены конкретные варианты времени (для новой записи или переноса):
 {$offeredText}
+
+Активные записи клиента (используются, если клиент хочет перенести/отменить и нужно понять, какую именно, при нескольких записях):
+{$bookingsText}
 
 Верни СТРОГО валидный JSON без пояснений и markdown-обрамления:
 {
-  "wants_booking": true если клиент хочет записаться/выбирает время/подтверждает один из предложенных вариантов, иначе false,
-  "service_name": ТОЧНОЕ название услуги строго из списка выше, если понятно какая нужна, иначе null (не выдумывай услугу, которой нет в списке),
-  "selected_offer_index": число -- индекс варианта из списка выше, который клиент только что выбрал (например "второй вариант" = 1, "давайте на 14:00" = индекс варианта с этим временем), или null если клиент не выбирал из предложенных,
-  "preferred_date": "YYYY-MM-DD" если клиент назвал конкретный день (переведи "завтра"/"в пятницу" и т.п. в дату сам), иначе null
+  "wants_booking": true если клиент хочет ЗАПИСАТЬСЯ (новая запись) или подтверждает предложенный вариант времени для новой записи, иначе false,
+  "wants_reschedule": true если клиент хочет ПЕРЕНЕСТИ существующую запись на другое время, иначе false,
+  "wants_cancel": true если клиент хочет ОТМЕНИТЬ существующую запись, иначе false,
+  "service_name": ТОЧНОЕ название услуги строго из списка выше, если понятно какая нужна для новой записи, иначе null (не выдумывай услугу, которой нет в списке),
+  "selected_offer_index": число -- индекс варианта времени из списка выше, который клиент только что выбрал (например "второй вариант" = 1, "давайте на 14:00" = индекс варианта с этим временем), или null,
+  "selected_booking_index": число -- индекс записи из списка активных записей выше, которую клиент имеет в виду (если у него несколько и он уточнил, какую именно), или null,
+  "preferred_date": "YYYY-MM-DD" если клиент назвал конкретный день для новой записи или переноса (переведи "завтра"/"в пятницу" и т.п. в дату сам), иначе null,
+  "cancel_reason": короткая причина отмены, если клиент её назвал, иначе null
 }
 
-Сегодняшняя дата: {$this->today()}.
+Только одно из wants_booking/wants_reschedule/wants_cancel может быть true одновременно. Сегодняшняя дата: {$this->today()}.
 PROMPT;
     }
 
