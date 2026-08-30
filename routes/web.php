@@ -36,6 +36,10 @@ Route::get('/widget-test', fn () => view('widget-test', [
 
 Route::get('/', fn () => Inertia::render('HomePage'))->name('home');
 
+// ТЗ /policy — Meta App Review requires a working Privacy Policy URL to publish
+// the app; this is that page, public/unauthenticated, no dashboard chrome.
+Route::get('/policy', fn () => Inertia::render('PrivacyPolicyPage'))->name('policy');
+
 Route::post('/locale/{locale}', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::middleware('guest')->group(function (): void {
