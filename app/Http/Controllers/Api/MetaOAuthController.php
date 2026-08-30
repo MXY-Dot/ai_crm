@@ -169,7 +169,7 @@ class MetaOAuthController extends Controller
         $request->session()->put(['meta_oauth_tenant_id' => $tenant->id, 'meta_oauth_state' => $state]);
 
         return redirect('https://www.instagram.com/oauth/authorize?'.http_build_query([
-            'client_id' => config('services.meta.app_id'),
+            'client_id' => config('services.meta.instagram_app_id'),
             'redirect_uri' => $this->instagramRedirectUri(),
             'state' => $state,
             'scope' => self::INSTAGRAM_SCOPES,
@@ -190,8 +190,8 @@ class MetaOAuthController extends Controller
             // distinct from Facebook's — form-encoded POST, not the query-string GET
             // Facebook's oauth/access_token uses.
             $shortLivedResponse = Http::asForm()->post('https://api.instagram.com/oauth/access_token', [
-                'client_id' => config('services.meta.app_id'),
-                'client_secret' => config('services.meta.app_secret'),
+                'client_id' => config('services.meta.instagram_app_id'),
+                'client_secret' => config('services.meta.instagram_app_secret'),
                 'grant_type' => 'authorization_code',
                 'redirect_uri' => $this->instagramRedirectUri(),
                 'code' => (string) $request->query('code'),
@@ -202,7 +202,7 @@ class MetaOAuthController extends Controller
 
             $longLivedResponse = Http::get('https://graph.instagram.com/access_token', [
                 'grant_type' => 'ig_exchange_token',
-                'client_secret' => config('services.meta.app_secret'),
+                'client_secret' => config('services.meta.instagram_app_secret'),
                 'access_token' => $shortLivedToken,
             ])->throw()->json();
 

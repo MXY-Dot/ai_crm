@@ -69,6 +69,14 @@ return [
         'app_id' => env('META_APP_ID'),
         'app_secret' => env('META_APP_SECRET'),
         'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
+        // Found live setting up OAuth: Instagram's "Instagram API with Instagram
+        // Login" issues its own separate App ID/Secret, distinct from the main
+        // Facebook App's — the main app_id/app_secret above are wrong for
+        // Instagram's own token endpoints (api.instagram.com / graph.instagram.com's
+        // oauth routes). Only MetaOAuthController's Instagram flow uses these; the
+        // webhook signature check and Facebook OAuth both still use app_secret/app_id.
+        'instagram_app_id' => env('META_INSTAGRAM_APP_ID'),
+        'instagram_app_secret' => env('META_INSTAGRAM_APP_SECRET'),
     ],
 
     // Fallback default only -- each tenant can override base_url in their own
