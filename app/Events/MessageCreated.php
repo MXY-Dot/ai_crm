@@ -38,6 +38,10 @@ class MessageCreated implements ShouldBroadcastNow
     {
         return [
             'message' => $this->message->loadMissing('replyTo')->toArray(),
+            // Not a Message column -- the tenant-wide "new message" toast (useUnreadStore)
+            // wants to show which channel this came from (WhatsApp/Telegram/Instagram/
+            // Facebook icon+color) without a second round-trip to look up the conversation.
+            'provider' => $this->message->conversation?->channel?->provider,
         ];
     }
 }

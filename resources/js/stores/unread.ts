@@ -1,9 +1,15 @@
-import { ref } from 'vue';
+import { h, ref } from 'vue';
+import type { Component } from 'vue';
 import { defineStore } from 'pinia';
 import { router } from '@inertiajs/vue3';
 import { toast } from 'vue-sonner';
+import { MessageCircle } from '@lucide/vue';
 import { apiRequest } from '../lib/apiClient';
 import { getEcho } from '../lib/chat/echo';
+import FacebookIcon from '../components/icons/FacebookIcon.vue';
+import InstagramIcon from '../components/icons/InstagramIcon.vue';
+import TelegramIcon from '../components/icons/TelegramIcon.vue';
+import WhatsappIcon from '../components/icons/WhatsappIcon.vue';
 import { useCrmDashboardStore } from './crmDashboard';
 
 type IncomingMessage = {
@@ -13,6 +19,41 @@ type IncomingMessage = {
     sender_name: string | null;
     body: string;
 };
+
+const CHANNEL_ICON: Record<string, Component> = {
+    telegram: TelegramIcon,
+    whatsapp: WhatsappIcon,
+    instagram: InstagramIcon,
+    facebook: FacebookIcon,
+};
+
+const CHANNEL_BRAND_VAR: Record<string, string> = {
+    telegram: '--brand-telegram',
+    whatsapp: '--brand-whatsapp',
+    instagram: '--brand-instagram-to',
+    facebook: '--brand-facebook',
+    website: '--brand-website',
+    web: '--brand-website',
+};
+
+/** Small soft-tinted chip (icon in the channel's brand color, low-opacity background of the same color) for the toast — same recipe as ChatSidebar's letter-fallback avatars, just reused here since vue-sonner's `icon` slot takes a raw component, not a template. */
+function channelToastIcon(provider: string | null | undefined): Component {
+    const IconComponent = (provider && CHANNEL_ICON[provider]) || MessageCircle;
+    const brandVar = provider ? CHANNEL_BRAND_VAR[provider] : undefined;
+
+    return {
+        render: () => h(
+            'span',
+            {
+                class: 'grid size-6 shrink-0 place-items-center rounded-full',
+                style: brandVar
+                    ? { backgroundColor: `color-mix(in srgb, var(${brandVar}) 18%, transparent)`, color: `var(${brandVar})` }
+                    : undefined,
+            },
+            [h(IconComponent, { class: 'size-3.5' })],
+        ),
+    };
+}
 
 /**
  * App-wide "unread customer messages" count, independent of the chat store
@@ -69,7 +110,7 @@ export const useUnreadStore = defineStore('unread', () => {
         activeConversationId.value = conversationId;
     }
 
-    function notifyNewMessage(message: IncomingMessage): void {
+    function notifyNewMessage(message: IncomingMessage, provider: string | null | undefined): void {
         if (message.conversation_id === activeConversationId.value) return;
 
         const preview = message.body.length > 80 ? message.body.slice(0, 80) + '…' : message.body;
@@ -78,8 +119,9 @@ export const useUnreadStore = defineStore('unread', () => {
         // default placement was easy to miss. Scoped to this toast only via per-call
         // position/duration; the shared <Toaster> in AppLayout.vue stays top-right for
         // every other toast in the app.
-        toast.message(`💬 ${message.sender_name || 'Новое сообщение'}`, {
+        toast.message(message.sender_name || 'Новое сообщение', {
             description: preview || '📎 Вложение',
+            icon: channelToastIcon(provider),
             position: 'bottom-right',
             duration: 10000,
             action: {
@@ -113,11 +155,11 @@ export const useUnreadStore = defineStore('unread', () => {
         const channel = getEcho()
             .private(`tenant.${tenantId}.conversations`)
             .listen('.message.created', (payload: unknown) => {
-                const message = (payload as { message?: IncomingMessage }).message;
-                if (message?.sender_type !== 'customer') return;
+                const data = payload as { message?: IncomingMessage; provider?: string | null };
+                if (data.message?.sender_type !== 'customer') return;
 
                 total.value += 1;
-                notifyNewMessage(message);
+                notifyNewMessage(data.message, data.provider);
             });
 
         unsubscribe = () => getEcho().leave(`tenant.${tenantId}.conversations`);
