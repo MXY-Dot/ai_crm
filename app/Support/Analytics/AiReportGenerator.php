@@ -3,6 +3,8 @@
 namespace App\Support\Analytics;
 
 use App\Models\AiAnalyticsReport;
+use App\Models\Company;
+use App\Models\CrmTask;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\AppNotification;
@@ -66,6 +68,7 @@ class AiReportGenerator
         ]);
 
         $this->notifyStaff($tenant, $report);
+        $this->createTasksFromReport($tenant, $report);
 
         return $report;
     }
@@ -147,5 +150,109 @@ PROMPT;
         foreach ($staff as $user) {
             $user->notify(new AppNotification('ai_analytics_report', $title, $body, '/analytics', 'normal'));
         }
+    }
+
+    /**
+     * A second, small, dedicated LLM call (same primary→backup pattern) reading the
+     * already-generated report text and pulling out only genuinely concrete action
+     * items -- deliberately separate from the report-writing call above rather than
+     * asking one call for both prose and JSON at once, which is a much less reliable
+     * way to get either half right. Silent no-op on any failure: a missed task is a
+     * soft miss, not a correctness problem worth a fallback path.
+     */
+    private function createTasksFromReport(Tenant $tenant, AiAnalyticsReport $report): void
+    {
+        $company = Company::withoutGlobalScopes()->where('tenant_id', $tenant->id)->first();
+
+        if (! $company) {
+            return;
+        }
+
+        // Regenerating the SAME period (the manual "Сформировать сейчас" button can be
+        // clicked more than once, or the scheduled command re-run) must not spawn a
+        // second batch of tasks -- found live: the LLM words the same underlying
+        // recommendation slightly differently each call, so firstOrCreate()'s exact-
+        // title match below does NOT catch this on its own; guarding on "is this the
+        // first report for this exact period" does.
+        $isFirstReportForPeriod = ! AiAnalyticsReport::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('period_type', $report->period_type)
+            ->where('period_start', $report->period_start)
+            ->where('id', '!=', $report->id)
+            ->exists();
+
+        if (! $isFirstReportForPeriod) {
+            return;
+        }
+
+        foreach ($this->extractTasks($tenant, $report->content) as $item) {
+            CrmTask::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'title' => 'Из AI-отчёта: '.$item['title']],
+                ['status' => 'open', 'priority' => $item['priority'], 'description' => $item['description']],
+            );
+        }
+    }
+
+    /** @return array<int, array{title: string, description: ?string, priority: string}> */
+    private function extractTasks(Tenant $tenant, string $reportText): array
+    {
+        $system = <<<PROMPT
+Прочитай отчёт ниже и определи, есть ли в нём КОНКРЕТНЫЕ действия, которые владельцу бизнеса стоит реально сделать (не общие советы вроде "улучшайте сервис", а что-то конкретное и выполнимое). Если таких нет — верни пустой массив.
+
+Верни СТРОГО валидный JSON-массив (0-3 элемента), без пояснений и markdown-обрамления:
+[{"title": "короткое название задачи, до 80 символов", "description": "1-2 предложения, что именно и зачем сделать", "priority": "low" или "normal" или "high"}]
+PROMPT;
+
+        $provider = $this->platform->primaryLlmProvider();
+        $model = $this->platform->defaultModel();
+        $result = $this->llm->complete($tenant, $provider, $model, $system, $reportText, 500);
+
+        if ($result === null) {
+            $backupProvider = $this->platform->backupLlmProvider();
+            if ($backupProvider) {
+                $result = $this->llm->complete($tenant, $backupProvider, $this->platform->defaultModelFor($backupProvider), $system, $reportText, 500);
+            }
+        }
+
+        if ($result === null) {
+            return [];
+        }
+
+        $items = $this->parseJsonArray($result['text']);
+
+        if ($items === null) {
+            return [];
+        }
+
+        return collect($items)
+            ->filter(fn ($item) => is_array($item) && is_string($item['title'] ?? null) && trim($item['title']) !== '')
+            ->map(fn (array $item): array => [
+                'title' => Str::limit(trim($item['title']), 80),
+                'description' => is_string($item['description'] ?? null) && trim($item['description']) !== '' ? trim($item['description']) : null,
+                'priority' => in_array($item['priority'] ?? null, ['low', 'normal', 'high'], true) ? $item['priority'] : 'normal',
+            ])
+            ->take(3)
+            ->values()
+            ->all();
+    }
+
+    private function parseJsonArray(string $text): ?array
+    {
+        $text = trim($text);
+        $text = preg_replace('/^```(?:json)?\s*|\s*```$/m', '', $text) ?? $text;
+
+        $decoded = json_decode($text, true);
+
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        if (! preg_match('/\[.*\]/s', $text, $matches)) {
+            return null;
+        }
+
+        $decoded = json_decode($matches[0], true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 }
