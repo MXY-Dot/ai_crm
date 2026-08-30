@@ -75,7 +75,14 @@ class DateRangeResolver
      */
     public function previousPeriod(Carbon $start, Carbon $end): array
     {
-        $lengthSeconds = $end->diffInSeconds($start);
+        // Found live wiring up the new comparison feature: this project's Carbon
+        // returns a SIGNED diff by default (negative here, since $end is later
+        // than $start) — the missing `true` (absolute) meant $lengthSeconds was
+        // negative, which silently produced an inverted range (start AFTER end).
+        // Was already the only two-argument caller before this — topics()'s own
+        // "previous period" comparison (change_percent/is_new) has been running
+        // against this same backwards range since it was written.
+        $lengthSeconds = $end->diffInSeconds($start, true);
 
         return [$start->copy()->subSeconds($lengthSeconds + 1), $start->copy()->subSecond()];
     }

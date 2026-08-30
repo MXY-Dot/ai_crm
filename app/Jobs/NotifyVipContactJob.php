@@ -56,7 +56,7 @@ class NotifyVipContactJob implements ShouldQueue
             ->get();
 
         foreach ($staff as $user) {
-            $user->notify(new AppNotification('vip_contact', 'VIP-клиент на связи', $body, '/inbox'));
+            $user->notify(new AppNotification('vip_contact', 'VIP-клиент на связи', $body, '/inbox', 'high'));
         }
     }
 

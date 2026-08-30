@@ -21,8 +21,18 @@ type NotificationItem = {
     title: string;
     body: string | null;
     action_url: string | null;
+    priority: 'low' | 'normal' | 'high' | 'urgent';
     read_at: string | null;
     created_at: string;
+};
+
+// Backend already returns the list urgent-first (see NotificationController::index()),
+// this just adds the visual cue on top of that ordering.
+const PRIORITY_DOT: Record<NotificationItem['priority'], string> = {
+    urgent: 'bg-destructive',
+    high: 'bg-amber-500',
+    normal: 'bg-primary',
+    low: 'bg-muted-foreground',
 };
 
 const items = ref<NotificationItem[]>([]);
@@ -168,9 +178,14 @@ async function sendAnnouncement(): Promise<void> {
                     :class="! item.read_at ? 'bg-primary/5' : ''"
                     @click="markRead(item)"
                 >
-                    <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" :class="! item.read_at ? 'bg-primary' : 'bg-transparent'" />
+                    <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" :class="! item.read_at ? PRIORITY_DOT[item.priority] : 'bg-transparent'" />
                     <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-medium ui-text">{{ item.title }}</span>
+                        <span class="flex items-center gap-1.5">
+                            <span class="block text-sm font-medium ui-text">{{ item.title }}</span>
+                            <span v-if="item.priority === 'urgent' || item.priority === 'high'" class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" :class="item.priority === 'urgent' ? 'bg-destructive/10 text-destructive' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'">
+                                {{ item.priority === 'urgent' ? 'Срочно' : 'Важно' }}
+                            </span>
+                        </span>
                         <span v-if="item.body" class="mt-0.5 block truncate text-xs ui-subtle">{{ item.body }}</span>
                         <span class="mt-1 block text-[11px] ui-subtle">{{ formatTime(item.created_at) }}</span>
                     </span>

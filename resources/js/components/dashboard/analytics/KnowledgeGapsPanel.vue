@@ -8,7 +8,7 @@ import { Skeleton } from '../../ui/skeleton';
 
 type GapRow = { id: number; customer_message: string; created_at: string };
 
-const props = defineProps<{ granularity: string; anchorDate: string; tenantSlug: string }>();
+const props = defineProps<{ queryString: string; tenantSlug: string }>();
 const locale = useLocaleStore();
 
 const rows = ref<GapRow[]>([]);
@@ -18,8 +18,7 @@ async function load(): Promise<void> {
     if (! props.tenantSlug) return;
     loading.value = true;
     try {
-        const params = new URLSearchParams({ range: props.granularity, date: props.anchorDate });
-        const data = await apiRequest<{ data: GapRow[] }>(`/api/analytics/knowledge-gaps?${params.toString()}`, { tenant: props.tenantSlug });
+        const data = await apiRequest<{ data: GapRow[] }>(`/api/analytics/knowledge-gaps?${props.queryString}`, { tenant: props.tenantSlug });
         rows.value = data.data;
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Error');
@@ -29,7 +28,7 @@ async function load(): Promise<void> {
 }
 
 onMounted(load);
-watch(() => [props.granularity, props.anchorDate, props.tenantSlug], load);
+watch(() => [props.queryString, props.tenantSlug], load);
 </script>
 
 <template>

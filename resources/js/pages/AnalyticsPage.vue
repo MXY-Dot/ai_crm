@@ -21,13 +21,16 @@ import SentimentPanel, { type SentimentRow } from '../components/dashboard/analy
 import SlaPanel, { type Sla } from '../components/dashboard/analytics/SlaPanel.vue';
 import TopicsPanel, { type TopicRow } from '../components/dashboard/analytics/TopicsPanel.vue';
 import DialogsTrendChart from '../components/dashboard/overview/DialogsTrendChart.vue';
-import DateRangeFilter, { type DateRangeGranularity } from '../components/dashboard/DateRangeFilter.vue';
+import AnalyticsPeriodFilter, { type DatePreset } from '../components/dashboard/analytics/AnalyticsPeriodFilter.vue';
+import PeriodComparisonPanel, { type PeriodKpis } from '../components/dashboard/analytics/PeriodComparisonPanel.vue';
 import { Skeleton } from '../components/ui/skeleton';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
 
 type Analytics = {
     raw: { conversations: Conversation[]; messages: Message[]; ai_runs: AiRun[] };
+    kpis: PeriodKpis;
+    previous_kpis: PeriodKpis | null;
     ai_performance: AiPerformance;
     sales: SalesAnalytics;
     llm_usage: LlmUsageRow[];
@@ -44,10 +47,28 @@ const { openTasks, tenant } = storeToRefs(dashboard);
 const locale = useLocaleStore();
 const exportTarget = ref<HTMLElement | null>(null);
 
-const granularity = ref<DateRangeGranularity>('month');
-const anchorDate = ref(new Date().toISOString().slice(0, 10));
+const preset = ref<DatePreset>('this_month');
+const customFrom = ref(new Date().toISOString().slice(0, 8) + '01');
+const customTo = ref(new Date().toISOString().slice(0, 10));
+const compare = ref(false);
 const data = ref<Analytics | null>(null);
 const loading = ref(true);
+
+function buildParams(): URLSearchParams {
+    const params = new URLSearchParams({ preset: preset.value });
+    if (preset.value === 'custom') {
+        if (customFrom.value) params.set('from', customFrom.value);
+        if (customTo.value) params.set('to', customTo.value);
+    }
+    if (compare.value) params.set('compare', '1');
+
+    return params;
+}
+
+// Initialized synchronously (not '') so KnowledgeGapsPanel's own onMounted(load),
+// which fires around the same tick as this page's, doesn't race a request out
+// with no preset before this page's own load() finishes and sets the real one.
+const queryString = ref(buildParams().toString());
 
 async function load(): Promise<void> {
     const slug = tenant.value?.slug;
@@ -55,8 +76,9 @@ async function load(): Promise<void> {
 
     loading.value = true;
     try {
-        const params = new URLSearchParams({ range: granularity.value, date: anchorDate.value });
-        data.value = await apiRequest<Analytics>(`/api/analytics?${params.toString()}`, { tenant: slug });
+        const params = buildParams();
+        queryString.value = params.toString();
+        data.value = await apiRequest<Analytics>(`/api/analytics?${queryString.value}`, { tenant: slug });
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Не удалось загрузить аналитику');
     } finally {
@@ -65,7 +87,7 @@ async function load(): Promise<void> {
 }
 
 onMounted(load);
-watch([granularity, anchorDate], load);
+watch([preset, customFrom, customTo, compare], load);
 
 defineOptions({ layout: AppLayout });
 </script>
@@ -78,7 +100,7 @@ defineOptions({ layout: AppLayout });
                 <p class="mt-1 text-sm ui-subtle">{{ locale.t('analytics.pageSubtitle') }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <DateRangeFilter v-model:granularity="granularity" v-model:anchor="anchorDate" />
+                <AnalyticsPeriodFilter v-model:preset="preset" v-model:from="customFrom" v-model:to="customTo" v-model:compare="compare" />
                 <AnalyticsExportMenu data-tour="analytics-export" :target="exportTarget" :conversations="data?.raw.conversations ?? []" />
             </div>
         </div>
@@ -88,6 +110,7 @@ defineOptions({ layout: AppLayout });
         </div>
 
         <div v-else ref="exportTarget" class="space-y-6 p-1">
+            <PeriodComparisonPanel v-if="compare" :current="data?.kpis ?? null" :previous="data?.previous_kpis ?? null" />
             <AnalyticsKpis data-tour="analytics-kpis" :conversations="data?.raw.conversations ?? []" :open-tasks="openTasks" :ai-runs="data?.raw.ai_runs ?? []" />
 
             <div class="grid gap-6 lg:grid-cols-3" data-tour="analytics-charts">
@@ -112,7 +135,7 @@ defineOptions({ layout: AppLayout });
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <TopicsPanel :data="data?.topics ?? null" :loading="loading" />
-                <KnowledgeGapsPanel :granularity="granularity" :anchor-date="anchorDate" :tenant-slug="tenant?.slug ?? ''" />
+                <KnowledgeGapsPanel :query-string="queryString" :tenant-slug="tenant?.slug ?? ''" />
             </div>
 
             <OperatorsPanel :data="data?.operators ?? null" :loading="loading" />

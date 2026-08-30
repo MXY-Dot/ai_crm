@@ -45,15 +45,28 @@ class AnalyticsController extends Controller
     {
         [$start, $end, $bucket] = $this->range->resolve($request);
 
+        // ТЗ раздел 21 "Сравнить период" — opt-in (?compare=1) since it doubles
+        // the kpis()/sales() queries; topics() already always compares internally
+        // for its own change_percent/is_new fields, unrelated to this flag.
+        $compare = $request->boolean('compare');
+        $previousStart = $previousEnd = null;
+
+        if ($compare) {
+            [$previousStart, $previousEnd] = $this->range->previousPeriod($start, $end);
+        }
+
         return response()->json([
             'range' => ['start' => $start->toIso8601String(), 'end' => $end->toIso8601String()],
+            'previous_range' => $compare ? ['start' => $previousStart->toIso8601String(), 'end' => $previousEnd->toIso8601String()] : null,
             'raw' => $this->raw($start, $end),
             'kpis' => $this->kpis($start, $end),
+            'previous_kpis' => $compare ? $this->kpis($previousStart, $previousEnd) : null,
             'message_trend' => $this->messageTrend($start, $end, $bucket),
             'leads_funnel' => $this->leadsFunnel(),
             'ai_performance' => $this->aiPerformance($start, $end),
             'llm_usage' => $this->llmUsage($start, $end),
             'sales' => $this->sales($start, $end, $bucket),
+            'previous_sales' => $compare ? $this->sales($previousStart, $previousEnd, $bucket) : null,
             'sla' => $this->sla($start, $end),
             'outcomes' => $this->outcomes($start, $end),
             'sentiment' => $this->sentimentBreakdown($start, $end),

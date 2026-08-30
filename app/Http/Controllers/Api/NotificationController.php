@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Notifications\AppNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -11,7 +12,15 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $notifications = $request->user()->notifications()->latest()->limit(30)->get();
+        // Newest first is the DB order (latest()), but an unread urgent/high
+        // notification from an hour ago is more worth surfacing at the top than
+        // a just-arrived low-priority one — sort by priority within the fetched
+        // page rather than re-querying, since it's already capped at 30 rows.
+        $priorityRank = array_flip(array_reverse(AppNotification::PRIORITIES));
+
+        $notifications = $request->user()->notifications()->latest()->limit(30)->get()
+            ->sortBy(fn (DatabaseNotification $n) => $priorityRank[$n->data['priority'] ?? 'normal'] ?? $priorityRank['normal'])
+            ->values();
 
         return response()->json([
             'data' => $notifications->map(fn (DatabaseNotification $n) => [
@@ -20,6 +29,7 @@ class NotificationController extends Controller
                 'title' => $n->data['title'] ?? '',
                 'body' => $n->data['body'] ?? null,
                 'action_url' => $n->data['action_url'] ?? null,
+                'priority' => $n->data['priority'] ?? 'normal',
                 'read_at' => $n->read_at,
                 'created_at' => $n->created_at,
             ]),

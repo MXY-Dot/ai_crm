@@ -69,6 +69,7 @@ class SendEmergencyAlertJob implements ShouldQueue
                 'AI временно недоступен',
                 "Компания: {$company?->name}. Причина: {$incident->cause}. Новые обращения назначайте себе вручную.",
                 '/inbox',
+                'urgent',
             ));
         }
 

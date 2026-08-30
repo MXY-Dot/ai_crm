@@ -96,6 +96,7 @@ class SupportTicketController extends Controller
                 'Тикет техподдержки: '.$ticket->subject,
                 Str::limit($preview, 140),
                 '/super-admin/support/'.$ticket->id,
+                'high',
             ))
         );
 

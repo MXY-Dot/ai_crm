@@ -44,6 +44,7 @@ class SendPlatformAlertJob implements ShouldQueue
                 'Платформенный компонент недоступен',
                 "Компонент: {$this->component}. Причина: {$incident->cause}.",
                 '/super-admin/incidents',
+                'urgent',
             ));
         }
 
