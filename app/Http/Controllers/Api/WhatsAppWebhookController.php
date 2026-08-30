@@ -61,6 +61,15 @@ class WhatsAppWebhookController extends Controller
                 $tenant = $resolver->byWhatsappPhoneNumberId($phoneNumberId);
 
                 if (! $tenant) {
+                    // Silent before -- a real message from a real customer landing here
+                    // with no matching tenant.settings.integrations.whatsapp.phone_number_id
+                    // looked identical to "nothing happened at all" from the outside. Added
+                    // while live-debugging a tenant's first WhatsApp test -- that particular
+                    // case turned out to be an unpublished Meta App withholding live webhook
+                    // data entirely (Meta's own dashboard warning), not a phone_number_id
+                    // mismatch, but this stays cheap insurance for the mismatch case too.
+                    Log::info('WhatsApp webhook: no tenant matched this phone_number_id', ['phone_number_id' => $phoneNumberId]);
+
                     continue;
                 }
 
