@@ -83,6 +83,24 @@ class WhatsAppClient
     }
 
     /**
+     * WhatsApp has no standalone "typing on/off" call like Telegram/Messenger --
+     * showing a typing bubble is a side effect of marking a specific INCOMING
+     * message as read (Cloud API "typing indicators" feature), so it needs that
+     * message's own id, not just the chat. It auto-dismisses after 25s or when a
+     * reply is actually sent, whichever comes first -- there is no explicit "off"
+     * call to make. https://developers.facebook.com/docs/whatsapp/cloud-api/typing-indicators/
+     */
+    public function markReadWithTypingIndicator(Tenant $tenant, string $waMessageId): void
+    {
+        $this->post($tenant, [
+            'messaging_product' => 'whatsapp',
+            'status' => 'read',
+            'message_id' => $waMessageId,
+            'typing_indicator' => ['type' => 'text'],
+        ]);
+    }
+
+    /**
      * WhatsApp media is a two-hop resolve, like Telegram: an incoming message
      * only carries a `media id`, which first has to be exchanged for a
      * short-lived CDN URL (`GET /{media-id}`), which itself requires the same

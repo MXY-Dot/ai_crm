@@ -55,6 +55,15 @@ class FacebookClient
         return $result;
     }
 
+    /** Messenger Platform sender action -- real typing_on/typing_off, unlike WhatsApp's read-receipt-triggered indicator, so this genuinely turns off too. */
+    public function sendTypingAction(Tenant $tenant, string $recipientPsid, bool $typing): void
+    {
+        $this->post($tenant, [
+            'recipient' => ['id' => $recipientPsid],
+            'sender_action' => $typing ? 'typing_on' : 'typing_off',
+        ]);
+    }
+
     private function post(Tenant $tenant, array $body): array
     {
         $token = $this->settings->facebookPageAccessToken($tenant);

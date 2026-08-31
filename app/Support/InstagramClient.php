@@ -58,6 +58,15 @@ class InstagramClient
         return $result;
     }
 
+    /** Same sender_action mechanism as Messenger (Instagram DMs ride the same Messenger Platform infrastructure) -- real typing_on/typing_off. */
+    public function sendTypingAction(Tenant $tenant, string $recipientIgsid, bool $typing): void
+    {
+        $this->post($tenant, [
+            'recipient' => ['id' => $recipientIgsid],
+            'sender_action' => $typing ? 'typing_on' : 'typing_off',
+        ]);
+    }
+
     private function post(Tenant $tenant, array $body): array
     {
         $token = $this->settings->instagramPageAccessToken($tenant);

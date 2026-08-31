@@ -1064,14 +1064,45 @@ class AiWorkflow
         }
 
         try {
+            $provider = $conversation->channel?->provider;
+
             // 'website' deliberately excluded — a widget conversation has no external
             // platform to show a typing indicator on (see autoReply()'s matching branch).
-            if ($conversation->channel?->provider === 'chatwoot') {
+            if ($provider === 'chatwoot') {
                 $this->chatwoot->toggleTyping($tenant, (string) $conversation->external_id, $typing);
             }
 
-            if ($typing && $conversation->channel?->provider === 'telegram') {
+            if ($typing && $provider === 'telegram') {
                 $this->telegram->sendChatAction($tenant, str_replace('telegram-', '', (string) $conversation->external_id));
+            }
+
+            if ($provider === 'facebook') {
+                $this->facebook->sendTypingAction($tenant, str_replace('facebook-', '', (string) $conversation->external_id), $typing);
+            }
+
+            if ($provider === 'instagram') {
+                $this->instagram->sendTypingAction($tenant, str_replace('instagram-', '', (string) $conversation->external_id), $typing);
+            }
+
+            // WhatsApp has no standalone on/off call — the indicator rides the "mark
+            // this specific incoming message read" endpoint (see WhatsAppClient's own
+            // docblock), so it needs the customer's latest message id, not just the
+            // chat, and there is nothing to send for $typing === false.
+            if ($typing && $provider === 'whatsapp') {
+                $from = str_replace('whatsapp-', '', (string) $conversation->external_id);
+                $lastCustomerMessage = Message::withoutGlobalScopes()
+                    ->where('conversation_id', $conversation->id)
+                    ->where('sender_type', 'customer')
+                    ->latest('id')
+                    ->first();
+
+                $waMessageId = $lastCustomerMessage?->external_id
+                    ? str_replace('whatsapp-'.$from.'-', '', $lastCustomerMessage->external_id)
+                    : null;
+
+                if ($waMessageId) {
+                    $this->whatsapp->markReadWithTypingIndicator($tenant, $waMessageId);
+                }
             }
         } catch (RuntimeException) {
         }
