@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -26,7 +27,7 @@ use Illuminate\Support\Carbon;
  */
 class BookingReportsController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, TenantContext $context): JsonResponse
     {
         $user = $request->user();
         abort_unless(in_array($user->role, [User::ROLE_SUPER_ADMIN, User::ROLE_OWNER, User::ROLE_MANAGER, User::ROLE_ACCOUNTANT], true), 403);
@@ -36,7 +37,11 @@ class BookingReportsController extends Controller
             'date_to' => ['required', 'date'],
         ]);
 
-        $company = Company::withoutGlobalScopes()->where('tenant_id', $user->tenant_id)->firstOrFail();
+        // Reads the ResolveTenant-middleware-resolved tenant, not $user->tenant_id
+        // directly -- a super_admin's own tenant_id is null, so the raw-user version
+        // threw "No query results for model [Company]" for every super_admin viewing
+        // this report, same bug class as CancellationPolicyController.
+        $company = Company::withoutGlobalScopes()->where('tenant_id', $context->id())->firstOrFail();
         $from = Carbon::parse($data['date_from'])->startOfDay();
         $to = Carbon::parse($data['date_to'])->endOfDay();
 
