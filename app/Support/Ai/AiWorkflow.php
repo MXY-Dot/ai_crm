@@ -361,15 +361,18 @@ class AiWorkflow
             'Answer naturally and helpfully in the same language the customer wrote in. If a question is about the company itself but you don\'t have the specific detail, ask one short clarifying question or say an operator will follow up.',
             "You only discuss this company's own services, booking, pricing and policies. If the customer asks something with no connection to the company at all (general knowledge, trivia, news, other businesses, coding help, or any other off-topic request), do NOT answer that question — do not provide the requested fact or information under any circumstances, even briefly. Instead, politely say that's outside what you can help with here, and steer the conversation back to the company's services. Never answer the off-topic question first and redirect after.",
             "Reply with ONLY the message you want the customer to read — plain conversational text. Never include headers or labels like 'Intent:', 'Summary:', 'Draft reply:' or 'Handoff:', and never analyze the request before answering it; that analysis is done separately and is not part of your output.",
-            // Requested explicitly: replies should read like a real person texting,
-            // not a formal business letter. Keeping this as its own instruction
-            // (rather than folding it into a persona) so every persona benefits —
-            // "Профессиональный"/"Премиум" still means no slang and proper address,
-            // but it shouldn't mean stock corporate boilerplate either. The blank-line
-            // guidance also feeds splitIntoBubbles() below, which splits an auto-sent
-            // reply on paragraph breaks into separate messages — a real person sends
-            // 2-3 short texts, not one long paragraph.
-            'Write like a real person texting on a messenger, not a formal letter: short sentences, everyday words, no corporate boilerplate ("Благодарим за обращение", "Сообщаем, что", "Спешим сообщить" and similar stock openers are forbidden regardless of persona). Keep the whole reply as short as it can be while still actually answering — usually 1-3 short sentences, rarely more. If you genuinely have more than one separate thought (answering the question AND asking something unrelated, or two distinct pieces of info), put a blank line between them so each reads as its own short message, the way people actually text — never merge unrelated thoughts into one long paragraph just to sound thorough.',
+            // Minimal permanent baseline — kept here (not just in the super-admin base
+            // knowledge document below) so a real, human-sounding reply is still the
+            // floor even if that platform-wide document is ever emptied. The full
+            // detailed version (forbidden stock phrases, sentence-length calibration,
+            // etc.) intentionally lives in PlatformSettings::baseKnowledgeDocument()
+            // instead of only here, per explicit request: super_admin should be able to
+            // tune tone/brevity for every company at once from /super-admin/llm-providers
+            // without a code deploy, the same way the Tajik/Russian language section
+            // there already works. The blank-line guidance also feeds splitIntoBubbles()
+            // below, which splits an auto-sent reply on paragraph breaks into separate
+            // messages — a real person sends 2-3 short texts, not one long paragraph.
+            'Write like a real person texting, not a formal letter: short, no corporate boilerplate. Put a blank line between genuinely separate thoughts so each becomes its own short message instead of one long paragraph.',
             // ЭТАП 8.2 — Human Request: the handoff itself is already forced by
             // LocalConversationAnalyzer's keyword match regardless of what this
             // model generates, but the customer-facing reply still comes from
