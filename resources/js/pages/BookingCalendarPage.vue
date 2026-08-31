@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Plus } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import BookingCalendarGrid, { type BookingRow } from '../components/dashboard/booking/BookingCalendarGrid.vue';
@@ -162,7 +162,7 @@ function openDetail(id: number): void {
         <div class="flex flex-wrap items-center gap-3">
             <div class="flex items-center gap-1">
                 <Button variant="outline" size="icon" @click="shiftDate(-1)"><ChevronLeft class="h-4 w-4" /></Button>
-                <Input v-model="date" type="date" class="w-40" />
+                <DatePicker v-model="date" class="w-40" />
                 <Button variant="outline" size="icon" @click="shiftDate(1)"><ChevronRight class="h-4 w-4" /></Button>
                 <Button variant="outline" size="sm" @click="date = toLocalDateString(new Date())">{{ locale.t('booking.today') }}</Button>
             </div>

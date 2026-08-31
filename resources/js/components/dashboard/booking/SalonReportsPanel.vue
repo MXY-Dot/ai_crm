@@ -5,7 +5,7 @@ import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { Input } from '../../ui/input';
+import { DatePicker } from '../../ui/date-picker';
 import { Skeleton } from '../../ui/skeleton';
 
 type Report = {
@@ -49,10 +49,10 @@ onMounted(load);
     <Card :title="locale.t('booking.reportsTitle')">
         <div class="flex flex-wrap items-end gap-2 pb-4">
             <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.reportsFrom') }}
-                <Input v-model="dateFrom" type="date" class="h-9" />
+                <DatePicker v-model="dateFrom" class="h-9" />
             </label>
             <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.reportsTo') }}
-                <Input v-model="dateTo" type="date" class="h-9" />
+                <DatePicker v-model="dateTo" class="h-9" />
             </label>
             <Button size="sm" :disabled="loading" @click="load">{{ locale.t('booking.reportsRefresh') }}</Button>
         </div>

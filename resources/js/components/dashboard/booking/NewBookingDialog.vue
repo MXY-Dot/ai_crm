@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
+import { DatePicker } from '../../ui/date-picker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
@@ -140,7 +141,7 @@ const canSubmit = computed(() => !! selectedSlot.value && (customerMode.value ==
                     </label>
                     <div class="grid grid-cols-2 gap-3">
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.selectDate') }}
-                            <Input v-model="date" type="date" />
+                            <DatePicker v-model="date" class="w-full" />
                         </label>
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.selectEmployee') }}
                             <Select v-model="employeeIdStr">

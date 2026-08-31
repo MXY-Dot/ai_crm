@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
+import { DatePicker } from '../../ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
@@ -290,7 +291,7 @@ const refundInFlight = computed(() => booking.value && ['refund_pending', 'refun
                 <section v-if="isActive" class="grid gap-2">
                     <p class="text-xs font-medium ui-subtle">{{ locale.t('booking.reschedule') }}</p>
                     <div class="flex gap-2">
-                        <Input v-model="rescheduleDate" type="date" />
+                        <DatePicker v-model="rescheduleDate" />
                         <Input v-model="rescheduleTime" type="time" />
                         <Button variant="outline" :disabled="busy" @click="reschedule">{{ locale.t('booking.reschedule') }}</Button>
                     </div>

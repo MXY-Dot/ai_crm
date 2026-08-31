@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Calendar, GitCompareArrows } from '@lucide/vue';
-import { Input } from '../../ui/input';
+import { DatePicker } from '../../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 
 export type DatePreset = 'today' | 'yesterday' | '7d' | '30d' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom';
@@ -36,9 +36,9 @@ const PRESET_LABELS: Record<DatePreset, string> = {
         </Select>
 
         <template v-if="preset === 'custom'">
-            <Input type="date" class="h-9 w-[8.5rem]" :model-value="from" @update:model-value="(v) => $emit('update:from', String(v))" />
+            <DatePicker class="h-9 w-[8.5rem]" :model-value="from" @update:model-value="(v) => $emit('update:from', v)" />
             <span class="text-xs ui-subtle">—</span>
-            <Input type="date" class="h-9 w-[8.5rem]" :model-value="to" @update:model-value="(v) => $emit('update:to', String(v))" />
+            <DatePicker class="h-9 w-[8.5rem]" :model-value="to" @update:model-value="(v) => $emit('update:to', v)" />
         </template>
 
         <button
