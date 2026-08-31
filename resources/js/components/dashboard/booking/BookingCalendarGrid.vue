@@ -65,7 +65,7 @@ const gridTemplateColumns = computed(() => `56px repeat(${Math.max(props.employe
 
 <template>
     <div class="overflow-x-auto rounded-xl border border-border">
-        <div class="grid text-xs" :style="{ gridTemplateColumns, gridAutoRows: '18px' }">
+        <div class="grid text-xs" :style="{ gridTemplateColumns, gridTemplateRows: '36px', gridAutoRows: '18px' }">
             <div class="sticky top-0 z-10 border-b border-border bg-background" style="grid-row: 1; grid-column: 1"></div>
             <div v-for="(e, ei) in employees" :key="e.id" class="sticky top-0 z-10 truncate border-b border-l border-border bg-background px-2 py-2 text-sm font-medium ui-text" :style="{ gridRow: 1, gridColumn: ei + 2 }">
                 {{ e.name }}

@@ -6,6 +6,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Middleware\EnsurePageAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantActive;
+use App\Models\AiAgent;
 use App\Models\Channel;
 use App\Models\Tenant;
 use App\Support\Dashboard\DashboardData;
@@ -92,6 +93,19 @@ Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])-
         $dashboardPage($request, $dashboard, 'CampaignsPage'))->name('campaigns');
     Route::get('/ai', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'AiPage'))->name('ai');
+    // Real "show" page for one AI agent (own URL, bookmarkable/back-button-friendly)
+    // instead of an in-place client toggle within AiAgentList.vue -- see its own
+    // comment for why. No ResolveTenant middleware runs for web/Inertia routes
+    // (that's API-only, via X-Tenant-Id), so tenant ownership is checked manually
+    // here, same as every tenant-scoped check in the API controllers.
+    Route::get('/ai/agents/{agent}', function (Request $request, DashboardData $dashboard, AiAgent $agent) {
+        abort_unless($agent->tenant_id === $request->user()->tenant_id, 404);
+
+        return Inertia::render('AiAgentDetailPage', [
+            'bootstrap' => $dashboard->forUser($request->user()),
+            'agentId' => $agent->id,
+        ]);
+    })->name('ai.agent');
     Route::get('/knowledge', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'KnowledgePage'))->name('knowledge');
     Route::get('/booking', fn (Request $request, DashboardData $dashboard) =>
