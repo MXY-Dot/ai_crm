@@ -83,7 +83,15 @@ class DashboardData
         ];
     }
 
-    private function tenantFor(?User $user): ?Tenant
+    /**
+     * Public so per-entity "show" routes (e.g. GET /ai/agents/{agent}) can
+     * check ownership against the SAME effective tenant forUser() itself
+     * resolved the page's bootstrap from -- a super_admin has no tenant_id
+     * at all and falls back to the 'demo' tenant here, so a naive
+     * `$agent->tenant_id === $user->tenant_id` check would 404 every one of
+     * their own dashboard pages.
+     */
+    public function tenantFor(?User $user): ?Tenant
     {
         if ($user?->tenant_id) {
             return Tenant::query()->find($user->tenant_id);

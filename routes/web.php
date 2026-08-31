@@ -97,9 +97,14 @@ Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])-
     // instead of an in-place client toggle within AiAgentList.vue -- see its own
     // comment for why. No ResolveTenant middleware runs for web/Inertia routes
     // (that's API-only, via X-Tenant-Id), so tenant ownership is checked manually
-    // here, same as every tenant-scoped check in the API controllers.
+    // here, same as every tenant-scoped check in the API controllers -- against
+    // DashboardData::tenantFor(), NOT $request->user()->tenant_id directly: a
+    // super_admin has no tenant_id at all and falls back to the 'demo' tenant
+    // (same as every other dashboard page they browse), so comparing against
+    // their raw tenant_id 404'd every agent for them. Found live via a real
+    // admin@gravity.test 404 screenshot.
     Route::get('/ai/agents/{agent}', function (Request $request, DashboardData $dashboard, AiAgent $agent) {
-        abort_unless($agent->tenant_id === $request->user()->tenant_id, 404);
+        abort_unless($agent->tenant_id === $dashboard->tenantFor($request->user())?->id, 404);
 
         return Inertia::render('AiAgentDetailPage', [
             'bootstrap' => $dashboard->forUser($request->user()),
