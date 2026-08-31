@@ -35,8 +35,9 @@ use Throwable;
  * Multi-turn state (which slots or which of the customer's bookings were
  * just offered) rides on the AI's own Message.meta — no new table. Each
  * offer tags a `flow` (new_booking/reschedule/disambiguate_cancel/
- * disambiguate_reschedule/disambiguate_restore) so the next turn knows what
- * a picked index means.
+ * disambiguate_reschedule/disambiguate_restore/
+ * disambiguate_cancellation_reason) so the next turn knows what a picked
+ * index means.
  */
 class AiChatBookingAssistant
 {
@@ -90,6 +91,10 @@ class AiChatBookingAssistant
                 return $continued;
             }
 
+            if ($intent['wants_cancellation_reason']) {
+                return $this->explainCancellation($recentlyCancelled, $intent, $decision);
+            }
+
             if ($intent['wants_restore']) {
                 return $this->startRestore($recentlyCancelled, $intent, $decision);
             }
@@ -138,7 +143,7 @@ class AiChatBookingAssistant
             return $this->withReply($decision, 'booking_reoffer', $intro."\n".$this->formatOffers($offeredSlots), meta: $lastMeta);
         }
 
-        if (in_array($flow, ['disambiguate_cancel', 'disambiguate_reschedule', 'disambiguate_restore'], true)) {
+        if (in_array($flow, ['disambiguate_cancel', 'disambiguate_reschedule', 'disambiguate_restore', 'disambiguate_cancellation_reason'], true)) {
             $offeredBookings = is_array($lastMeta['offered_bookings'] ?? null) ? $lastMeta['offered_bookings'] : [];
 
             if ($offeredBookings === []) {
@@ -200,6 +205,12 @@ class AiChatBookingAssistant
             return $booking ? $this->attemptRestore($booking, $decision) : null;
         }
 
+        if ($flow === 'disambiguate_cancellation_reason' && $intent['selected_booking_index'] !== null && isset($offeredBookings[$intent['selected_booking_index']])) {
+            $booking = Booking::withoutGlobalScopes()->find($offeredBookings[$intent['selected_booking_index']]['id']);
+
+            return $booking ? $this->cancellationReasonReply($booking, $decision) : null;
+        }
+
         return null;
     }
 
@@ -258,6 +269,44 @@ class AiChatBookingAssistant
         }
 
         return $this->offerBookingsForDisambiguation($recentlyCancelled, 'disambiguate_restore', $decision, 'Уточните, пожалуйста, какую отменённую запись восстановить:');
+    }
+
+    /**
+     * Found live: a booking cancelled from the CRM dashboard (staff-side, not
+     * through chat) left the AI with no idea why -- when the customer asked
+     * "почему отменили?", the unconstrained reply engine invented a wrong
+     * explanation ("система зафиксировала запрос на перенос") instead of
+     * saying it didn't know. Booking.cancelled_reason already exists and is
+     * set by BOTH the CRM cancel action and the chat cancel/reschedule flows
+     * (see attemptCancel()/BookingService::cancel()) -- surface that real
+     * value instead of letting the model guess. @param Collection<int, Booking> $recentlyCancelled
+     */
+    private function explainCancellation(Collection $recentlyCancelled, array $intent, AiDecision $decision): AiDecision
+    {
+        if ($recentlyCancelled->isEmpty()) {
+            return $this->withReply(
+                $decision,
+                'booking_cancellation_reason_none',
+                'У вас нет недавно отменённых записей — не вижу, о какой отмене речь. Если это более старая запись, оператор уточнит детали.',
+            );
+        }
+
+        if ($recentlyCancelled->count() === 1) {
+            return $this->cancellationReasonReply($recentlyCancelled->first(), $decision);
+        }
+
+        return $this->offerBookingsForDisambiguation($recentlyCancelled, 'disambiguate_cancellation_reason', $decision, 'Уточните, пожалуйста, о какой из отменённых записей идёт речь:');
+    }
+
+    private function cancellationReasonReply(Booking $booking, AiDecision $decision): AiDecision
+    {
+        $when = $this->formatWhen($this->localIso($booking));
+        $reason = trim((string) $booking->cancelled_reason);
+        $reasonText = $reason !== '' ? $reason : 'причина не указана';
+
+        $text = "Запись «{$booking->service?->name}» к {$booking->employee?->name} на {$when} была отменена. Причина: {$reasonText}.";
+
+        return $this->withReply($decision, 'booking_cancellation_reason', $text);
     }
 
     /** @param Collection<int, Service> $services */

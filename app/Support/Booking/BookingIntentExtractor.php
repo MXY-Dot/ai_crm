@@ -37,7 +37,7 @@ class BookingIntentExtractor
      * @param array<int, array{employee_id:int, employee_name:string, starts_at:string, ends_at:string}> $offeredSlots
      * @param Collection<int, \App\Models\Booking> $activeBookings
      * @param Collection<int, \App\Models\Booking> $recentlyCancelledBookings
-     * @return array{wants_booking:bool, wants_reschedule:bool, wants_cancel:bool, wants_restore:bool, service_name:?string, selected_offer_index:?int, selected_booking_index:?int, preferred_date:?string, cancel_reason:?string}|null
+     * @return array{wants_booking:bool, wants_reschedule:bool, wants_cancel:bool, wants_restore:bool, wants_cancellation_reason:bool, service_name:?string, selected_offer_index:?int, selected_booking_index:?int, preferred_date:?string, cancel_reason:?string}|null
      */
     public function extract(Tenant $tenant, Conversation $conversation, Message $message, Collection $services, array $offeredSlots, Collection $activeBookings, Collection $recentlyCancelledBookings): ?array
     {
@@ -72,6 +72,7 @@ class BookingIntentExtractor
             'wants_reschedule' => filter_var($data['wants_reschedule'] ?? false, FILTER_VALIDATE_BOOL),
             'wants_cancel' => filter_var($data['wants_cancel'] ?? false, FILTER_VALIDATE_BOOL),
             'wants_restore' => filter_var($data['wants_restore'] ?? false, FILTER_VALIDATE_BOOL),
+            'wants_cancellation_reason' => filter_var($data['wants_cancellation_reason'] ?? false, FILTER_VALIDATE_BOOL),
             'service_name' => is_string($data['service_name'] ?? null) && trim($data['service_name']) !== '' ? trim($data['service_name']) : null,
             'selected_offer_index' => is_numeric($data['selected_offer_index'] ?? null) ? (int) $data['selected_offer_index'] : null,
             'selected_booking_index' => is_numeric($data['selected_booking_index'] ?? null) ? (int) $data['selected_booking_index'] : null,
@@ -128,14 +129,15 @@ class BookingIntentExtractor
   "wants_reschedule": true если клиент хочет ПЕРЕНЕСТИ существующую запись на другое время, иначе false,
   "wants_cancel": true если клиент хочет ОТМЕНИТЬ существующую запись, иначе false,
   "wants_restore": true если клиент передумал ПОСЛЕ отмены и просит вернуть/восстановить одну из недавно отменённых записей выше, иначе false,
+  "wants_cancellation_reason": true если клиент спрашивает, ПОЧЕМУ/за что была отменена его запись (интересуется причиной, не просит восстановить), иначе false,
   "service_name": ТОЧНОЕ название услуги строго из списка выше, если понятно какая нужна для новой записи, иначе null (не выдумывай услугу, которой нет в списке),
   "selected_offer_index": число -- индекс варианта времени из списка выше, который клиент только что выбрал (например "второй вариант" = 1, "давайте на 14:00" = индекс варианта с этим временем), или null,
-  "selected_booking_index": число -- если wants_reschedule/wants_cancel: индекс записи из списка АКТИВНЫХ записей выше; если wants_restore: индекс записи из списка НЕДАВНО ОТМЕНЁННЫХ записей выше; используй, только если у клиента их несколько и понятно, какую именно он имеет в виду, иначе null,
+  "selected_booking_index": число -- если wants_reschedule/wants_cancel: индекс записи из списка АКТИВНЫХ записей выше; если wants_restore/wants_cancellation_reason: индекс записи из списка НЕДАВНО ОТМЕНЁННЫХ записей выше; используй, только если у клиента их несколько и понятно, какую именно он имеет в виду, иначе null,
   "preferred_date": "YYYY-MM-DD" если клиент назвал конкретный день для новой записи или переноса (переведи "завтра"/"в пятницу" и т.п. в дату сам), иначе null,
   "cancel_reason": короткая причина отмены, если клиент её назвал, иначе null
 }
 
-Только одно из wants_booking/wants_reschedule/wants_cancel/wants_restore может быть true одновременно. Сегодняшняя дата: {$this->today()}.
+Только одно из wants_booking/wants_reschedule/wants_cancel/wants_restore/wants_cancellation_reason может быть true одновременно. Сегодняшняя дата: {$this->today()}.
 PROMPT;
     }
 
