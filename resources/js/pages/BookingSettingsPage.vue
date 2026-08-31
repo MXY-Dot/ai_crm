@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { BarChart3, CalendarClock, CreditCard, Scissors, Settings2, Users2 } from '@lucide/vue';
+import { BarChart3, Building2, CalendarClock, CreditCard, Scissors, Settings2, Users2 } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import BranchesPanel from '../components/dashboard/booking/BranchesPanel.vue';
 import CancellationPolicyPanel from '../components/dashboard/booking/CancellationPolicyPanel.vue';
 import EmployeesPanel from '../components/dashboard/booking/EmployeesPanel.vue';
 import PaymentGatewaySettingsPanel from '../components/dashboard/booking/PaymentGatewaySettingsPanel.vue';
@@ -37,6 +38,7 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
         <Tabs v-if="ready" v-model="activeTab">
             <TabsList class="flex-wrap">
                 <TabsTrigger value="services"><Scissors class="h-4 w-4" />{{ locale.t('booking.tabServices') }}</TabsTrigger>
+                <TabsTrigger value="branches"><Building2 class="h-4 w-4" />{{ locale.t('booking.tabBranches') }}</TabsTrigger>
                 <TabsTrigger value="employees"><Users2 class="h-4 w-4" />{{ locale.t('booking.tabEmployees') }}</TabsTrigger>
                 <TabsTrigger value="resources"><CalendarClock class="h-4 w-4" />{{ locale.t('booking.tabResources') }}</TabsTrigger>
                 <TabsTrigger value="policy"><Settings2 class="h-4 w-4" />{{ locale.t('booking.tabPolicy') }}</TabsTrigger>
@@ -46,6 +48,9 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
             <TabsContent value="services" class="mt-4">
                 <ServicesPanel :company-id="companyId as number" :tenant-slug="tenantSlug" />
+            </TabsContent>
+            <TabsContent value="branches" class="mt-4">
+                <BranchesPanel :company-id="companyId as number" :tenant-slug="tenantSlug" />
             </TabsContent>
             <TabsContent value="employees" class="mt-4">
                 <EmployeesPanel :company-id="companyId as number" :tenant-slug="tenantSlug" />

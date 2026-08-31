@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'company_id', 'customer_id', 'service_id', 'employee_id', 'resource_id', 'starts_at', 'ends_at', 'status', 'price', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'service_id', 'employee_id', 'resource_id', 'starts_at', 'ends_at', 'status', 'price', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
 class Booking extends Model
 {
     use BelongsToTenant;
@@ -59,6 +59,11 @@ class Booking extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function customer(): BelongsTo

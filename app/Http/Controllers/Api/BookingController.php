@@ -32,6 +32,7 @@ class BookingController extends Controller
             'date_from' => ['required', 'date'],
             'date_to' => ['required', 'date'],
             'employee_id' => ['nullable', 'integer'],
+            'branch_id' => ['nullable', 'integer'],
         ]);
 
         $user = $request->user();
@@ -43,6 +44,7 @@ class BookingController extends Controller
         $bookings = Booking::query()
             ->with(['customer:id,name,phone', 'service:id,name,duration_minutes,price', 'employee:id,name', 'resource:id,name'])
             ->when($employeeFilter, fn ($q) => $q->where('employee_id', $employeeFilter))
+            ->when($data['branch_id'] ?? null, fn ($q, $branchId) => $q->where('branch_id', $branchId))
             ->when($user->role === User::ROLE_SPECIALIST && ! $employeeFilter, fn ($q) => $q->whereRaw('1 = 0'))
             ->where('starts_at', '<', Carbon::parse($data['date_to']))
             ->where('ends_at', '>', Carbon::parse($data['date_from']))

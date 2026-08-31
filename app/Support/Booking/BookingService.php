@@ -65,6 +65,7 @@ class BookingService
             $booking = Booking::create([
                 'tenant_id' => $tenantId,
                 'company_id' => $data['company_id'],
+                'branch_id' => $employee->branch_id,
                 'customer_id' => $data['customer_id'],
                 'service_id' => $service->id,
                 'employee_id' => $employee->id,

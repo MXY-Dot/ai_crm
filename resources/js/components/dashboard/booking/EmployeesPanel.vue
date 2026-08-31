@@ -15,6 +15,7 @@ const locale = useLocaleStore();
 
 const employees = ref<EmployeeRow[]>([]);
 const services = ref<Array<{ id: number; name: string }>>([]);
+const branches = ref<Array<{ id: number; name: string }>>([]);
 const loading = ref(true);
 const formOpen = ref(false);
 const scheduleOpen = ref(false);
@@ -24,12 +25,14 @@ const scheduling = ref<EmployeeRow | null>(null);
 async function load(): Promise<void> {
     loading.value = true;
     try {
-        const [employeesRes, servicesRes] = await Promise.all([
+        const [employeesRes, servicesRes, branchesRes] = await Promise.all([
             apiRequest<{ data: EmployeeRow[] }>('/api/employees', { tenant: props.tenantSlug }),
             apiRequest<{ data: Array<{ id: number; name: string }> }>('/api/services', { tenant: props.tenantSlug }),
+            apiRequest<{ data: Array<{ id: number; name: string }> }>('/api/branches', { tenant: props.tenantSlug }),
         ]);
         employees.value = employeesRes.data;
         services.value = servicesRes.data;
+        branches.value = branchesRes.data;
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Error');
     } finally {
@@ -84,7 +87,7 @@ function onSaved(row: EmployeeRow): void {
             <div v-for="employee in employees" :key="employee.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div class="min-w-0">
                     <p class="text-sm font-medium ui-text">{{ employee.name }}</p>
-                    <p class="text-xs ui-subtle">{{ employee.position || '—' }}<span v-if="employee.phone"> · {{ employee.phone }}</span></p>
+                    <p class="text-xs ui-subtle">{{ employee.position || '—' }}<span v-if="employee.phone"> · {{ employee.phone }}</span><span v-if="employee.branch_id"> · {{ branches.find((b) => b.id === employee.branch_id)?.name }}</span></p>
                 </div>
                 <div class="flex items-center gap-2">
                     <Button variant="outline" size="sm" @click="openSchedule(employee)"><CalendarClock class="h-4 w-4" />{{ locale.t('booking.employeeSchedule') }}</Button>
@@ -94,7 +97,7 @@ function onSaved(row: EmployeeRow): void {
             </div>
         </div>
 
-        <EmployeeFormDialog v-model:open="formOpen" :employee="editing" :company-id="companyId" :tenant-slug="tenantSlug" @saved="onSaved" />
+        <EmployeeFormDialog v-model:open="formOpen" :employee="editing" :company-id="companyId" :tenant-slug="tenantSlug" :branches="branches" @saved="onSaved" />
         <EmployeeScheduleDialog v-model:open="scheduleOpen" :employee="scheduling" :all-services="services" :tenant-slug="tenantSlug" />
     </Card>
 </template>

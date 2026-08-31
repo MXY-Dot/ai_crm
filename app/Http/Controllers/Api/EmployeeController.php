@@ -22,6 +22,7 @@ class EmployeeController extends TenantResourceController
 
         return [
             'company_id' => [$required, 'integer', 'exists:companies,id'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'name' => [$required, 'string', 'max:180'],
             'position' => ['nullable', 'string', 'max:120'],
             'phone' => ['nullable', 'string', 'max:40'],

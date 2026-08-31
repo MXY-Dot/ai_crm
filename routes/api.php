@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AiAnalyticsReportController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingReportsController;
+use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CancellationPolicyController;
 use App\Http\Controllers\Api\ChatwootSyncController;
 use App\Http\Controllers\Api\ConversationAiDraftController;
@@ -251,6 +252,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
 
         // ТЗ раздел 10-19 (модуль салона) — услуги, специалисты, ресурсы, календарь и брони.
         Route::apiResource('services', ServiceController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::apiResource('branches', BranchController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::apiResource('resources', ResourceController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::apiResource('employees', EmployeeController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::put('employees/{employee}/schedule', [EmployeeController::class, 'updateSchedule']);

@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Resource;
-use Illuminate\Validation\Rule;
+use App\Models\Branch;
 
-class ResourceController extends TenantResourceController
+class BranchController extends TenantResourceController
 {
     protected function model(): string
     {
-        return Resource::class;
+        return Branch::class;
     }
 
     protected function rules(string $action): array
@@ -18,9 +17,9 @@ class ResourceController extends TenantResourceController
 
         return [
             'company_id' => [$required, 'integer', 'exists:companies,id'],
-            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
-            'name' => [$required, 'string', 'max:120'],
-            'type' => ['nullable', Rule::in(Resource::TYPES)],
+            'name' => [$required, 'string', 'max:180'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

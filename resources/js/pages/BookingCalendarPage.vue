@@ -28,7 +28,8 @@ const companyId = computed(() => company.value?.id ?? null);
 const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 type Service = { id: number; name: string; duration_minutes: number; price: number };
-type Employee = { id: number; name: string };
+type Employee = { id: number; name: string; branch_id: number | null };
+type Branch = { id: number; name: string };
 
 // Deliberately NOT toISOString().slice(0, 10) -- that reads the UTC calendar date, which
 // is the wrong day for roughly a third of the day in any timezone ahead of UTC (e.g.
@@ -41,8 +42,10 @@ function toLocalDateString(d: Date): string {
 const date = ref(toLocalDateString(new Date()));
 const viewMode = ref<'day' | 'week' | 'month'>('day');
 const employeeFilter = ref('all');
+const branchFilter = ref('all');
 const employees = ref<Employee[]>([]);
 const services = ref<Service[]>([]);
+const branches = ref<Branch[]>([]);
 const bookings = ref<BookingRow[]>([]);
 const loading = ref(true);
 const newBookingOpen = ref(false);
@@ -50,7 +53,9 @@ const detailOpen = ref(false);
 const selectedBookingId = ref<number | null>(null);
 const newBookingSeed = ref<{ employeeId: number | null; iso: string | null }>({ employeeId: null, iso: null });
 
-const visibleEmployees = computed(() => employeeFilter.value === 'all' ? employees.value : employees.value.filter((e) => String(e.id) === employeeFilter.value));
+const visibleEmployees = computed(() => employees.value
+    .filter((e) => employeeFilter.value === 'all' || String(e.id) === employeeFilter.value)
+    .filter((e) => branchFilter.value === 'all' || String(e.branch_id) === branchFilter.value));
 
 // Monday-first week, matching BookingWeekView/BookingMonthView's own grid math.
 const weekStart = computed(() => {
@@ -81,12 +86,14 @@ function fetchRange(): { from: string; to: string } {
 
 async function loadStatic(): Promise<void> {
     try {
-        const [employeesRes, servicesRes] = await Promise.all([
+        const [employeesRes, servicesRes, branchesRes] = await Promise.all([
             apiRequest<{ data: Employee[] }>('/api/employees', { tenant: tenantSlug.value }),
             apiRequest<{ data: Service[] }>('/api/services', { tenant: tenantSlug.value }),
+            apiRequest<{ data: Branch[] }>('/api/branches', { tenant: tenantSlug.value }),
         ]);
         employees.value = employeesRes.data;
         services.value = servicesRes.data;
+        branches.value = branchesRes.data;
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Error');
     }
@@ -96,7 +103,9 @@ async function loadBookings(): Promise<void> {
     loading.value = true;
     try {
         const { from, to } = fetchRange();
-        const data = await apiRequest<BookingRow[]>('/api/bookings?' + new URLSearchParams({ date_from: from, date_to: to }), { tenant: tenantSlug.value });
+        const params = new URLSearchParams({ date_from: from, date_to: to });
+        if (branchFilter.value !== 'all') params.set('branch_id', branchFilter.value);
+        const data = await apiRequest<BookingRow[]>('/api/bookings?' + params, { tenant: tenantSlug.value });
         bookings.value = data;
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Error');
@@ -110,7 +119,7 @@ onMounted(async () => {
     await loadBookings();
 });
 
-watch([date, viewMode], loadBookings);
+watch([date, viewMode, branchFilter], loadBookings);
 
 function selectDay(iso: string): void {
     date.value = iso;
@@ -157,6 +166,13 @@ function openDetail(id: number): void {
                 <Button variant="outline" size="icon" @click="shiftDate(1)"><ChevronRight class="h-4 w-4" /></Button>
                 <Button variant="outline" size="sm" @click="date = toLocalDateString(new Date())">{{ locale.t('booking.today') }}</Button>
             </div>
+            <Select v-if="branches.length" v-model="branchFilter">
+                <SelectTrigger class="w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">{{ locale.t('booking.allBranches') }}</SelectItem>
+                    <SelectItem v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
+                </SelectContent>
+            </Select>
             <Select v-model="employeeFilter">
                 <SelectTrigger class="w-56"><SelectValue /></SelectTrigger>
                 <SelectContent>

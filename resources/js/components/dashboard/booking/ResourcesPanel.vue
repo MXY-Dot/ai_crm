@@ -13,6 +13,7 @@ const props = defineProps<{ companyId: number; tenantSlug: string }>();
 const locale = useLocaleStore();
 
 const resources = ref<ResourceRow[]>([]);
+const branches = ref<Array<{ id: number; name: string }>>([]);
 const loading = ref(true);
 const dialogOpen = ref(false);
 const editing = ref<ResourceRow | null>(null);
@@ -20,8 +21,12 @@ const editing = ref<ResourceRow | null>(null);
 async function load(): Promise<void> {
     loading.value = true;
     try {
-        const res = await apiRequest<{ data: ResourceRow[] }>('/api/resources', { tenant: props.tenantSlug });
-        resources.value = res.data;
+        const [resourcesRes, branchesRes] = await Promise.all([
+            apiRequest<{ data: ResourceRow[] }>('/api/resources', { tenant: props.tenantSlug }),
+            apiRequest<{ data: Array<{ id: number; name: string }> }>('/api/branches', { tenant: props.tenantSlug }),
+        ]);
+        resources.value = resourcesRes.data;
+        branches.value = branchesRes.data;
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Error');
     } finally {
@@ -66,7 +71,7 @@ async function remove(resource: ResourceRow): Promise<void> {
             <div v-for="resource in resources" :key="resource.id" class="flex items-center justify-between gap-3 py-3">
                 <div>
                     <p class="text-sm font-medium ui-text">{{ resource.name }}</p>
-                    <p class="text-xs ui-subtle">{{ locale.t('booking.resourceTypes.' + resource.type) }}</p>
+                    <p class="text-xs ui-subtle">{{ locale.t('booking.resourceTypes.' + resource.type) }}<span v-if="resource.branch_id"> · {{ branches.find((b) => b.id === resource.branch_id)?.name }}</span></p>
                 </div>
                 <div class="flex items-center gap-2">
                     <Button variant="ghost" size="icon" @click="openEdit(resource)"><Pencil class="h-4 w-4" /></Button>
@@ -75,6 +80,6 @@ async function remove(resource: ResourceRow): Promise<void> {
             </div>
         </div>
 
-        <ResourceFormDialog v-model:open="dialogOpen" :resource="editing" :company-id="companyId" :tenant-slug="tenantSlug" @saved="load" />
+        <ResourceFormDialog v-model:open="dialogOpen" :resource="editing" :company-id="companyId" :tenant-slug="tenantSlug" :branches="branches" @saved="load" />
     </Card>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
@@ -8,18 +8,25 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 
-export type ResourceRow = { id: number; name: string; type: string; is_active: boolean };
+export type ResourceRow = { id: number; name: string; type: string; is_active: boolean; branch_id: number | null };
 
-const props = defineProps<{ open: boolean; resource: ResourceRow | null; companyId: number; tenantSlug: string }>();
+const props = defineProps<{ open: boolean; resource: ResourceRow | null; companyId: number; tenantSlug: string; branches: Array<{ id: number; name: string }> }>();
 const emit = defineEmits<{ 'update:open': [boolean]; saved: [] }>();
 const locale = useLocaleStore();
 
-const form = ref({ name: '', type: 'other' });
+const form = ref({ name: '', type: 'other', branch_id: null as number | null });
 const saving = ref(false);
 
 watch(() => props.open, (open) => {
     if (! open) return;
-    form.value = props.resource ? { name: props.resource.name, type: props.resource.type } : { name: '', type: 'other' };
+    form.value = props.resource
+        ? { name: props.resource.name, type: props.resource.type, branch_id: props.resource.branch_id }
+        : { name: '', type: 'other', branch_id: null };
+});
+
+const branchValue = computed({
+    get: () => (form.value.branch_id ? String(form.value.branch_id) : 'none'),
+    set: (v: string) => { form.value.branch_id = v === 'none' ? null : Number(v); },
 });
 
 async function submit(): Promise<void> {
@@ -59,6 +66,13 @@ async function submit(): Promise<void> {
                             <SelectItem value="room">{{ locale.t('booking.resourceTypes.room') }}</SelectItem>
                             <SelectItem value="equipment">{{ locale.t('booking.resourceTypes.equipment') }}</SelectItem>
                             <SelectItem value="other">{{ locale.t('booking.resourceTypes.other') }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select v-model="branchValue">
+                        <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">{{ locale.t('booking.branchNone') }}</SelectItem>
+                            <SelectItem v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

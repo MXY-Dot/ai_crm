@@ -5,11 +5,12 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['tenant_id', 'company_id', 'name', 'position', 'phone', 'photo_path', 'is_active'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'name', 'position', 'phone', 'photo_path', 'is_active'])]
 class Employee extends Model
 {
     use BelongsToTenant;
@@ -17,6 +18,11 @@ class Employee extends Model
     protected function casts(): array
     {
         return ['is_active' => 'boolean'];
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function services(): BelongsToMany

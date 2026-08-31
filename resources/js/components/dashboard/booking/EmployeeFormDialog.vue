@@ -1,26 +1,32 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 
-export type EmployeeRow = { id: number; name: string; position: string | null; phone: string | null; is_active: boolean };
+export type EmployeeRow = { id: number; name: string; position: string | null; phone: string | null; is_active: boolean; branch_id: number | null };
 
-const props = defineProps<{ open: boolean; employee: EmployeeRow | null; companyId: number; tenantSlug: string }>();
+const props = defineProps<{ open: boolean; employee: EmployeeRow | null; companyId: number; tenantSlug: string; branches: Array<{ id: number; name: string }> }>();
 const emit = defineEmits<{ 'update:open': [boolean]; saved: [EmployeeRow] }>();
 const locale = useLocaleStore();
 
-const form = ref({ name: '', position: '', phone: '' });
+const form = ref({ name: '', position: '', phone: '', branch_id: null as number | null });
 const saving = ref(false);
 
 watch(() => props.open, (open) => {
     if (! open) return;
     form.value = props.employee
-        ? { name: props.employee.name, position: props.employee.position ?? '', phone: props.employee.phone ?? '' }
-        : { name: '', position: '', phone: '' };
+        ? { name: props.employee.name, position: props.employee.position ?? '', phone: props.employee.phone ?? '', branch_id: props.employee.branch_id }
+        : { name: '', position: '', phone: '', branch_id: null };
+});
+
+const branchValue = computed({
+    get: () => (form.value.branch_id ? String(form.value.branch_id) : 'none'),
+    set: (v: string) => { form.value.branch_id = v === 'none' ? null : Number(v); },
 });
 
 async function submit(): Promise<void> {
@@ -52,6 +58,13 @@ async function submit(): Promise<void> {
                     <Input v-model="form.name" :placeholder="locale.t('booking.employeeName')" required />
                     <Input v-model="form.position" :placeholder="locale.t('booking.employeePosition')" />
                     <Input v-model="form.phone" :placeholder="locale.t('booking.employeePhone')" />
+                    <Select v-model="branchValue">
+                        <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">{{ locale.t('booking.branchNone') }}</SelectItem>
+                            <SelectItem v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <DialogFooter>
                     <Button type="submit" :disabled="saving">{{ locale.t('booking.save') }}</Button>
