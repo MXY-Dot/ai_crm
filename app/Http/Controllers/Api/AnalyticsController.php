@@ -74,6 +74,7 @@ class AnalyticsController extends Controller
             'dissatisfied_customers' => $this->dissatisfiedCustomers($start, $end),
             'topics' => $this->snapshot->topics($start, $end),
             'operators' => $this->operators($start, $end),
+            'lost_customers' => $this->lostCustomers(),
         ]);
     }
 
@@ -261,6 +262,50 @@ class AnalyticsController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * ТЗ раздел 11 — «Потерянные потенциальные клиенты», tenant-scoped
+     * counterpart of SuperAdminInsightsController::lostLeads() (that one is
+     * platform-wide, Super Admin only). Same real data both read: Lead.status
+     * = 'lost' and whatever free-text lost_reason an operator recorded --
+     * no qualitative auto-detection of specific loss scenarios (price-then-
+     * silence, chose a competitor, etc.) exists anywhere in this codebase, so
+     * this deliberately doesn't invent one; the leadsFunnel()'s own 'lost'
+     * count already covers the plain total, this adds reason breakdown + who.
+     */
+    private function lostCustomers(): array
+    {
+        $lost = Lead::query()->where('status', 'lost');
+        $total = (clone $lost)->count();
+
+        $byReason = (clone $lost)
+            ->selectRaw("coalesce(nullif(lost_reason, ''), 'Не указано') as reason, count(*) as total")
+            ->groupBy('reason')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row): array => [
+                'reason' => $row->reason,
+                'total' => (int) $row->total,
+                'percent' => $total > 0 ? round(((int) $row->total / $total) * 100) : 0,
+            ]);
+
+        $recent = (clone $lost)
+            ->with('customer:id,name,phone')
+            ->latest('updated_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (Lead $lead): array => [
+                'id' => $lead->id,
+                'title' => $lead->title,
+                'customer_name' => $lead->customer?->name,
+                'customer_phone' => $lead->customer?->phone,
+                'amount' => $lead->amount,
+                'lost_reason' => $lead->lost_reason,
+                'updated_at' => $lead->updated_at?->toIso8601String(),
+            ]);
+
+        return ['total' => $total, 'by_reason' => $byReason->values(), 'recent' => $recent];
     }
 
     /** ТЗ раздел 12 — статистика по операторам (диалоги с назначенным сотрудником). */

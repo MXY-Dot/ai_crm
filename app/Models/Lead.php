@@ -31,6 +31,11 @@ class Lead extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $lead): void {

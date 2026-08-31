@@ -8,11 +8,12 @@ import { apiRequest } from '../lib/apiClient';
 import AiPerformancePanel, { type AiPerformance } from '../components/dashboard/analytics/AiPerformancePanel.vue';
 import AiReportsPanel from '../components/dashboard/analytics/AiReportsPanel.vue';
 import AnalyticsExportMenu from '../components/dashboard/analytics/AnalyticsExportMenu.vue';
-import AnalyticsKpis from '../components/dashboard/analytics/AnalyticsKpis.vue';
+import AnalyticsKpis, { type PeriodKpisFull } from '../components/dashboard/analytics/AnalyticsKpis.vue';
 import DissatisfiedCustomersPanel, { type DissatisfiedCustomerRow } from '../components/dashboard/analytics/DissatisfiedCustomersPanel.vue';
 import KnowledgeGapsPanel from '../components/dashboard/analytics/KnowledgeGapsPanel.vue';
 import LlmUsagePanel, { type LlmUsageRow } from '../components/dashboard/analytics/LlmUsagePanel.vue';
 import LoadHeatmap from '../components/dashboard/analytics/LoadHeatmap.vue';
+import LostCustomersPanel, { type LostCustomers } from '../components/dashboard/analytics/LostCustomersPanel.vue';
 import MessageLoadDonut from '../components/dashboard/analytics/MessageLoadDonut.vue';
 import OperatorsPanel, { type OperatorRow } from '../components/dashboard/analytics/OperatorsPanel.vue';
 import OutcomesPanel, { type OutcomeRow } from '../components/dashboard/analytics/OutcomesPanel.vue';
@@ -23,15 +24,15 @@ import SlaPanel, { type Sla } from '../components/dashboard/analytics/SlaPanel.v
 import TopicsPanel, { type TopicRow } from '../components/dashboard/analytics/TopicsPanel.vue';
 import DialogsTrendChart from '../components/dashboard/overview/DialogsTrendChart.vue';
 import AnalyticsPeriodFilter, { type DatePreset } from '../components/dashboard/analytics/AnalyticsPeriodFilter.vue';
-import PeriodComparisonPanel, { type PeriodKpis } from '../components/dashboard/analytics/PeriodComparisonPanel.vue';
+import PeriodComparisonPanel from '../components/dashboard/analytics/PeriodComparisonPanel.vue';
 import { Skeleton } from '../components/ui/skeleton';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
 
 type Analytics = {
     raw: { conversations: Conversation[]; messages: Message[]; ai_runs: AiRun[] };
-    kpis: PeriodKpis;
-    previous_kpis: PeriodKpis | null;
+    kpis: PeriodKpisFull;
+    previous_kpis: PeriodKpisFull | null;
     ai_performance: AiPerformance;
     sales: SalesAnalytics;
     previous_sales: SalesAnalytics | null;
@@ -42,6 +43,7 @@ type Analytics = {
     dissatisfied_customers: DissatisfiedCustomerRow[];
     topics: TopicRow[];
     operators: OperatorRow[];
+    lost_customers: LostCustomers;
 };
 
 const dashboard = useCrmDashboardStore();
@@ -113,7 +115,7 @@ defineOptions({ layout: AppLayout });
 
         <div v-else ref="exportTarget" class="space-y-6 p-1">
             <PeriodComparisonPanel v-if="compare" :current="data?.kpis ?? null" :previous="data?.previous_kpis ?? null" />
-            <AnalyticsKpis data-tour="analytics-kpis" :conversations="data?.raw.conversations ?? []" :open-tasks="openTasks" :ai-runs="data?.raw.ai_runs ?? []" />
+            <AnalyticsKpis data-tour="analytics-kpis" :kpis="data?.kpis ?? null" :open-tasks-count="openTasks.length" />
             <AiReportsPanel :tenant-slug="tenant?.slug ?? ''" />
 
             <div class="grid gap-6 lg:grid-cols-3" data-tour="analytics-charts">
@@ -134,7 +136,10 @@ defineOptions({ layout: AppLayout });
                 <SentimentPanel :data="data?.sentiment ?? null" :loading="loading" />
             </div>
 
-            <DissatisfiedCustomersPanel :data="data?.dissatisfied_customers ?? null" :loading="loading" @changed="load" />
+            <div class="grid gap-6 lg:grid-cols-2">
+                <DissatisfiedCustomersPanel :data="data?.dissatisfied_customers ?? null" :loading="loading" @changed="load" />
+                <LostCustomersPanel :data="data?.lost_customers ?? null" :loading="loading" />
+            </div>
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <TopicsPanel :data="data?.topics ?? null" :loading="loading" />
