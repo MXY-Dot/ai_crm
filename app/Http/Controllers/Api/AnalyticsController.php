@@ -19,6 +19,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -61,11 +63,18 @@ class AnalyticsController extends Controller
             [$previousStart, $previousEnd] = $this->range->previousPeriod($start, $end);
         }
 
+        // ТЗ раздел 13 — доп. фильтры (канал/оператор/результат/настроение). null
+        // when none are active, so every filtered call below stays identical to
+        // its pre-filter behavior — only applied to kpis/outcomes/sentiment/
+        // dissatisfied/operators/raw, not sales/funnel/topics/llm_usage (those
+        // aren't conversation-id-scoped the same simple way, out of scope here).
+        $filterIds = $this->resolveFilteredConversationIds($request, $start, $end);
+
         return response()->json([
             'range' => ['start' => $start->toIso8601String(), 'end' => $end->toIso8601String()],
             'previous_range' => $compare ? ['start' => $previousStart->toIso8601String(), 'end' => $previousEnd->toIso8601String()] : null,
-            'raw' => $this->raw($start, $end),
-            'kpis' => $this->snapshot->kpis($start, $end),
+            'raw' => $this->raw($start, $end, $filterIds),
+            'kpis' => $this->snapshot->kpis($start, $end, $filterIds),
             'previous_kpis' => $compare ? $this->snapshot->kpis($previousStart, $previousEnd) : null,
             'message_trend' => $this->messageTrend($start, $end, $bucket),
             'leads_funnel' => $this->leadsFunnel(),
@@ -74,14 +83,58 @@ class AnalyticsController extends Controller
             'sales' => $this->snapshot->sales($start, $end, $bucket),
             'previous_sales' => $compare ? $this->snapshot->sales($previousStart, $previousEnd, $bucket) : null,
             'sla' => $this->sla($start, $end),
-            'outcomes' => $this->snapshot->outcomes($start, $end),
-            'sentiment' => $this->snapshot->sentimentBreakdown($start, $end),
-            'dissatisfied_customers' => $this->dissatisfiedCustomers($start, $end),
+            'outcomes' => $this->snapshot->outcomes($start, $end, $filterIds),
+            'sentiment' => $this->snapshot->sentimentBreakdown($start, $end, $filterIds),
+            'dissatisfied_customers' => $this->dissatisfiedCustomers($start, $end, $filterIds),
             'topics' => $this->snapshot->topics($start, $end),
-            'operators' => $this->operators($start, $end),
+            'operators' => $this->operators($start, $end, $filterIds),
             'lost_customers' => $this->lostCustomers(),
             'conversation_funnel' => $this->snapshot->conversationFunnel($start, $end),
         ]);
+    }
+
+    /**
+     * ТЗ раздел 13 — доп. фильтры. Resolved once into a conversation-id set
+     * (or null if none of the four params were sent) so every consumer above
+     * applies exactly the same filter instead of four ad-hoc reinterpretations.
+     * 'channel' matches Channel.provider (telegram/whatsapp/instagram/facebook/
+     * website); 'operator_id' matches Conversation.assigned_user_id.
+     */
+    private function resolveFilteredConversationIds(Request $request, Carbon $start, Carbon $end): ?Collection
+    {
+        $data = $request->validate([
+            'channel' => ['nullable', 'string', 'max:40'],
+            'operator_id' => ['nullable', 'integer'],
+            'outcome' => ['nullable', Rule::in(ConversationAnalysis::OUTCOMES)],
+            'sentiment' => ['nullable', Rule::in(ConversationAnalysis::SENTIMENTS)],
+        ]);
+
+        if (array_filter($data) === []) {
+            return null;
+        }
+
+        $query = Conversation::query()->whereBetween('created_at', [$start, $end]);
+
+        if (! empty($data['channel'])) {
+            $query->whereHas('channel', fn (Builder $q) => $q->where('provider', $data['channel']));
+        }
+
+        if (! empty($data['operator_id'])) {
+            $query->where('assigned_user_id', $data['operator_id']);
+        }
+
+        if (! empty($data['outcome']) || ! empty($data['sentiment'])) {
+            $query->whereHas('analysis', function (Builder $q) use ($data): void {
+                if (! empty($data['outcome'])) {
+                    $q->where('outcome', $data['outcome']);
+                }
+                if (! empty($data['sentiment'])) {
+                    $q->where('sentiment', $data['sentiment']);
+                }
+            });
+        }
+
+        return $query->pluck('id');
     }
 
     /**
@@ -141,8 +194,8 @@ class AnalyticsController extends Controller
 
         $operatorsSheet = $spreadsheet->createSheet();
         $operatorsSheet->setTitle('Операторы');
-        $operatorsSheet->fromArray(['Оператор', 'Диалогов', 'Закрыто', 'Средняя оценка', 'Недовольных'], null, 'A1');
-        $operatorsSheet->fromArray(array_map(fn (array $o) => [$o['name'], $o['conversations'], $o['closed'], $o['avg_quality_score'], $o['unhappy_count']], $operators), null, 'A2');
+        $operatorsSheet->fromArray(['Оператор', 'Диалогов', 'Закрыто', 'Средняя оценка', 'Недовольных', 'Без результата', 'Ответ, мин', 'Заявок', 'Конверсия, %'], null, 'A1');
+        $operatorsSheet->fromArray(array_map(fn (array $o) => [$o['name'], $o['conversations'], $o['closed'], $o['avg_quality_score'], $o['unhappy_count'], $o['no_result_count'], $o['avg_response_minutes'], $o['leads_count'], $o['conversion_rate']], $operators), null, 'A2');
         $operatorsSheet->getColumnDimension('A')->setWidth(24);
 
         $spreadsheet->setActiveSheetIndex(0);
@@ -163,10 +216,12 @@ class AnalyticsController extends Controller
         return [
             'messages' => 'Сообщений', 'conversations' => 'Обращений', 'unique_customers' => 'Уникальных клиентов',
             'new_customers' => 'Новых клиентов', 'repeat_customers' => 'Повторных клиентов', 'total_leads' => 'Всего лидов',
-            'conversion_rate' => 'Конверсия, %', 'ai_runs' => 'Запусков AI', 'avg_confidence' => 'Средняя уверенность AI, %',
+            'leads_created' => 'Новых заявок за период', 'conversion_rate' => 'Конверсия, %', 'ai_runs' => 'Запусков AI',
+            'avg_confidence' => 'Средняя уверенность AI, %',
             'avg_latency_ms' => 'Среднее время ответа AI, мс', 'ai_replacement_rate' => 'AI решил самостоятельно, %',
             'handed_to_operator' => 'Передано оператору', 'fully_ai_handled' => 'Полностью обработано AI',
             'avg_messages_per_conversation' => 'Сообщений на диалог', 'active_conversations' => 'Активных диалогов сейчас',
+            'unresolved_conversations' => 'Незакрытых диалогов за период',
         ];
     }
 
@@ -213,12 +268,13 @@ class AnalyticsController extends Controller
     }
 
     /** Date-range-scoped conversations/messages/ai_runs for the existing chart components (AnalyticsKpis/LoadHeatmap/MessageLoadDonut/PriorityBreakdown/DialogsTrendChart) — same field shapes as DashboardData, just not capped at the bootstrap's fixed 12/24/10. */
-    private function raw(Carbon $start, Carbon $end): array
+    private function raw(Carbon $start, Carbon $end, ?Collection $filterIds = null): array
     {
         return [
             'conversations' => Conversation::query()
                 ->with(['channel:id,provider,name', 'customer:id,name', 'lead:id,title'])
                 ->whereBetween('last_message_at', [$start, $end])
+                ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('id', $ids))
                 ->orderByDesc('last_message_at')
                 ->limit(1000)
                 ->get(['id', 'channel_id', 'customer_id', 'lead_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'ai_summary']),
@@ -278,6 +334,8 @@ class AnalyticsController extends Controller
             'avg_latency_ms' => (int) round((clone $runs)->avg('latency_ms') ?? 0),
             'handoff_rate' => $runsCount > 0 ? round($handoffCount / $runsCount * 100, 1) : 0.0,
             'ai_replacement_rate' => $this->snapshot->replacementRate($runs),
+            // ТЗ раздел 12 -- "основные слабые темы".
+            'weak_topics' => $this->snapshot->weakTopics($start, $end),
         ];
     }
 
@@ -348,7 +406,7 @@ class AnalyticsController extends Controller
     }
 
     /** ТЗ раздел 6 — «Клиенты, требующие внимания». */
-    private function dissatisfiedCustomers(Carbon $start, Carbon $end): array
+    private function dissatisfiedCustomers(Carbon $start, Carbon $end, ?Collection $filterIds = null): array
     {
         return ConversationAnalysis::query()
             ->whereBetween('analyzed_at', [$start, $end])
@@ -356,6 +414,7 @@ class AnalyticsController extends Controller
                 $q->whereIn('sentiment', ConversationAnalysis::UNHAPPY_SENTIMENTS)
                     ->orWhereIn('outcome', ConversationAnalysis::UNHAPPY_OUTCOMES);
             })
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('conversation_id', $ids))
             ->with([
                 'conversation:id,customer_id,channel_id,assigned_user_id,status,last_message_at',
                 'conversation.customer:id,name,phone',
@@ -428,13 +487,16 @@ class AnalyticsController extends Controller
         return ['total' => $total, 'by_reason' => $byReason->values(), 'recent' => $recent];
     }
 
+    private const NO_RESULT_OUTCOMES = ['not_resolved', 'ai_failed', 'operator_failed', 'customer_stopped_responding'];
+
     /** ТЗ раздел 12 — статистика по операторам (диалоги с назначенным сотрудником). */
-    private function operators(Carbon $start, Carbon $end): array
+    private function operators(Carbon $start, Carbon $end, ?Collection $filterIds = null): array
     {
         $conversations = Conversation::query()
             ->whereNotNull('assigned_user_id')
             ->whereBetween('last_message_at', [$start, $end])
-            ->get(['id', 'assigned_user_id', 'status']);
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('id', $ids))
+            ->get(['id', 'assigned_user_id', 'status', 'created_at']);
 
         if ($conversations->isEmpty()) {
             return [];
@@ -445,12 +507,43 @@ class AnalyticsController extends Controller
             ->get(['conversation_id', 'quality_score', 'outcome', 'sentiment'])
             ->keyBy('conversation_id');
 
+        // Best available proxy for "среднее время ответа оператора" -- Message
+        // has no user_id/operator identity column (only free-text sender_name),
+        // so this is the same "conversation.assigned_user_id owns this
+        // conversation's work" assumption operators() already makes elsewhere,
+        // timed from conversation creation to that operator's first reply.
+        $firstOperatorReplyAt = Message::query()
+            ->whereIn('conversation_id', $conversations->pluck('id'))
+            ->where('sender_type', 'operator')
+            ->orderBy('sent_at')
+            ->get(['conversation_id', 'sent_at'])
+            ->groupBy('conversation_id')
+            ->map(fn ($msgs) => $msgs->first()->sent_at);
+
+        $leadsByUser = Lead::query()
+            ->whereNotNull('assigned_user_id')
+            ->whereBetween('created_at', [$start, $end])
+            ->get(['assigned_user_id', 'status'])
+            ->groupBy('assigned_user_id');
+
         $userIds = $conversations->pluck('assigned_user_id')->unique()->values();
         $users = User::query()->whereIn('id', $userIds)->get(['id', 'name'])->keyBy('id');
 
-        return $conversations->groupBy('assigned_user_id')->map(function ($group, $userId) use ($analysisByConversation, $users): array {
+        return $conversations->groupBy('assigned_user_id')->map(function ($group, $userId) use ($analysisByConversation, $firstOperatorReplyAt, $leadsByUser, $users): array {
             $scores = $group->map(fn (Conversation $c) => $analysisByConversation[$c->id]->quality_score ?? null)->filter(fn ($v) => $v !== null);
             $unhappyCount = $group->filter(fn (Conversation $c) => in_array($analysisByConversation[$c->id]->sentiment ?? null, ConversationAnalysis::UNHAPPY_SENTIMENTS, true))->count();
+            $noResultCount = $group->filter(fn (Conversation $c) => in_array($analysisByConversation[$c->id]->outcome ?? null, self::NO_RESULT_OUTCOMES, true))->count();
+
+            $responseSeconds = $group
+                ->map(function (Conversation $c) use ($firstOperatorReplyAt) {
+                    $replyAt = $firstOperatorReplyAt[$c->id] ?? null;
+
+                    return $replyAt ? $replyAt->diffInSeconds($c->created_at) : null;
+                })
+                ->filter(fn ($v) => $v !== null);
+
+            $leads = $leadsByUser[$userId] ?? collect();
+            $wonLeads = $leads->where('status', 'won')->count();
 
             return [
                 'user_id' => (int) $userId,
@@ -459,6 +552,10 @@ class AnalyticsController extends Controller
                 'closed' => $group->where('status', 'closed')->count(),
                 'avg_quality_score' => $scores->count() > 0 ? round($scores->avg(), 1) : null,
                 'unhappy_count' => $unhappyCount,
+                'no_result_count' => $noResultCount,
+                'avg_response_minutes' => $responseSeconds->count() > 0 ? round($responseSeconds->avg() / 60, 1) : null,
+                'leads_count' => $leads->count(),
+                'conversion_rate' => $leads->count() > 0 ? round($wonLeads / $leads->count() * 100, 1) : 0.0,
             ];
         })->values()->all();
     }

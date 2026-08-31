@@ -82,7 +82,7 @@
 
     <h2>Операторы</h2>
     <table>
-        <tr><th>Оператор</th><th>Диалогов</th><th>Закрыто</th><th>Оценка</th><th>Недовольных</th></tr>
+        <tr><th>Оператор</th><th>Диалогов</th><th>Закрыто</th><th>Оценка</th><th>Недовольных</th><th>Без результата</th><th>Ответ, мин</th><th>Заявок</th><th>Конверсия, %</th></tr>
         @forelse ($operators as $op)
             <tr>
                 <td>{{ $op['name'] }}</td>
@@ -90,9 +90,13 @@
                 <td>{{ $op['closed'] }}</td>
                 <td>{{ $op['avg_quality_score'] ?? '—' }}</td>
                 <td>{{ $op['unhappy_count'] }}</td>
+                <td>{{ $op['no_result_count'] }}</td>
+                <td>{{ $op['avg_response_minutes'] ?? '—' }}</td>
+                <td>{{ $op['leads_count'] }}</td>
+                <td>{{ $op['conversion_rate'] }}</td>
             </tr>
         @empty
-            <tr><td colspan="5">Нет назначенных диалогов за этот период.</td></tr>
+            <tr><td colspan="9">Нет назначенных диалогов за этот период.</td></tr>
         @endforelse
     </table>
 </body>

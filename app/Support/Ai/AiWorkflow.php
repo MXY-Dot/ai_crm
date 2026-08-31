@@ -139,6 +139,9 @@ class AiWorkflow
         $hadComplaintLabel = in_array('complaint', $conversation->labels ?? [], true);
         $hadUnhappyLabel = in_array('unhappy', $conversation->labels ?? [], true);
         $hadHandoffLabel = in_array('handoff', $conversation->labels ?? [], true);
+        $hadWantsManagerLabel = in_array('wants_manager', $conversation->labels ?? [], true);
+        $hadCompetitorLabel = in_array('competitor_mentioned', $conversation->labels ?? [], true);
+        $hadRepeatedProblemLabel = in_array('repeated_problem', $conversation->labels ?? [], true);
 
         // ЭТАП 3.7 — only labels with a real backing signal (AiRun.intent already
         // classifies these); no invented 'hot_lead'/'delivery' label with nothing
@@ -153,6 +156,26 @@ class AiWorkflow
         if ($decision->handoffRequired) {
             $conversation->addLabel('handoff');
         }
+        // ТЗ раздел 15 — "клиент просит связаться с руководителем" / "клиент
+        // сообщил, что выбрал конкурента": both already have a real backing
+        // signal in LocalConversationAnalyzer's keyword intents, same as
+        // complaint/payment_policy above — not a new heuristic invented here.
+        if ($decision->intent === 'human_request') {
+            $conversation->addLabel('wants_manager');
+        }
+        if ($decision->intent === 'competitor_comparison') {
+            $conversation->addLabel('competitor_mentioned');
+        }
+        // "клиент несколько раз обращается с одной проблемой" — real signal:
+        // this exact intent already classified 3+ times for this conversation.
+        // $run above (this turn's AiRun) is already persisted by this point in
+        // process(), so the count below includes the current turn too.
+        if ($decision->intent !== 'general_question' && ! $hadRepeatedProblemLabel) {
+            $sameIntentCount = AiRun::query()->where('conversation_id', $conversation->id)->where('intent', $decision->intent)->count();
+            if ($sameIntentCount >= 3) {
+                $conversation->addLabel('repeated_problem');
+            }
+        }
 
         $conversation->forceFill([
             'ai_summary' => $decision->summary,
@@ -160,7 +183,7 @@ class AiWorkflow
             'priority' => ($decision->handoffRequired || $sentiment === 'negative') ? 'high' : $conversation->priority,
         ])->save();
 
-        $this->notifyConversationEvents($tenant, $conversation, $lead, $decision, $sentiment, $wasQualified, $hadComplaintLabel, $hadUnhappyLabel, $hadHandoffLabel);
+        $this->notifyConversationEvents($tenant, $conversation, $lead, $decision, $sentiment, $wasQualified, $hadComplaintLabel, $hadUnhappyLabel, $hadHandoffLabel, $hadWantsManagerLabel, $hadCompetitorLabel, $hadRepeatedProblemLabel);
 
         // ЭТАП 16.11 — while this tenant's AI is genuinely down (not just this one
         // handoff), new conversations go straight to a human instead of waiting on
@@ -570,6 +593,16 @@ class AiWorkflow
                 'customer_message' => Str::limit(trim($customerMessage), 500),
             ]);
         } catch (\Throwable) {
+        }
+
+        // ТЗ раздел 15 — "AI не может решить вопрос" via the same weak-knowledge
+        // signal as the gap row above, not a second heuristic. Saved directly
+        // here (not folded into notifyConversationEvents()'s label batch) since
+        // this runs mid-directLlmReply(), well before that batch's own save().
+        if (! in_array('kb_gap_notified', $conversation->labels ?? [], true)) {
+            $conversation->addLabel('kb_gap_notified');
+            $conversation->save();
+            NotifyConversationEventJob::dispatch($agent->tenant_id, $conversation->id, 'ai_knowledge_gap');
         }
     }
 
@@ -1200,13 +1233,12 @@ class AiWorkflow
     }
 
     /**
-     * ТЗ раздел 15 — real-time smart notifications. Only 4 of the spec's 14
-     * trigger types (the ones with a real, already-computed signal at this
-     * exact point in the pipeline — see the docblock on NotifyConversationEventJob
-     * for why these four specifically); each fires at most once per conversation,
-     * gated on the label/lead-status state captured just before this turn's
-     * writes so a customer staying negative/qualified across many messages
-     * doesn't spam staff on every single one.
+     * ТЗ раздел 15 — real-time smart notifications. 8 of the spec's 14 trigger
+     * types now (the ones with a real, already-computed signal at this exact
+     * point in the pipeline — see the docblock on NotifyConversationEventJob);
+     * each fires at most once per conversation, gated on the label/lead-status
+     * state captured just before this turn's writes so a customer staying
+     * negative/qualified across many messages doesn't spam staff on every one.
      */
     private function notifyConversationEvents(
         Tenant $tenant,
@@ -1218,6 +1250,9 @@ class AiWorkflow
         bool $hadComplaintLabel,
         bool $hadUnhappyLabel,
         bool $hadHandoffLabel,
+        bool $hadWantsManagerLabel,
+        bool $hadCompetitorLabel,
+        bool $hadRepeatedProblemLabel,
     ): void {
         if ($sentiment === 'negative' && ! $hadUnhappyLabel) {
             NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'unhappy_customer');
@@ -1233,6 +1268,21 @@ class AiWorkflow
 
         if (! $wasQualified && $lead->status === 'qualified') {
             NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'lead_qualified');
+        }
+
+        if ($decision->intent === 'human_request' && ! $hadWantsManagerLabel) {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'wants_manager');
+        }
+
+        if ($decision->intent === 'competitor_comparison' && ! $hadCompetitorLabel) {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'competitor_mentioned');
+        }
+
+        // Label was only just added a few lines above in process() (not re-derived
+        // here) — re-reading it off the in-memory model is simpler than repeating
+        // the AiRun count query.
+        if (! $hadRepeatedProblemLabel && in_array('repeated_problem', $conversation->labels ?? [], true)) {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'repeated_problem');
         }
     }
 }

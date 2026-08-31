@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['tenant_id', 'company_id', 'channel_id', 'customer_id', 'lead_id', 'assigned_user_id', 'external_id', 'subject', 'status', 'priority', 'last_message_at', 'first_response_at', 'resolved_at', 'ai_summary', 'labels'])]
 class Conversation extends Model
@@ -42,6 +43,11 @@ class Conversation extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function analysis(): HasOne
+    {
+        return $this->hasOne(ConversationAnalysis::class);
     }
 
     public function messages(): HasMany

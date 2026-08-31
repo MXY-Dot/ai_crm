@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -198,6 +199,25 @@ class ConversationController extends Controller
         $analysis = ConversationAnalysis::query()->where('conversation_id', $conversation->id)->first();
 
         return response()->json($analysis);
+    }
+
+    /** ТЗ раздел 3 — «оператор или владелец компании может вручную изменить результат» диалога. Только outcome — sentiment/quality_score/etc. stay AI-only, this is the one field the spec explicitly calls out as human-editable. */
+    public function updateAnalysis(Request $request, Conversation $conversation, TenantContext $context, AuditLogger $audit): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('update', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        $data = $request->validate(['outcome' => ['required', Rule::in(ConversationAnalysis::OUTCOMES)]]);
+
+        $analysis = ConversationAnalysis::query()->where('conversation_id', $conversation->id)->first();
+        abort_unless($analysis, 404, 'Диалог ещё не проанализирован AI.');
+
+        $previousOutcome = $analysis->outcome;
+        $analysis->forceFill(['outcome' => $data['outcome']])->save();
+        $audit->record('conversation.analysis_outcome_updated', $conversation, ['outcome' => $data['outcome']], ['outcome' => $previousOutcome], $request);
+
+        return response()->json($analysis->fresh());
     }
 
     /** ЭТАП 3.7 — freeform operator-managed labels on a conversation; see Conversation::addLabel() for the AI-side auto-add counterpart. */

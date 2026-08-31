@@ -13,9 +13,9 @@ class NotificationController extends Controller
 {
     /** ТЗ раздел 17 — Центр уведомлений type-bucket filters ("Продажи"/"Жалобы"/"Ошибки AI"/"Работа операторов"), mapped onto the real `type` values notifications are actually created with (see NotifyConversationEventJob/NotifyVipContactJob/AiReportGenerator). */
     private const BUCKETS = [
-        'sales' => ['lead_qualified', 'vip_contact'],
-        'complaints' => ['complaint'],
-        'ai_errors' => ['handoff_needed'],
+        'sales' => ['lead_qualified', 'vip_contact', 'competitor_mentioned'],
+        'complaints' => ['complaint', 'wants_manager'],
+        'ai_errors' => ['handoff_needed', 'ai_knowledge_gap', 'repeated_problem'],
         'operators' => ['operator_idle'],
     ];
 

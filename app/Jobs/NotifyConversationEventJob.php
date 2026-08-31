@@ -16,12 +16,16 @@ use Illuminate\Queue\SerializesModels;
  * ТЗ раздел 15 — real-time smart notifications. Same job/staff-selection
  * shape as NotifyVipContactJob, parameterized by event type instead of one
  * job per trigger, since these all resolve to the same "who gets told" answer
- * (owner/manager). Four of the five fire from AiWorkflow::process(), gated on
- * a conversation label ('unhappy'/'complaint'/'handoff') or the lead's status
- * transition into 'qualified' so a conversation never re-notifies for the
- * same thing on every message; 'operator_idle' fires from
+ * (owner/manager). Most types fire from AiWorkflow::process() (or, for
+ * ai_knowledge_gap, from recordKnowledgeGap() mid-turn), gated on a
+ * conversation label so a conversation never re-notifies for the same thing
+ * on every message; 'operator_idle' fires from
  * NotifyIdleOperatorConversationsCommand instead, gated the same way via its
- * own 'operator_idle' label.
+ * own 'operator_idle' label. Still missing from the spec's 14: VIP-customer
+ * and large-order (no real per-message signal exists for either — VIP status
+ * is a separate batch-recalculated score, and no chat-time order-amount
+ * extraction exists anywhere in this codebase) and "customer waiting too
+ * long" (operator_idle already covers the pending-operator case).
  */
 class NotifyConversationEventJob implements ShouldQueue
 {
@@ -29,7 +33,10 @@ class NotifyConversationEventJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public const TYPES = ['unhappy_customer', 'complaint', 'handoff_needed', 'lead_qualified', 'operator_idle'];
+    public const TYPES = [
+        'unhappy_customer', 'complaint', 'handoff_needed', 'lead_qualified', 'operator_idle',
+        'wants_manager', 'competitor_mentioned', 'repeated_problem', 'ai_knowledge_gap',
+    ];
 
     public function __construct(
         private readonly int $tenantId,
@@ -55,8 +62,13 @@ class NotifyConversationEventJob implements ShouldQueue
             ->where('status', 'active')
             ->get();
 
+        // ТЗ раздел 17 — "кнопка перехода в чат": a specific conversation deep
+        // link, not just the generic inbox landing page. InboxWorkspace.vue
+        // already reads exactly this `?conversation=` query param on mount.
+        $actionUrl = '/inbox?conversation='.$conversation->id;
+
         foreach ($staff as $user) {
-            $user->notify(new AppNotification($this->eventType, $title, $body, '/inbox', $priority));
+            $user->notify(new AppNotification($this->eventType, $title, $body, $actionUrl, $priority));
         }
     }
 
@@ -71,6 +83,10 @@ class NotifyConversationEventJob implements ShouldQueue
             'handoff_needed' => ['AI не может решить вопрос', "Диалог с «{$name}» передан оператору — AI не справился самостоятельно.", 'high'],
             'lead_qualified' => ['Клиент готов купить', "{$name} — квалифицированный лид, стоит связаться.", 'normal'],
             'operator_idle' => ['Оператор долго не отвечает', "Диалог с «{$name}» ждёт ответа оператора уже больше 15 минут.", 'high'],
+            'wants_manager' => ['Клиент просит руководителя', "{$name} попросил связать с руководителем или живым человеком.", 'high'],
+            'competitor_mentioned' => ['Риск потери клиента', "{$name} упомянул конкурента или более низкую цену в другом месте.", 'high'],
+            'repeated_problem' => ['Клиент повторяет один вопрос', "{$name} уже несколько раз обращается по одной и той же теме — похоже, вопрос не решается.", 'normal'],
+            'ai_knowledge_gap' => ['AI не нашёл ответ в базе знаний', "По вопросу от «{$name}» в базе знаний недостаточно информации.", 'normal'],
         };
     }
 }

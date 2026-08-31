@@ -26,6 +26,7 @@ class AiReportGenerator
 
     public function __construct(
         private readonly AnalyticsSnapshot $snapshot,
+        private readonly DateRangeResolver $range,
         private readonly LlmClient $llm,
         private readonly PlatformSettings $platform,
     ) {
@@ -45,14 +46,20 @@ class AiReportGenerator
     public function generateForTenant(Tenant $tenant, string $periodType): AiAnalyticsReport
     {
         [$start, $end] = $this->periodFor($periodType);
+        [$prevStart, $prevEnd] = $this->range->previousPeriod($start, $end);
 
         $kpis = $this->snapshot->kpis($start, $end);
+        $previousKpis = $this->snapshot->kpis($prevStart, $prevEnd);
         $sales = $this->snapshot->sales($start, $end, 'day');
+        $previousSales = $this->snapshot->sales($prevStart, $prevEnd, 'day');
         $topics = array_slice($this->snapshot->topics($start, $end), 0, 5);
         $outcomes = $this->snapshot->outcomes($start, $end);
         $sentiment = $this->snapshot->sentimentBreakdown($start, $end);
+        // ТЗ раздел 20/22 -- precomputed here, not left for the LLM to do
+        // arithmetic on: percentages below are exact, not an AI guess.
+        $comparisonVsPreviousPeriod = $this->buildComparison($kpis, $previousKpis, $sales, $previousSales);
 
-        $snapshot = compact('kpis', 'sales', 'topics', 'outcomes', 'sentiment');
+        $snapshot = compact('kpis', 'sales', 'topics', 'outcomes', 'sentiment', 'comparisonVsPreviousPeriod');
 
         $result = $this->complete($tenant, $this->buildPrompt($periodType, $start, $end, $snapshot));
         $content = $result['text'] ?? $this->fallbackText($periodType, $start, $end, $kpis, $sales);
@@ -93,12 +100,14 @@ class AiReportGenerator
     private function buildPrompt(string $periodType, Carbon $start, Carbon $end, array $snapshot): array
     {
         $periodLabel = $periodType === 'monthly' ? 'месяц' : 'неделю';
+        $comparisonLabel = $periodType === 'monthly' ? 'предыдущим месяцем' : 'предыдущей неделей';
         $system = <<<PROMPT
-Ты — бизнес-аналитик CRM-платформы WERO. Тебе дают агрегированные цифры компании за {$periodLabel} (диалоги, AI, продажи, темы обращений, настроение клиентов). Напиши короткий отчёт владельцу бизнеса на русском языке (без markdown-разметки, обычный связный текст, 4-6 абзацев):
+Ты — бизнес-аналитик CRM-платформы WERO. Тебе дают агрегированные цифры компании за {$periodLabel} (диалоги, AI, продажи, темы обращений, настроение клиентов) и сравнение с {$comparisonLabel} (поле comparisonVsPreviousPeriod — уже готовые проценты изменения, не пересчитывай их сам). Напиши короткий отчёт владельцу бизнеса на русском языке (без markdown-разметки, обычный связный текст, 5-7 абзацев):
 1. Главное за период (2-3 предложения).
 2. Что хорошо.
 3. На что стоит обратить внимание (проблемы/риски, если есть).
-4. 2-3 конкретные рекомендации, что сделать дальше.
+4. Изменения по сравнению с {$comparisonLabel}: что выросло, что упало, и на сколько процентов (используй ТОЛЬКО готовые значения из comparisonVsPreviousPeriod) — и предположи ВОЗМОЖНУЮ причину, если она правдоподобно следует из остальных данных (например, выросли обращения, но не заявки — возможно, медленнее отвечают операторы).
+5. 2-3 конкретные рекомендации, что сделать дальше.
 
 Пиши по-деловому, но по-человечески, без канцелярита. Не выдумывай цифры, которых нет во входных данных.
 PROMPT;
@@ -111,6 +120,28 @@ PROMPT;
         );
 
         return ['system' => $system, 'user' => $user];
+    }
+
+    /** @return array<string, array{current: int|float, previous: int|float, change_percent: float}> */
+    private function buildComparison(array $kpis, array $previousKpis, array $sales, array $previousSales): array
+    {
+        $delta = function (int|float $current, int|float $previous): array {
+            $change = $previous > 0 ? round((($current - $previous) / $previous) * 100, 1) : ($current > 0 ? 100.0 : 0.0);
+
+            return ['current' => $current, 'previous' => $previous, 'change_percent' => $change];
+        };
+
+        return [
+            'conversations' => $delta($kpis['conversations'], $previousKpis['conversations']),
+            'unique_customers' => $delta($kpis['unique_customers'], $previousKpis['unique_customers']),
+            'leads_created' => $delta($kpis['leads_created'], $previousKpis['leads_created']),
+            'conversion_rate' => $delta($kpis['conversion_rate'], $previousKpis['conversion_rate']),
+            'ai_replacement_rate' => $delta($kpis['ai_replacement_rate'], $previousKpis['ai_replacement_rate']),
+            'handed_to_operator' => $delta($kpis['handed_to_operator'], $previousKpis['handed_to_operator']),
+            'avg_latency_ms' => $delta($kpis['avg_latency_ms'], $previousKpis['avg_latency_ms']),
+            'revenue' => $delta($sales['total_revenue'], $previousSales['total_revenue']),
+            'won_count' => $delta($sales['won_count'], $previousSales['won_count']),
+        ];
     }
 
     /** If every LLM provider is unavailable, still deliver a report — just the raw numbers in plain Russian sentences instead of AI prose. */

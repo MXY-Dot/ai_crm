@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
 import type { AiRun, Conversation, Message } from '../stores/crmDashboard';
 import { apiRequest } from '../lib/apiClient';
+import AdvancedFilters from '../components/dashboard/analytics/AnalyticsAdvancedFilters.vue';
 import AiPerformancePanel, { type AiPerformance } from '../components/dashboard/analytics/AiPerformancePanel.vue';
 import AiReportsPanel from '../components/dashboard/analytics/AiReportsPanel.vue';
 import AnalyticsExportMenu from '../components/dashboard/analytics/AnalyticsExportMenu.vue';
@@ -49,7 +50,7 @@ type Analytics = {
 };
 
 const dashboard = useCrmDashboardStore();
-const { openTasks, tenant } = storeToRefs(dashboard);
+const { openTasks, tenant, tenantUsers } = storeToRefs(dashboard);
 const locale = useLocaleStore();
 const exportTarget = ref<HTMLElement | null>(null);
 
@@ -60,6 +61,12 @@ const compare = ref(false);
 const data = ref<Analytics | null>(null);
 const loading = ref(true);
 
+// ТЗ раздел 13 — доп. фильтры. 'all' means "no filter", matching the backend's own null-means-unfiltered contract.
+const channelFilter = ref('all');
+const operatorFilter = ref('all');
+const outcomeFilter = ref('all');
+const sentimentFilter = ref('all');
+
 function buildParams(): URLSearchParams {
     const params = new URLSearchParams({ preset: preset.value });
     if (preset.value === 'custom') {
@@ -67,6 +74,10 @@ function buildParams(): URLSearchParams {
         if (customTo.value) params.set('to', customTo.value);
     }
     if (compare.value) params.set('compare', '1');
+    if (channelFilter.value !== 'all') params.set('channel', channelFilter.value);
+    if (operatorFilter.value !== 'all') params.set('operator_id', operatorFilter.value);
+    if (outcomeFilter.value !== 'all') params.set('outcome', outcomeFilter.value);
+    if (sentimentFilter.value !== 'all') params.set('sentiment', sentimentFilter.value);
 
     return params;
 }
@@ -93,7 +104,7 @@ async function load(): Promise<void> {
 }
 
 onMounted(load);
-watch([preset, customFrom, customTo, compare], load);
+watch([preset, customFrom, customTo, compare, channelFilter, operatorFilter, outcomeFilter, sentimentFilter], load);
 
 defineOptions({ layout: AppLayout });
 </script>
@@ -110,6 +121,14 @@ defineOptions({ layout: AppLayout });
                 <AnalyticsExportMenu data-tour="analytics-export" :target="exportTarget" :conversations="data?.raw.conversations ?? []" :query-string="queryString" :tenant-slug="tenant?.slug ?? ''" />
             </div>
         </div>
+
+        <AdvancedFilters
+            v-model:channel="channelFilter"
+            v-model:operator-id="operatorFilter"
+            v-model:outcome="outcomeFilter"
+            v-model:sentiment="sentimentFilter"
+            :operators="tenantUsers.map((u) => ({ id: u.id, name: u.name }))"
+        />
 
         <div v-if="loading && ! data" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Skeleton v-for="i in 4" :key="i" class="h-28 rounded-xl" />

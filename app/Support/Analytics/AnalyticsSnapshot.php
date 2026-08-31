@@ -11,6 +11,7 @@ use App\Models\Conversation;
 use App\Support\Inbox\ConversationStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Tenant-scoped KPI/sales/topics/outcomes/sentiment aggregation for a date
@@ -29,24 +30,33 @@ class AnalyticsSnapshot
     }
 
     /**
-     * ТЗ раздел 2 -- the spec lists 16 top-level KPIs; this now covers all but
-     * "количество заявок / успешно обработанных / потерянных" (that's leads
-     * terminology this codebase doesn't use the same way -- total_leads/
-     * conversion_rate below is the closest real equivalent) and "количество
-     * диалогов без результата" (would need a 6th ConversationAnalysis outcome
-     * bucket query with no reliable single-status mapping -- outcomes() already
-     * exposes the full per-outcome breakdown for that, no need to duplicate a
-     * guess at "no result" here).
+     * ТЗ раздел 2 -- the spec's 16 top-level KPIs. "Диалогов без результата"
+     * still isn't duplicated here as a single bucket -- outcomes() already
+     * exposes the full per-outcome breakdown, and "no result" has no single
+     * reliable status mapping worth guessing at.
+     *
+     * $filterIds (ТЗ раздел 13) narrows every conversation/message/AiRun-based
+     * metric below to that conversation-id set when given; total_leads/
+     * conversion_rate/leads_created stay unfiltered (Lead has no direct
+     * conversation link) -- documented, not a silent gap.
      */
-    public function kpis(Carbon $start, Carbon $end): array
+    public function kpis(Carbon $start, Carbon $end, ?Collection $filterIds = null): array
     {
         $totalLeads = Lead::query()->count();
         $wonLeads = Lead::query()->where('status', 'won')->count();
-        $runs = AiRun::query()->whereBetween('created_at', [$start, $end]);
+        // total_leads/conversion_rate above are all-time (kept as-is, other
+        // callers depend on that meaning) -- this is the period-scoped "количество
+        // заявок" the spec actually asks for.
+        $leadsCreated = Lead::query()->whereBetween('created_at', [$start, $end])->count();
+        $runs = AiRun::query()->whereBetween('created_at', [$start, $end])
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('conversation_id', $ids));
 
-        $conversationsInPeriod = Conversation::query()->whereBetween('created_at', [$start, $end]);
+        $conversationsInPeriod = Conversation::query()->whereBetween('created_at', [$start, $end])
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('id', $ids));
         $conversationsCount = (clone $conversationsInPeriod)->count();
-        $messagesCount = Message::query()->whereBetween('sent_at', [$start, $end])->count();
+        $messagesCount = Message::query()->whereBetween('sent_at', [$start, $end])
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('conversation_id', $ids))
+            ->count();
 
         $customerIdsInPeriod = (clone $conversationsInPeriod)->whereNotNull('customer_id')->pluck('customer_id')->unique();
         // Postgres doesn't allow referencing a SELECT-list alias in HAVING (unlike MySQL) --
@@ -62,6 +72,7 @@ class AnalyticsSnapshot
         $handedToOperator = ConversationAnalysis::query()
             ->whereBetween('analyzed_at', [$start, $end])
             ->where('outcome', 'handed_to_operator')
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('conversation_id', $ids))
             ->count();
 
         $fullyAiHandled = (clone $conversationsInPeriod)
@@ -86,6 +97,9 @@ class AnalyticsSnapshot
             // Current snapshot, not period-bound -- "how many conversations need
             // attention right now" is inherently a today question, not a date-range one.
             'active_conversations' => Conversation::query()->whereIn('status', [ConversationStatus::OPEN, ConversationStatus::PENDING_OPERATOR])->count(),
+            'leads_created' => $leadsCreated,
+            // "количество незакрытых диалогов" -- conversations from this period still not closed.
+            'unresolved_conversations' => (clone $conversationsInPeriod)->where('status', '!=', ConversationStatus::CLOSED)->count(),
         ];
     }
 
@@ -150,8 +164,31 @@ class AnalyticsSnapshot
 
         $total = (int) $current->sum();
 
-        return $current->map(function (int $count, string $intent) use ($previous, $total): array {
+        // ТЗ раздел 7 -- "количество успешно решённых / нерешённых вопросов" per
+        // topic, joined via each intent's own conversation_ids against
+        // ConversationAnalysis (the same per-conversation analysis outcomes()
+        // already reads, just grouped by topic instead of overall). "Resolved"
+        // uses the same outcome==='resolved' OR is_resolved===true condition
+        // as conversationFunnel()'s own last stage, not is_resolved alone --
+        // an operator can correct just the outcome via updateAnalysis()
+        // without AI ever having flipped is_resolved.
+        $runsByIntent = AiRun::query()
+            ->whereBetween('created_at', [$start, $end])
+            ->whereIn('intent', $current->keys())
+            ->get(['conversation_id', 'intent'])
+            ->groupBy('intent');
+
+        $analyses = ConversationAnalysis::query()
+            ->whereIn('conversation_id', $runsByIntent->flatten(1)->pluck('conversation_id')->unique())
+            ->get(['conversation_id', 'outcome', 'is_resolved'])
+            ->keyBy('conversation_id');
+
+        return $current->map(function (int $count, string $intent) use ($previous, $total, $runsByIntent, $analyses): array {
             $previousCount = (int) ($previous[$intent] ?? 0);
+
+            $conversationIds = ($runsByIntent[$intent] ?? collect())->pluck('conversation_id')->unique();
+            $analyzed = $conversationIds->filter(fn ($id) => $analyses->has($id));
+            $resolved = $analyzed->filter(fn ($id) => $analyses[$id]->outcome === 'resolved' || $analyses[$id]->is_resolved === true)->count();
 
             return [
                 'topic' => $intent,
@@ -159,14 +196,64 @@ class AnalyticsSnapshot
                 'percent' => $total > 0 ? round($count / $total * 100, 1) : 0.0,
                 'change_percent' => $previousCount > 0 ? round((($count - $previousCount) / $previousCount) * 100, 1) : ($count > 0 ? 100.0 : 0.0),
                 'is_new' => $previousCount === 0 && $count > 0,
+                'resolved_count' => $resolved,
+                'unresolved_count' => max(0, $analyzed->count() - $resolved),
             ];
         })->values()->all();
     }
 
-    public function outcomes(Carbon $start, Carbon $end): array
+    /**
+     * ТЗ раздел 9/12 -- "основные слабые темы" AI struggles with: topics where
+     * the AI-classified conversation's own analysis came back with a "did not
+     * work out" outcome unusually often. Requires at least 3 occurrences and a
+     * 30%+ bad-outcome rate to surface -- a topic asked twice with one handoff
+     * isn't a pattern yet.
+     */
+    public function weakTopics(Carbon $start, Carbon $end): array
+    {
+        $badOutcomes = ['not_resolved', 'ai_failed', 'customer_stopped_responding', 'handed_to_operator'];
+
+        $runs = AiRun::query()
+            ->whereBetween('created_at', [$start, $end])
+            ->whereNotNull('intent')
+            ->where('intent', '!=', '')
+            ->get(['conversation_id', 'intent']);
+
+        if ($runs->isEmpty()) {
+            return [];
+        }
+
+        $analyses = ConversationAnalysis::query()
+            ->whereIn('conversation_id', $runs->pluck('conversation_id')->unique())
+            ->get(['conversation_id', 'outcome'])
+            ->keyBy('conversation_id');
+
+        return $runs->groupBy('intent')
+            ->map(function ($group, string $intent) use ($analyses, $badOutcomes): array {
+                $total = $group->pluck('conversation_id')->unique()->count();
+                $bad = $group->pluck('conversation_id')->unique()
+                    ->filter(fn ($id) => in_array($analyses[$id]->outcome ?? null, $badOutcomes, true))
+                    ->count();
+
+                return [
+                    'topic' => $intent,
+                    'total' => $total,
+                    'weak_count' => $bad,
+                    'weak_rate' => $total > 0 ? round($bad / $total * 100, 1) : 0.0,
+                ];
+            })
+            ->filter(fn (array $row): bool => $row['total'] >= 3 && $row['weak_rate'] >= 30)
+            ->sortByDesc('weak_rate')
+            ->take(5)
+            ->values()
+            ->all();
+    }
+
+    public function outcomes(Carbon $start, Carbon $end, ?Collection $filterIds = null): array
     {
         $counts = ConversationAnalysis::query()
             ->whereBetween('analyzed_at', [$start, $end])
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('conversation_id', $ids))
             ->selectRaw('outcome, count(*) as count')
             ->groupBy('outcome')
             ->pluck('count', 'outcome');
@@ -183,10 +270,11 @@ class AnalyticsSnapshot
             ->all();
     }
 
-    public function sentimentBreakdown(Carbon $start, Carbon $end): array
+    public function sentimentBreakdown(Carbon $start, Carbon $end, ?Collection $filterIds = null): array
     {
         $counts = ConversationAnalysis::query()
             ->whereBetween('analyzed_at', [$start, $end])
+            ->when($filterIds, fn (Builder $q, Collection $ids) => $q->whereIn('conversation_id', $ids))
             ->selectRaw('sentiment, count(*) as count')
             ->groupBy('sentiment')
             ->pluck('count', 'sentiment');
