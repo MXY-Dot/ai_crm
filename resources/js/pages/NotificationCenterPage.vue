@@ -104,7 +104,7 @@ async function markAllRead(): Promise<void> {
 }
 
 const emptyLabel = computed(() => {
-    if (bucket.value === 'operators') return 'Пока нет уведомлений о работе операторов — этот тип триггеров ещё не подключён.';
+    if (bucket.value === 'operators') return 'Нет уведомлений о работе операторов за этот период.';
     if (status.value === 'unread') return 'Новых уведомлений нет.';
     if (status.value === 'critical') return 'Критических уведомлений нет.';
     return 'Уведомлений нет.';

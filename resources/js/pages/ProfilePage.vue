@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
-import { GraduationCap, KeyRound, Save, ShieldCheck, ShieldOff, Upload, User as UserIcon } from '@lucide/vue';
+import { GraduationCap, KeyRound, Save, Send, ShieldCheck, ShieldOff, Upload, User as UserIcon } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
@@ -121,6 +121,76 @@ async function disableTwoFactor(): Promise<void> {
 }
 
 const maskedSecret = computed(() => secretKey.value.replace(/(.{4})/g, '$1 ').trim());
+
+// ТЗ раздел 18 — per-user Telegram linking (see TenantTelegramChannel /
+// TelegramWebhookController's /link handling). "Отключён" here just means no
+// telegram_chat_id on file yet -- the actual on/off switch for whether
+// Telegram delivery is attempted at all lives at the company level
+// (NotificationPreferencesPanel.vue), this is only "who WERO can reach".
+const telegramLinked = ref(false);
+const telegramBusy = ref(false);
+const telegramDialogOpen = ref(false);
+const telegramCode = ref('');
+const telegramBotUsername = ref<string | null>(null);
+const telegramCodeExpiresIn = ref(10);
+let telegramPollTimer: number | undefined;
+
+async function loadTelegramStatus(): Promise<void> {
+    try {
+        const data = await apiRequest<{ telegram_linked: boolean }>('/api/notification-settings/status');
+        telegramLinked.value = data.telegram_linked;
+    } catch {
+        // non-fatal -- the card just shows "not linked" until this succeeds
+    }
+}
+
+onMounted(loadTelegramStatus);
+onBeforeUnmount(() => { if (telegramPollTimer) window.clearInterval(telegramPollTimer); });
+
+async function openTelegramLink(): Promise<void> {
+    telegramBusy.value = true;
+    try {
+        const data = await apiRequest<{ code: string; bot_username: string | null; expires_in_minutes: number }>('/api/notification-settings/telegram-link-code', { method: 'POST' });
+        telegramCode.value = data.code;
+        telegramBotUsername.value = data.bot_username;
+        telegramCodeExpiresIn.value = data.expires_in_minutes;
+        telegramDialogOpen.value = true;
+
+        // Polls while the dialog is open so the card flips to "подключён" the moment
+        // the person actually taps the Telegram link/sends the command, instead of
+        // requiring a manual page refresh to notice it worked.
+        telegramPollTimer = window.setInterval(async () => {
+            await loadTelegramStatus();
+            if (telegramLinked.value) {
+                telegramDialogOpen.value = false;
+                if (telegramPollTimer) window.clearInterval(telegramPollTimer);
+                toast.success('Telegram подключён');
+            }
+        }, 3000);
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось получить код для Telegram');
+    } finally {
+        telegramBusy.value = false;
+    }
+}
+
+function closeTelegramDialog(): void {
+    telegramDialogOpen.value = false;
+    if (telegramPollTimer) window.clearInterval(telegramPollTimer);
+}
+
+async function unlinkTelegram(): Promise<void> {
+    telegramBusy.value = true;
+    try {
+        await apiRequest('/api/notification-settings/telegram-unlink', { method: 'POST' });
+        telegramLinked.value = false;
+        toast.success('Telegram отключён');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось отключить Telegram');
+    } finally {
+        telegramBusy.value = false;
+    }
+}
 </script>
 
 <template>
@@ -185,6 +255,38 @@ const maskedSecret = computed(() => secretKey.value.replace(/(.{4})/g, '$1 ').tr
             <Button v-else variant="outline" size="sm" @click="disableOpen = true"><ShieldOff class="h-4 w-4" />{{ locale.t('profile.twoFactor.disable') }}</Button>
         </div>
     </Card>
+
+    <Card v-if="user" class="mt-6" title="Telegram-уведомления" subtitle="Получайте уведомления WERO лично в Telegram, если это включено в настройках компании">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="grid size-10 shrink-0 place-items-center rounded-lg" :class="telegramLinked ? 'bg-primary/10' : 'bg-muted'">
+                    <Send class="h-5 w-5" :class="telegramLinked ? 'text-primary' : 'ui-subtle'" />
+                </div>
+                <div>
+                    <p class="text-sm font-medium ui-text">{{ telegramLinked ? 'Telegram подключён' : 'Telegram не подключён' }}</p>
+                    <p class="text-xs ui-subtle">{{ telegramLinked ? 'WERO может присылать уведомления в ваш Telegram.' : 'Привяжите личный Telegram через бота компании.' }}</p>
+                </div>
+            </div>
+            <Button v-if="! telegramLinked" variant="primary" size="sm" :disabled="telegramBusy" @click="openTelegramLink"><Send class="h-4 w-4" />Подключить</Button>
+            <Button v-else variant="outline" size="sm" :disabled="telegramBusy" @click="unlinkTelegram">Отключить</Button>
+        </div>
+    </Card>
+
+    <Dialog :open="telegramDialogOpen" @update:open="closeTelegramDialog">
+        <DialogContent class="sm:max-w-sm">
+            <DialogHeader>
+                <DialogTitle class="flex items-center gap-2"><Send class="h-4 w-4 text-primary" />Подключить Telegram</DialogTitle>
+            </DialogHeader>
+            <div class="space-y-3 py-2 text-sm">
+                <p class="ui-subtle">Откройте бота компании в Telegram — код подставится автоматически.</p>
+                <a v-if="telegramBotUsername" :href="`https://t.me/${telegramBotUsername}?start=${telegramCode}`" target="_blank" rel="noopener" class="block">
+                    <Button type="button" variant="primary" class="w-full"><Send class="h-4 w-4" />Открыть в Telegram</Button>
+                </a>
+                <p class="ui-subtle">Или напишите боту вручную: <span class="rounded bg-muted px-1.5 py-0.5 font-mono ui-text">/link {{ telegramCode }}</span></p>
+                <p class="text-xs ui-subtle">Код действует {{ telegramCodeExpiresIn }} минут. Окно закроется автоматически, как только Telegram подключится.</p>
+            </div>
+        </DialogContent>
+    </Dialog>
 
     <Dialog v-model:open="twoFactorOpen">
         <DialogContent class="sm:max-w-md">

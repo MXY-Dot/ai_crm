@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\MetaOAuthController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\NotificationSettingsController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SuperAdminAnalyticsController;
 use App\Http\Controllers\Api\SuperAdminBillingController;
@@ -103,6 +104,9 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
     Route::apiResource('tenants', TenantController::class)->only(['index', 'store', 'show', 'update']);
 
     Route::get('notifications', [NotificationController::class, 'index']);
+    Route::get('notification-settings/status', [NotificationSettingsController::class, 'status']);
+    Route::post('notification-settings/telegram-link-code', [NotificationSettingsController::class, 'telegramLinkCode']);
+    Route::post('notification-settings/telegram-unlink', [NotificationSettingsController::class, 'telegramUnlink']);
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
 
@@ -177,6 +181,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
     Route::middleware(ResolveTenant::class)->group(function (): void {
         Route::get('analytics', [AnalyticsController::class, 'index']);
         Route::get('analytics/export.xlsx', [AnalyticsController::class, 'exportXlsx']);
+        Route::get('analytics/export.pdf', [AnalyticsController::class, 'exportPdf']);
         Route::get('analytics/knowledge-gaps', [AnalyticsController::class, 'knowledgeGaps']);
         Route::get('analytics/reports', [AiAnalyticsReportController::class, 'index']);
         Route::post('analytics/reports/generate', [AiAnalyticsReportController::class, 'generate'])->middleware('throttle:5,10');

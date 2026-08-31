@@ -13,9 +13,11 @@ use App\Models\Message;
 use App\Models\User;
 use App\Support\Analytics\AnalyticsSnapshot;
 use App\Support\Analytics\DateRangeResolver;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -104,14 +106,7 @@ class AnalyticsController extends Controller
         $kpiSheet = $spreadsheet->getActiveSheet();
         $kpiSheet->setTitle('KPI');
         $kpiSheet->fromArray(['Период', $start->toDateString().' — '.$end->toDateString()], null, 'A1');
-        $kpiLabels = [
-            'messages' => 'Сообщений', 'conversations' => 'Обращений', 'unique_customers' => 'Уникальных клиентов',
-            'new_customers' => 'Новых клиентов', 'repeat_customers' => 'Повторных клиентов', 'total_leads' => 'Всего лидов',
-            'conversion_rate' => 'Конверсия, %', 'ai_runs' => 'Запусков AI', 'avg_confidence' => 'Средняя уверенность AI, %',
-            'avg_latency_ms' => 'Среднее время ответа AI, мс', 'ai_replacement_rate' => 'AI решил самостоятельно, %',
-            'handed_to_operator' => 'Передано оператору', 'fully_ai_handled' => 'Полностью обработано AI',
-            'avg_messages_per_conversation' => 'Сообщений на диалог', 'active_conversations' => 'Активных диалогов сейчас',
-        ];
+        $kpiLabels = $this->kpiLabels();
         $row = 3;
         foreach ($kpiLabels as $key => $label) {
             $kpiSheet->setCellValue("A{$row}", $label);
@@ -160,6 +155,47 @@ class AnalyticsController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
+    }
+
+    /** Shared between exportXlsx() and exportPdf() so the two exports can never list different KPIs. */
+    private function kpiLabels(): array
+    {
+        return [
+            'messages' => 'Сообщений', 'conversations' => 'Обращений', 'unique_customers' => 'Уникальных клиентов',
+            'new_customers' => 'Новых клиентов', 'repeat_customers' => 'Повторных клиентов', 'total_leads' => 'Всего лидов',
+            'conversion_rate' => 'Конверсия, %', 'ai_runs' => 'Запусков AI', 'avg_confidence' => 'Средняя уверенность AI, %',
+            'avg_latency_ms' => 'Среднее время ответа AI, мс', 'ai_replacement_rate' => 'AI решил самостоятельно, %',
+            'handed_to_operator' => 'Передано оператору', 'fully_ai_handled' => 'Полностью обработано AI',
+            'avg_messages_per_conversation' => 'Сообщений на диалог', 'active_conversations' => 'Активных диалогов сейчас',
+        ];
+    }
+
+    /**
+     * ТЗ раздел 24 — the other half of the real report export, same
+     * AnalyticsSnapshot calls as index()/exportXlsx() rendered as PDF via
+     * barryvdh/laravel-dompdf (no PDF-generation library existed in this
+     * codebase before -- smalot/pdfparser, already present, only *reads*
+     * PDFs, for knowledge-base uploads).
+     */
+    public function exportPdf(Request $request): Response
+    {
+        [$start, $end] = $this->range->resolve($request);
+
+        $html = view('pdf.analytics-report', [
+            'start' => $start->toDateString(),
+            'end' => $end->toDateString(),
+            'kpis' => $this->snapshot->kpis($start, $end),
+            'kpiLabels' => $this->kpiLabels(),
+            'funnel' => $this->snapshot->conversationFunnel($start, $end),
+            'topics' => $this->snapshot->topics($start, $end),
+            'outcomes' => $this->snapshot->outcomes($start, $end),
+            'sentiment' => $this->snapshot->sentimentBreakdown($start, $end),
+            'operators' => $this->operators($start, $end),
+        ])->render();
+
+        $filename = 'analytics-'.$start->toDateString().'-'.$end->toDateString().'.pdf';
+
+        return Pdf::loadHTML($html)->download($filename);
     }
 
     /** ТЗ раздел 9 — tenant-scoped counterpart of SuperAdminInsightsController::knowledgeGaps() (that one is platform-wide, Super Admin only). */

@@ -11,12 +11,12 @@ use Illuminate\Validation\Rule;
 
 class NotificationController extends Controller
 {
-    /** ТЗ раздел 17 — Центр уведомлений type-bucket filters ("Продажи"/"Жалобы"/"Ошибки AI"/"Работа операторов"), mapped onto the real `type` values notifications are actually created with (see NotifyConversationEventJob/NotifyVipContactJob/AiReportGenerator). "operators" is intentionally empty today — no operator-specific trigger exists yet, same honesty precedent as the rest of this codebase's analytics (no synthetic rows to fill an empty bucket). */
+    /** ТЗ раздел 17 — Центр уведомлений type-bucket filters ("Продажи"/"Жалобы"/"Ошибки AI"/"Работа операторов"), mapped onto the real `type` values notifications are actually created with (see NotifyConversationEventJob/NotifyVipContactJob/AiReportGenerator). */
     private const BUCKETS = [
         'sales' => ['lead_qualified', 'vip_contact'],
         'complaints' => ['complaint'],
         'ai_errors' => ['handoff_needed'],
-        'operators' => [],
+        'operators' => ['operator_idle'],
     ];
 
     public function index(Request $request): JsonResponse

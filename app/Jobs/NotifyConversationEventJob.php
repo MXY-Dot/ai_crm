@@ -15,11 +15,13 @@ use Illuminate\Queue\SerializesModels;
 /**
  * ТЗ раздел 15 — real-time smart notifications. Same job/staff-selection
  * shape as NotifyVipContactJob, parameterized by event type instead of one
- * job per trigger, since all four fire from the same spot in
- * AiWorkflow::process() with the same "who gets told" answer (owner/manager).
- * Each event type is dispatched at most once per conversation -- the caller
- * gates on a conversation label ('unhappy'/'complaint'/'handoff') or the
- * lead's status transition into 'qualified', never on every message.
+ * job per trigger, since these all resolve to the same "who gets told" answer
+ * (owner/manager). Four of the five fire from AiWorkflow::process(), gated on
+ * a conversation label ('unhappy'/'complaint'/'handoff') or the lead's status
+ * transition into 'qualified' so a conversation never re-notifies for the
+ * same thing on every message; 'operator_idle' fires from
+ * NotifyIdleOperatorConversationsCommand instead, gated the same way via its
+ * own 'operator_idle' label.
  */
 class NotifyConversationEventJob implements ShouldQueue
 {
@@ -27,7 +29,7 @@ class NotifyConversationEventJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public const TYPES = ['unhappy_customer', 'complaint', 'handoff_needed', 'lead_qualified'];
+    public const TYPES = ['unhappy_customer', 'complaint', 'handoff_needed', 'lead_qualified', 'operator_idle'];
 
     public function __construct(
         private readonly int $tenantId,
@@ -68,6 +70,7 @@ class NotifyConversationEventJob implements ShouldQueue
             'complaint' => ['Жалоба от клиента', "{$name} написал жалобу.", 'high'],
             'handoff_needed' => ['AI не может решить вопрос', "Диалог с «{$name}» передан оператору — AI не справился самостоятельно.", 'high'],
             'lead_qualified' => ['Клиент готов купить', "{$name} — квалифицированный лид, стоит связаться.", 'normal'],
+            'operator_idle' => ['Оператор долго не отвечает', "Диалог с «{$name}» ждёт ответа оператора уже больше 15 минут.", 'high'],
         };
     }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { FileDown, FileImage, FileSpreadsheet } from '@lucide/vue';
+import { FileDown, FileImage, FileSpreadsheet, FileText } from '@lucide/vue';
 import type { Conversation } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
@@ -26,6 +26,13 @@ function downloadBlob(blob: Blob, filename: string): void {
 // connect links.
 function exportXlsx(): void {
     const url = `/api/analytics/export.xlsx?${props.queryString}&tenant_id=${encodeURIComponent(props.tenantSlug)}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.click();
+}
+
+function exportPdf(): void {
+    const url = `/api/analytics/export.pdf?${props.queryString}&tenant_id=${encodeURIComponent(props.tenantSlug)}`;
     const link = document.createElement('a');
     link.href = url;
     link.click();
@@ -79,6 +86,9 @@ function exportCsv(): void {
         </Button>
         <Button size="sm" variant="outline" type="button" @click="exportXlsx">
             <FileDown class="h-4 w-4" />{{ locale.t('analytics.exportXlsx') }}
+        </Button>
+        <Button size="sm" variant="outline" type="button" @click="exportPdf">
+            <FileText class="h-4 w-4" />{{ locale.t('analytics.exportPdf') }}
         </Button>
     </div>
 </template>

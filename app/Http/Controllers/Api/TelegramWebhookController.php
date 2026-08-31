@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Support\Ai\LlmClient;
 use App\Support\Inbox\ChatwootWebhookHandler;
 use App\Support\Integrations\TenantIntegrationSettings;
@@ -11,11 +12,13 @@ use App\Support\TelegramClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Throwable;
 
 class TelegramWebhookController extends Controller
 {
@@ -28,6 +31,13 @@ class TelegramWebhookController extends Controller
         $tenant = $this->tenant($request);
         $this->guardSecret($request, $tenant, $settings);
         $message = $request->input('message') ?? $request->input('edited_message');
+
+        // ТЗ раздел 18 — staff Telegram linking. Handled before anything else touches
+        // this message: a "/link CODE" from a staff member must never create a
+        // customer/conversation the way a real inbound message would.
+        if (is_array($message) && $this->handleLinkCommand($tenant, $message, $telegram)) {
+            return response()->json(['ok' => true, 'handled' => 'telegram_link']);
+        }
 
         // A shared-contact update (tapped the "request contact" keyboard button — see
         // AiWorkflow::requestContact()) has no text/caption of its own, so it would
@@ -43,6 +53,60 @@ class TelegramWebhookController extends Controller
         $result = $handler->handle($tenant, $this->payload($tenant, $message, $telegram));
 
         return response()->json(['ok' => true] + $result, ! empty($result['duplicate']) ? 200 : 201);
+    }
+
+    /**
+     * ТЗ раздел 18 — matches "/link CODE" or a "/start CODE" deep link (case-
+     * insensitive either way), consumes the one-time code minted by
+     * NotificationSettingsController::telegramLinkCode(), and links this chat
+     * to that specific user -- but only if the code's owning user actually
+     * belongs to THIS tenant, so a code can never be redeemed through a
+     * different tenant's bot. Returns true whenever the message was a link
+     * attempt at all (valid or not), so the caller knows to stop processing
+     * it as a normal customer message either way; a bare "/start" (a real
+     * customer opening the bot) returns false and falls through untouched.
+     */
+    private function handleLinkCommand(Tenant $tenant, array $message, TelegramClient $telegram): bool
+    {
+        $text = trim((string) Arr::get($message, 'text', ''));
+        $upper = mb_strtoupper($text);
+
+        // "/link CODE" is the manual-typing path; "/start CODE" is what Telegram
+        // itself sends when someone follows a https://t.me/{bot}?start=CODE deep
+        // link (the *only* command Telegram will auto-send a payload with) --
+        // supporting both means the "Открыть в Telegram" button in WERO can be a
+        // one-tap deep link instead of making someone type the code by hand. A
+        // bare "/start" with no code (a real customer just opening the bot) must
+        // fall through to the normal conversation flow below, not be swallowed here.
+        $isLink = Str::startsWith($upper, '/LINK ') || $upper === '/LINK';
+        $isStartWithCode = Str::startsWith($upper, '/START ') && trim(Str::after($upper, '/START ')) !== '';
+
+        if (! $isLink && ! $isStartWithCode) {
+            return false;
+        }
+
+        $chatId = (string) Arr::get($message, 'chat.id', '');
+        $code = strtoupper(trim(Str::after($text, ' ')));
+        $userId = $code !== '' ? Cache::pull('telegram_link:'.$code) : null;
+
+        $reply = 'Код недействителен или истёк. Получите новый код в WERO → Профиль → Уведомления.';
+
+        if ($userId) {
+            $user = User::withoutGlobalScopes()->where('id', $userId)->where('tenant_id', $tenant->id)->first();
+
+            if ($user) {
+                $user->forceFill(['telegram_chat_id' => $chatId])->save();
+                $reply = '✅ Telegram подключён к вашему аккаунту WERO. Теперь уведомления будут приходить сюда.';
+            }
+        }
+
+        try {
+            $telegram->sendMessage($tenant, $chatId, $reply);
+        } catch (Throwable $error) {
+            Log::warning('TelegramWebhookController: link reply failed', ['error' => $error->getMessage()]);
+        }
+
+        return true;
     }
 
     private function guardSecret(Request $request, Tenant $tenant, TenantIntegrationSettings $settings): void
