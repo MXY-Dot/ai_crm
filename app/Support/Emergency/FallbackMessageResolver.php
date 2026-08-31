@@ -34,6 +34,13 @@ class FallbackMessageResolver
         $detected = $this->detector->detect($latestCustomerMessage->body);
         $language = $detected === 'tj_latin' ? 'tj' : $detected;
 
+        // TEMPORARY, per explicit user request (2026-09-01) — Tajik output paused
+        // platform-wide (see AiWorkflow's system prompt for the main-reply side of
+        // this); this outage-fallback path needs the same override or a Tajik
+        // customer would still get a Tajik message here even while the AI's normal
+        // replies are Russian-only. Delete this line to restore Tajik detection.
+        $language = $language === 'tj' ? 'ru' : $language;
+
         $custom = trim((string) Arr::get($tenant->settings ?? [], 'emergency.fallback_message.'.$language, ''));
 
         return $custom !== '' ? $custom : self::DEFAULTS[$language];
