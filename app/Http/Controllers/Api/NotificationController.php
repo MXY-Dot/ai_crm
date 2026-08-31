@@ -16,7 +16,7 @@ class NotificationController extends Controller
         'sales' => ['lead_qualified', 'vip_contact', 'competitor_mentioned'],
         'complaints' => ['complaint', 'wants_manager'],
         'ai_errors' => ['handoff_needed', 'ai_knowledge_gap', 'repeated_problem'],
-        'operators' => ['operator_idle'],
+        'operators' => ['operator_idle', 'waiting_too_long'],
     ];
 
     public function index(Request $request): JsonResponse

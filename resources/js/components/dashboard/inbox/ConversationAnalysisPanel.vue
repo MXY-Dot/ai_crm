@@ -13,6 +13,11 @@ type Analysis = {
     sentiment: string;
     sentiment_start: string;
     quality_score: number;
+    completeness_score: number | null;
+    clarity_score: number | null;
+    politeness_score: number | null;
+    redundant_messages_count: number | null;
+    had_to_reexplain: boolean | null;
     is_resolved: boolean;
     unhappy_reason: string | null;
     summary: string | null;
@@ -30,11 +35,20 @@ const OUTCOMES = [
     'ai_failed', 'operator_failed', 'technical_issue', 'spam', 'other',
 ];
 
+type TrajectoryPoint = { sent_at: string; sentiment: 'positive' | 'negative' | 'neutral' };
+
+const TRAJECTORY_COLOR: Record<TrajectoryPoint['sentiment'], string> = {
+    positive: 'bg-emerald-500',
+    neutral: 'bg-muted-foreground/40',
+    negative: 'bg-destructive',
+};
+
 const props = defineProps<{ conversationId: number }>();
 const locale = useLocaleStore();
 const { tenant } = storeToRefs(useCrmDashboardStore());
 
 const analysis = ref<Analysis>(null);
+const trajectory = ref<TrajectoryPoint[]>([]);
 const loading = ref(true);
 const savingOutcome = ref(false);
 
@@ -44,7 +58,12 @@ async function load(): Promise<void> {
 
     loading.value = true;
     try {
-        analysis.value = await apiRequest<Analysis>(`/api/conversations/${props.conversationId}/analysis`, { tenant: slug });
+        const [analysisRes, trajectoryRes] = await Promise.all([
+            apiRequest<Analysis>(`/api/conversations/${props.conversationId}/analysis`, { tenant: slug }),
+            apiRequest<TrajectoryPoint[]>(`/api/conversations/${props.conversationId}/sentiment-trajectory`, { tenant: slug }).catch(() => []),
+        ]);
+        analysis.value = analysisRes;
+        trajectory.value = trajectoryRes;
     } catch {
         analysis.value = null;
     } finally {
@@ -80,6 +99,16 @@ watch(() => props.conversationId, load, { immediate: true });
             <h3 class="text-xs font-bold uppercase tracking-wide ui-text">{{ locale.t('analytics.chatAnalysis.title') }}</h3>
         </div>
 
+        <div v-if="! loading && trajectory.length > 1" class="mb-3 flex items-center gap-1">
+            <span
+                v-for="(point, i) in trajectory"
+                :key="i"
+                class="h-2 flex-1 rounded-full"
+                :class="TRAJECTORY_COLOR[point.sentiment]"
+                :title="new Date(point.sent_at).toLocaleString() + ': ' + locale.t('analytics.sentimentTrajectory.' + point.sentiment)"
+            />
+        </div>
+
         <p v-if="loading" class="text-[13px] ui-subtle">…</p>
         <p v-else-if="! analysis" class="text-[13px] ui-subtle">{{ locale.t('analytics.chatAnalysis.notYet') }}</p>
         <div v-else class="grid gap-1.5 text-[13px]">
@@ -94,6 +123,16 @@ watch(() => props.conversationId, load, { immediate: true });
             </div>
             <p class="ui-text"><span class="ui-subtle">{{ locale.t('analytics.chatAnalysis.sentiment') }}:</span> {{ locale.t('analytics.sentimentPanel.' + analysis.sentiment_start) }} → {{ locale.t('analytics.sentimentPanel.' + analysis.sentiment) }}</p>
             <p class="ui-text"><span class="ui-subtle">{{ locale.t('analytics.chatAnalysis.quality') }}:</span> {{ analysis.quality_score }}%</p>
+            <p v-if="analysis.completeness_score !== null || analysis.clarity_score !== null || analysis.politeness_score !== null" class="ui-subtle text-xs">
+                <span v-if="analysis.completeness_score !== null">{{ locale.t('analytics.chatAnalysis.completeness') }}: {{ analysis.completeness_score }}%</span>
+                <span v-if="analysis.clarity_score !== null"> · {{ locale.t('analytics.chatAnalysis.clarity') }}: {{ analysis.clarity_score }}%</span>
+                <span v-if="analysis.politeness_score !== null"> · {{ locale.t('analytics.chatAnalysis.politeness') }}: {{ analysis.politeness_score }}%</span>
+            </p>
+            <p v-if="analysis.redundant_messages_count || analysis.had_to_reexplain" class="ui-subtle text-xs">
+                <span v-if="analysis.redundant_messages_count">{{ locale.t('analytics.chatAnalysis.redundantMessages') }}: {{ analysis.redundant_messages_count }}</span>
+                <span v-if="analysis.redundant_messages_count && analysis.had_to_reexplain"> · </span>
+                <span v-if="analysis.had_to_reexplain">{{ locale.t('analytics.chatAnalysis.hadToReexplain') }}</span>
+            </p>
             <p v-if="analysis.summary" class="ui-text"><span class="ui-subtle">{{ locale.t('analytics.chatAnalysis.summary') }}:</span> {{ analysis.summary }}</p>
             <p v-if="analysis.unhappy_reason" class="text-destructive"><span class="ui-subtle">{{ locale.t('analytics.chatAnalysis.reason') }}:</span> {{ analysis.unhappy_reason }}</p>
             <p v-if="analysis.recommendation" class="ui-text"><span class="ui-subtle">{{ locale.t('analytics.chatAnalysis.recommendation') }}:</span> {{ analysis.recommendation }}</p>

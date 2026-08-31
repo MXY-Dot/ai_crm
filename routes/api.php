@@ -229,6 +229,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('conversations/{conversation}/resolve', [ConversationController::class, 'resolve']);
         Route::get('conversations/{conversation}/analysis', [ConversationController::class, 'analysis']);
         Route::patch('conversations/{conversation}/analysis', [ConversationController::class, 'updateAnalysis']);
+        Route::get('conversations/{conversation}/sentiment-trajectory', [ConversationController::class, 'sentimentTrajectory']);
         Route::post('conversations/{conversation}/pin', [ConversationController::class, 'pin']);
         Route::delete('conversations/{conversation}/pin', [ConversationController::class, 'unpin']);
         Route::post('conversations/{conversation}/read', [ConversationController::class, 'markRead']);

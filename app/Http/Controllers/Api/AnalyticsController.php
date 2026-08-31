@@ -264,7 +264,61 @@ class AnalyticsController extends Controller
             ->limit(200)
             ->get(['id', 'conversation_id', 'customer_message', 'created_at']);
 
-        return response()->json(['data' => $gaps, 'total' => $gaps->count()]);
+        return response()->json(['data' => $gaps, 'total' => $gaps->count(), 'topics' => $this->knowledgeGapTopics($gaps, $start, $end)]);
+    }
+
+    /**
+     * ТЗ раздел 9 — "что необходимо улучшить в базе знаний", grouped by topic
+     * with a templated (not AI-generated, so never invents a fact) recommendation
+     * matching the spec's own worked example ("N клиентов спрашивали про X. AI
+     * успешно ответил только в Y% случаев. Рекомендация: добавить в базу знаний").
+     * Topic = the intent of that conversation's own AiRun closest to the gap
+     * (same real signal topics()/weakTopics() already read, not a new heuristic).
+     */
+    private function knowledgeGapTopics(Collection $gaps, Carbon $start, Carbon $end): array
+    {
+        if ($gaps->isEmpty()) {
+            return [];
+        }
+
+        $conversationIds = $gaps->pluck('conversation_id')->unique();
+
+        $latestIntentByConversation = AiRun::query()
+            ->whereIn('conversation_id', $conversationIds)
+            ->whereNotNull('intent')
+            ->where('intent', '!=', '')
+            ->orderByDesc('created_at')
+            ->get(['conversation_id', 'intent'])
+            ->unique('conversation_id')
+            ->pluck('intent', 'conversation_id');
+
+        $askedCountByIntent = AiRun::query()
+            ->whereBetween('created_at', [$start, $end])
+            ->whereIn('intent', $latestIntentByConversation->unique()->values())
+            ->selectRaw('intent, count(distinct conversation_id) as count')
+            ->groupBy('intent')
+            ->pluck('count', 'intent');
+
+        return $gaps
+            ->groupBy(fn (KnowledgeGap $gap) => $latestIntentByConversation[$gap->conversation_id] ?? 'other')
+            ->map(function (Collection $group, string $topic): array {
+                $gapCount = $group->count();
+
+                return ['topic' => $topic, 'gap_count' => $gapCount];
+            })
+            ->map(function (array $row) use ($askedCountByIntent): array {
+                $asked = (int) ($askedCountByIntent[$row['topic']] ?? $row['gap_count']);
+                $answeredRate = $asked > 0 ? round((($asked - $row['gap_count']) / $asked) * 100) : 0;
+
+                return $row + [
+                    'asked_count' => $asked,
+                    'answered_rate' => max(0, $answeredRate),
+                    'recommendation' => "{$asked} клиент(ов) спрашивали про «{$row['topic']}» — AI уверенно ответил только в {$answeredRate}% случаев. Рекомендация: добавить информацию по этой теме в базу знаний.",
+                ];
+            })
+            ->sortByDesc('gap_count')
+            ->values()
+            ->all();
     }
 
     /** Date-range-scoped conversations/messages/ai_runs for the existing chart components (AnalyticsKpis/LoadHeatmap/MessageLoadDonut/PriorityBreakdown/DialogsTrendChart) — same field shapes as DashboardData, just not capped at the bootstrap's fixed 12/24/10. */

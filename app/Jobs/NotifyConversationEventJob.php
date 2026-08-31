@@ -21,11 +21,13 @@ use Illuminate\Queue\SerializesModels;
  * conversation label so a conversation never re-notifies for the same thing
  * on every message; 'operator_idle' fires from
  * NotifyIdleOperatorConversationsCommand instead, gated the same way via its
- * own 'operator_idle' label. Still missing from the spec's 14: VIP-customer
- * and large-order (no real per-message signal exists for either — VIP status
- * is a separate batch-recalculated score, and no chat-time order-amount
- * extraction exists anywhere in this codebase) and "customer waiting too
- * long" (operator_idle already covers the pending-operator case).
+ * own 'operator_idle' label; 'waiting_too_long' fires from
+ * NotifyWaitingTooLongConversationsCommand the same way, via 'waiting_too_long'.
+ * Still missing from the spec's 14: VIP-customer (actually already covered
+ * separately -- see AiWorkflow::process()'s NotifyVipContactJob dispatch on
+ * a VIP customer's first message, just not part of this TYPES list) and
+ * large-order (no chat-time order-amount extraction exists anywhere in this
+ * codebase, so there is no real signal to trigger on).
  */
 class NotifyConversationEventJob implements ShouldQueue
 {
@@ -35,7 +37,7 @@ class NotifyConversationEventJob implements ShouldQueue
 
     public const TYPES = [
         'unhappy_customer', 'complaint', 'handoff_needed', 'lead_qualified', 'operator_idle',
-        'wants_manager', 'competitor_mentioned', 'repeated_problem', 'ai_knowledge_gap',
+        'wants_manager', 'competitor_mentioned', 'repeated_problem', 'ai_knowledge_gap', 'waiting_too_long',
     ];
 
     public function __construct(
@@ -87,6 +89,7 @@ class NotifyConversationEventJob implements ShouldQueue
             'competitor_mentioned' => ['Риск потери клиента', "{$name} упомянул конкурента или более низкую цену в другом месте.", 'high'],
             'repeated_problem' => ['Клиент повторяет один вопрос', "{$name} уже несколько раз обращается по одной и той же теме — похоже, вопрос не решается.", 'normal'],
             'ai_knowledge_gap' => ['AI не нашёл ответ в базе знаний', "По вопросу от «{$name}» в базе знаний недостаточно информации.", 'normal'],
+            'waiting_too_long' => ['Клиент долго ждёт ответа', "{$name} написал(а) и не получил(а) вообще никакого ответа уже больше 10 минут.", 'urgent'],
         };
     }
 }

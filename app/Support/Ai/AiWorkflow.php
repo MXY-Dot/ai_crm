@@ -130,6 +130,7 @@ class AiWorkflow
         // (e.g. a real LLM engine answered it, so $decision came from Dify/
         // direct-llm, not the keyword-based local fallback at all).
         $sentiment = $this->sentimentDetector->detect($message->body);
+        $this->persistMessageSentiment($message, $sentiment);
 
         $detectedLanguage = $this->languageDetector->detect($message->body);
         if ($detectedLanguage && $conversation->customer && $conversation->customer->language !== $detectedLanguage) {
@@ -667,6 +668,24 @@ class AiWorkflow
                 'folded_text' => $tajik['folded_text'],
                 'normalized_text' => $tajik['normalized_text'],
             ];
+            $message->forceFill(['meta' => $meta])->save();
+        } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * ТЗ раздел 5 — "AI также должен отслеживать изменение настроения" (за
+     * весь диалог, не только начало/конец). Same meta-JSON convention as
+     * persistTajikNormalization() above -- no new column, just tags each
+     * customer message with SentimentDetector's own already-computed verdict
+     * so ConversationSentimentTrajectory (see ConversationController) can
+     * read the real per-message sequence back out later.
+     */
+    private function persistMessageSentiment(Message $message, string $sentiment): void
+    {
+        try {
+            $meta = $message->meta ?? [];
+            $meta['sentiment'] = $sentiment;
             $message->forceFill(['meta' => $meta])->save();
         } catch (\Throwable) {
         }

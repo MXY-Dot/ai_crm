@@ -220,6 +220,32 @@ class ConversationController extends Controller
         return response()->json($analysis->fresh());
     }
 
+    /**
+     * ТЗ раздел 5 — "AI также должен отслеживать изменение настроения" за
+     * весь диалог. Reads AiWorkflow::persistMessageSentiment()'s per-message
+     * tag off Message.meta (customer messages only) — a real recorded
+     * sequence, not derived after the fact. Older messages sent before this
+     * was added simply have no 'sentiment' key and are skipped, not guessed at.
+     */
+    public function sentimentTrajectory(Conversation $conversation, TenantContext $context): JsonResponse
+    {
+        $tenant = Tenant::query()->findOrFail($context->id());
+        Gate::authorize('view', $tenant);
+        abort_unless((int) $conversation->tenant_id === (int) $tenant->id, 404);
+
+        $points = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', 'customer')
+            ->whereNotNull('meta')
+            ->orderBy('sent_at')
+            ->get(['id', 'sent_at', 'meta'])
+            ->map(fn (Message $m) => ['sent_at' => $m->sent_at?->toIso8601String(), 'sentiment' => $m->meta['sentiment'] ?? null])
+            ->filter(fn (array $p) => $p['sentiment'] !== null)
+            ->values();
+
+        return response()->json($points);
+    }
+
     /** ЭТАП 3.7 — freeform operator-managed labels on a conversation; see Conversation::addLabel() for the AI-side auto-add counterpart. */
     public function labels(Request $request, Conversation $conversation, TenantContext $context, AuditLogger $audit, ChatwootClient $chatwoot): JsonResponse
     {

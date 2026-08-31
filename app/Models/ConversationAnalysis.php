@@ -16,7 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'tenant_id', 'company_id', 'conversation_id', 'outcome', 'sentiment', 'sentiment_start',
-    'quality_score', 'is_resolved', 'unhappy_reason', 'summary', 'customer_wanted', 'ai_action',
+    'quality_score', 'completeness_score', 'clarity_score', 'politeness_score', 'redundant_messages_count', 'had_to_reexplain',
+    'is_resolved', 'unhappy_reason', 'summary', 'customer_wanted', 'ai_action',
     'operator_action', 'return_probability', 'sale_probability', 'recommendation', 'model_used', 'analyzed_at',
 ])]
 class ConversationAnalysis extends Model
@@ -39,6 +40,11 @@ class ConversationAnalysis extends Model
     {
         return [
             'quality_score' => 'integer',
+            'completeness_score' => 'integer',
+            'clarity_score' => 'integer',
+            'politeness_score' => 'integer',
+            'redundant_messages_count' => 'integer',
+            'had_to_reexplain' => 'boolean',
             'is_resolved' => 'boolean',
             'return_probability' => 'integer',
             'sale_probability' => 'integer',
