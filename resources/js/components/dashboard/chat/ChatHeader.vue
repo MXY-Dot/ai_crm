@@ -73,29 +73,58 @@ function removeLabel(value: string): void {
 </script>
 
 <template>
-    <div v-if="conversation" class="flex items-center justify-between gap-3 border-b border-border p-3">
-        <div class="flex min-w-0 items-center gap-3">
-            <Button variant="ghost" size="icon" class="lg:hidden" aria-label="Диалоги" @click="$emit('open-sidebar')">
-                <Menu class="h-4 w-4" />
-            </Button>
-            <button
-                type="button"
-                class="flex min-w-0 items-center gap-3 rounded-lg px-1 py-0.5 text-left transition hover:bg-muted"
-                title="Информация о диалоге"
-                @click="$emit('open-info')"
-            >
-                <Avatar class="size-9">
-                    <AvatarImage v-if="conversation.customer?.avatar_url" :src="conversation.customer.avatar_url" alt="" />
-                    <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial }}</AvatarFallback>
-                </Avatar>
-                <div class="min-w-0">
-                    <p class="truncate font-display text-sm font-semibold ui-text">{{ displayName }}</p>
-                    <p class="truncate text-xs ui-subtle">
-                        <span v-if="typingLabel" class="text-primary">{{ typingLabel }}</span>
-                        <span v-else>{{ isRecentlyActive ? 'Активен(на) недавно' : conversation.channel?.name ?? '' }}</span>
-                    </p>
-                </div>
-            </button>
+    <div v-if="conversation" class="flex flex-col gap-2 border-b border-border p-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+                <Button variant="ghost" size="icon" class="lg:hidden" aria-label="Диалоги" @click="$emit('open-sidebar')">
+                    <Menu class="h-4 w-4" />
+                </Button>
+                <button
+                    type="button"
+                    class="flex min-w-0 items-center gap-3 rounded-lg px-1 py-0.5 text-left transition hover:bg-muted"
+                    title="Информация о диалоге"
+                    @click="$emit('open-info')"
+                >
+                    <Avatar class="size-9 shrink-0">
+                        <AvatarImage v-if="conversation.customer?.avatar_url" :src="conversation.customer.avatar_url" alt="" />
+                        <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initial }}</AvatarFallback>
+                    </Avatar>
+                    <div class="min-w-0">
+                        <p class="truncate font-display text-sm font-semibold ui-text">{{ displayName }}</p>
+                        <p class="truncate text-xs ui-subtle">
+                            <span v-if="typingLabel" class="text-primary">{{ typingLabel }}</span>
+                            <span v-else>{{ isRecentlyActive ? 'Активен(на) недавно' : conversation.channel?.name ?? '' }}</span>
+                        </p>
+                    </div>
+                </button>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+                <template v-if="! isClosed">
+                    <Button v-if="! isAssignedToMe && ! isAssignedToOther" variant="outline" size="sm" @click="claim">
+                        <UserCheck class="h-4 w-4" />Взять в работу
+                    </Button>
+                    <Button variant="outline" size="sm" @click="resolve">
+                        <CheckCircle2 class="h-4 w-4" />Закрыть диалог
+                    </Button>
+                </template>
+                <Popover>
+                    <PopoverTrigger as-child>
+                        <Button variant="outline" size="icon" aria-label="Лейблы диалога" title="Лейблы диалога">
+                            <Tag class="h-4 w-4" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent class="w-56">
+                        <p class="mb-2 text-xs font-semibold uppercase ui-subtle">Добавить лейбл</p>
+                        <Input v-model="newLabel" placeholder="Например: доставка" @keyup.enter="addLabel" />
+                    </PopoverContent>
+                </Popover>
+            </div>
+        </div>
+
+        <div
+            v-if="conversation.priority === 'high' || conversation.assigned_user || isClosed || conversation.labels?.length"
+            class="flex flex-wrap items-center gap-1.5"
+        >
             <Badge v-if="conversation.priority === 'high'" tone="amber">Высокий приоритет</Badge>
             <Badge v-if="conversation.assigned_user" tone="blue">Ведёт: {{ conversation.assigned_user.name }}</Badge>
             <Badge v-if="isClosed" tone="green">Закрыт</Badge>
@@ -105,27 +134,6 @@ function removeLabel(value: string): void {
                     <X class="h-3 w-3" />
                 </button>
             </Badge>
-        </div>
-        <div class="flex shrink-0 items-center gap-2">
-            <template v-if="! isClosed">
-                <Button v-if="! isAssignedToMe && ! isAssignedToOther" variant="outline" size="sm" @click="claim">
-                    <UserCheck class="h-4 w-4" />Взять в работу
-                </Button>
-                <Button variant="outline" size="sm" @click="resolve">
-                    <CheckCircle2 class="h-4 w-4" />Закрыть диалог
-                </Button>
-            </template>
-            <Popover>
-                <PopoverTrigger as-child>
-                    <Button variant="outline" size="icon" aria-label="Лейблы диалога" title="Лейблы диалога">
-                        <Tag class="h-4 w-4" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent class="w-56">
-                    <p class="mb-2 text-xs font-semibold uppercase ui-subtle">Добавить лейбл</p>
-                    <Input v-model="newLabel" placeholder="Например: доставка" @keyup.enter="addLabel" />
-                </PopoverContent>
-            </Popover>
         </div>
     </div>
 </template>
