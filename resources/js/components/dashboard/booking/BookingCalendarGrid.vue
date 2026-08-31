@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { STATUS_DOTS } from '../../../lib/bookingStatus';
 import { useLocaleStore } from '../../../stores/locale';
 
 export type BookingRow = {
@@ -37,18 +38,6 @@ const STATUS_COLORS: Record<string, string> = {
     no_show: 'bg-destructive/10 text-destructive',
 };
 
-const STATUS_DOTS: Record<string, string> = {
-    temp_hold: 'bg-muted-foreground',
-    awaiting_payment: 'bg-amber-500',
-    payment_review: 'bg-orange-500',
-    confirmed: 'bg-blue-500',
-    client_arrived: 'bg-indigo-500',
-    in_progress: 'bg-purple-500',
-    completed: 'bg-emerald-500',
-    rescheduled: 'bg-muted-foreground',
-    cancelled: 'bg-muted-foreground',
-    no_show: 'bg-destructive',
-};
 
 const EMPLOYEE_ACCENTS = ['bg-sky-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500', 'bg-indigo-500'];
 function employeeAccent(index: number): string {

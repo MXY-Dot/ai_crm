@@ -1,20 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { STATUS_DOTS } from '../../../lib/bookingStatus';
 import { useLocaleStore } from '../../../stores/locale';
 import type { BookingRow } from './BookingCalendarGrid.vue';
-
-const STATUS_DOT: Record<string, string> = {
-    temp_hold: 'bg-muted-foreground',
-    awaiting_payment: 'bg-amber-500',
-    payment_review: 'bg-orange-500',
-    confirmed: 'bg-blue-500',
-    client_arrived: 'bg-indigo-500',
-    in_progress: 'bg-purple-500',
-    completed: 'bg-emerald-500',
-    rescheduled: 'bg-muted-foreground',
-    cancelled: 'bg-destructive',
-    no_show: 'bg-destructive',
-};
 
 const props = defineProps<{ weekStart: string; employees: Array<{ id: number; name: string }>; bookings: BookingRow[] }>();
 const emit = defineEmits<{ 'select-day': [date: string]; open: [bookingId: number] }>();
@@ -50,31 +38,55 @@ function time(iso: string): string {
     return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
+function weekdayLabel(date: string): string {
+    return new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' });
+}
+
+function monthLabel(date: string): string {
+    return new Date(date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short' });
+}
+
+function dayNumber(date: string): number {
+    return new Date(date + 'T00:00:00').getDate();
+}
+
 function isToday(date: string): boolean {
     return date === toLocalDateString(new Date());
 }
 </script>
 
 <template>
-    <div class="grid grid-cols-1 gap-2 rounded-xl border border-border p-2 sm:grid-cols-7">
-        <div v-for="date in days" :key="date" class="flex min-h-[10rem] flex-col gap-1.5 rounded-lg p-2" :class="isToday(date) ? 'bg-accent/40' : ''">
-            <button type="button" class="text-left text-xs font-medium ui-text hover:underline" @click="emit('select-day', date)">
-                {{ new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) }}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-7">
+        <div
+            v-for="date in days"
+            :key="date"
+            class="flex min-h-[11rem] flex-col gap-1.5 overflow-hidden rounded-xl bg-card p-2.5 shadow-sm ring-1 transition-shadow hover:shadow-md"
+            :class="isToday(date) ? 'ring-primary/40' : 'ring-foreground/10'"
+        >
+            <button type="button" class="flex items-center justify-between gap-1 text-left hover:opacity-80" @click="emit('select-day', date)">
+                <span class="text-[10.5px] font-medium uppercase tracking-wide ui-subtle">{{ weekdayLabel(date) }} · {{ monthLabel(date) }}</span>
+                <span
+                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                    :class="isToday(date) ? 'bg-primary text-primary-foreground' : 'ui-text'"
+                >{{ dayNumber(date) }}</span>
             </button>
-            <button
-                v-for="booking in dayBookings(date)"
-                :key="booking.id"
-                type="button"
-                class="flex items-start gap-1.5 rounded-md border border-border px-1.5 py-1 text-left text-[11px] leading-tight hover:bg-accent/40"
-                @click="emit('open', booking.id)"
-            >
-                <span class="mt-1 size-1.5 shrink-0 rounded-full" :class="STATUS_DOT[booking.status] ?? 'bg-muted-foreground'" />
-                <span class="min-w-0">
-                    <span class="block truncate font-medium ui-text">{{ time(booking.starts_at) }} · {{ booking.customer?.name ?? '—' }}</span>
-                    <span class="block truncate ui-subtle">{{ booking.service?.name }} · {{ employeeName(booking.employee_id) }}</span>
-                </span>
-            </button>
-            <p v-if="! dayBookings(date).length" class="text-[11px] ui-subtle">{{ locale.t('booking.noBookingsDay') }}</p>
+
+            <div class="flex flex-1 flex-col gap-1 overflow-y-auto">
+                <button
+                    v-for="booking in dayBookings(date)"
+                    :key="booking.id"
+                    type="button"
+                    class="flex items-start gap-1.5 rounded-lg border border-border/60 bg-background/60 px-1.5 py-1 text-left text-[11px] leading-tight transition-colors hover:border-border hover:bg-accent/50"
+                    @click="emit('open', booking.id)"
+                >
+                    <span class="mt-1 size-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[booking.status] ?? 'bg-muted-foreground'" />
+                    <span class="min-w-0">
+                        <span class="block truncate font-medium ui-text">{{ time(booking.starts_at) }} · {{ booking.customer?.name ?? '—' }}</span>
+                        <span class="block truncate ui-subtle">{{ booking.service?.name }} · {{ employeeName(booking.employee_id) }}</span>
+                    </span>
+                </button>
+                <p v-if="! dayBookings(date).length" class="text-[11px] ui-subtle">{{ locale.t('booking.noBookingsDay') }}</p>
+            </div>
         </div>
     </div>
 </template>

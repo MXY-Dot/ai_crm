@@ -1,22 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { STATUS_DOTS } from '../../../lib/bookingStatus';
 import type { BookingRow } from './BookingCalendarGrid.vue';
 
 const props = defineProps<{ month: string; bookings: BookingRow[] }>();
 const emit = defineEmits<{ 'select-day': [date: string] }>();
-
-const STATUS_DOT: Record<string, string> = {
-    temp_hold: 'bg-muted-foreground',
-    awaiting_payment: 'bg-amber-500',
-    payment_review: 'bg-orange-500',
-    confirmed: 'bg-blue-500',
-    client_arrived: 'bg-indigo-500',
-    in_progress: 'bg-purple-500',
-    completed: 'bg-emerald-500',
-    rescheduled: 'bg-muted-foreground',
-    cancelled: 'bg-destructive',
-    no_show: 'bg-destructive',
-};
 
 // Deliberately local-calendar extraction, not UTC string-slicing -- see
 // BookingCalendarPage.vue's toLocalDateString() docblock: local midnight in a
@@ -56,6 +44,8 @@ const weeks = computed(() => {
     return rows;
 });
 
+const weekdayLabels = computed(() => weeks.value[0].map((c) => new Date(c.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' })));
+
 function dayBookings(date: string): BookingRow[] {
     return props.bookings.filter((b) => toIso(new Date(b.starts_at)) === date);
 }
@@ -63,26 +53,41 @@ function dayBookings(date: string): BookingRow[] {
 function isToday(date: string): boolean {
     return date === toIso(new Date());
 }
+
+function dayNumber(date: string): number {
+    return new Date(date + 'T00:00:00').getDate();
+}
 </script>
 
 <template>
-    <div class="overflow-x-auto rounded-xl border border-border">
-        <div class="grid min-w-[640px] grid-cols-7 text-xs">
-            <div v-for="w in weeks" :key="w[0].date" class="contents">
-                <button
-                    v-for="cell in w"
-                    :key="cell.date"
-                    type="button"
-                    class="flex min-h-[5.5rem] flex-col gap-1 border-b border-r border-border p-1.5 text-left hover:bg-accent/40"
-                    :class="[cell.inMonth ? '' : 'opacity-40', isToday(cell.date) ? 'bg-accent/30' : '']"
-                    @click="emit('select-day', cell.date)"
-                >
-                    <span class="text-[11px] font-medium ui-text">{{ new Date(cell.date + 'T00:00:00').getDate() }}</span>
-                    <span class="flex flex-wrap gap-0.5">
-                        <span v-for="b in dayBookings(cell.date).slice(0, 8)" :key="b.id" class="size-1.5 rounded-full" :class="STATUS_DOT[b.status] ?? 'bg-muted-foreground'" />
-                    </span>
-                    <span v-if="dayBookings(cell.date).length" class="mt-auto text-[10px] ui-subtle">{{ dayBookings(cell.date).length }}</span>
-                </button>
+    <div class="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
+        <div class="overflow-x-auto">
+            <div class="grid min-w-[640px] grid-cols-7 text-xs">
+                <div
+                    v-for="label in weekdayLabels"
+                    :key="label"
+                    class="border-b border-border bg-background px-2 py-2 text-center text-[10.5px] font-semibold uppercase tracking-wide ui-subtle"
+                >{{ label }}</div>
+
+                <template v-for="w in weeks" :key="w[0].date">
+                    <button
+                        v-for="cell in w"
+                        :key="cell.date"
+                        type="button"
+                        class="flex min-h-[6rem] flex-col gap-1.5 border-b border-r border-border p-2 text-left transition-colors hover:bg-accent/40"
+                        :class="cell.inMonth ? '' : 'opacity-35'"
+                        @click="emit('select-day', cell.date)"
+                    >
+                        <span
+                            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+                            :class="isToday(cell.date) ? 'bg-primary text-primary-foreground' : 'ui-text'"
+                        >{{ dayNumber(cell.date) }}</span>
+                        <span class="flex flex-wrap gap-0.5">
+                            <span v-for="b in dayBookings(cell.date).slice(0, 8)" :key="b.id" class="size-1.5 rounded-full" :class="STATUS_DOTS[b.status] ?? 'bg-muted-foreground'" />
+                        </span>
+                        <span v-if="dayBookings(cell.date).length" class="mt-auto text-[10px] font-medium ui-subtle">{{ dayBookings(cell.date).length }}</span>
+                    </button>
+                </template>
             </div>
         </div>
     </div>
