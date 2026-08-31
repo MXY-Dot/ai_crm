@@ -42,7 +42,14 @@ const label = computed(() => {
 });
 
 function onSelect(date: DateValue | undefined): void {
-    modelValue.value = date ? date.toString() : '';
+    // reka-ui's Calendar can fire update:modelValue with undefined during its own
+    // internal placeholder/navigation bookkeeping, not just on an actual pick --
+    // found live: this blanked date_from/date_to mid-session (a real "date_from is
+    // not a valid date" 422 in production), because collapsing that to '' here
+    // overwrote a perfectly valid previous selection. Only ever act on a real pick,
+    // same guard ChatStickyDate.vue already uses for the same Calendar component.
+    if (! date) return;
+    modelValue.value = date.toString();
 }
 </script>
 

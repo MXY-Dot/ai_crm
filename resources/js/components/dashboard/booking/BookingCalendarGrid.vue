@@ -30,7 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
     in_progress: 'bg-purple-500/15 text-purple-700 dark:text-purple-400',
     completed: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
     rescheduled: 'bg-muted text-muted-foreground',
-    cancelled: 'bg-destructive/10 text-destructive line-through',
+    cancelled: 'bg-muted text-muted-foreground line-through opacity-70',
     no_show: 'bg-destructive/10 text-destructive',
 };
 

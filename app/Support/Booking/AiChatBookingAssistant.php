@@ -184,6 +184,11 @@ class AiChatBookingAssistant
                 return null;
             }
 
+            $pastDate = $this->pastDateNotice($intent['preferred_date'], $decision);
+            if ($pastDate !== null) {
+                return $pastDate;
+            }
+
             $from = $intent['preferred_date'] ? $this->parsePreferredDate($intent['preferred_date']) : Carbon::now();
 
             return $this->offerRescheduleSlots($company, $booking, $from, $decision);
@@ -220,6 +225,11 @@ class AiChatBookingAssistant
         }
 
         if ($activeBookings->count() === 1) {
+            $pastDate = $this->pastDateNotice($intent['preferred_date'], $decision);
+            if ($pastDate !== null) {
+                return $pastDate;
+            }
+
             $from = $intent['preferred_date'] ? $this->parsePreferredDate($intent['preferred_date']) : Carbon::now();
 
             return $this->offerRescheduleSlots($company, $activeBookings->first(), $from, $decision);
@@ -260,6 +270,11 @@ class AiChatBookingAssistant
             // BookingChatContext::promptSection(), so it should naturally ask which
             // service the customer means rather than us guessing.
             return $decision;
+        }
+
+        $pastDate = $this->pastDateNotice($intent['preferred_date'], $decision);
+        if ($pastDate !== null) {
+            return $pastDate;
         }
 
         $from = $intent['preferred_date'] ? $this->parsePreferredDate($intent['preferred_date']) : Carbon::now();
@@ -510,6 +525,42 @@ class AiChatBookingAssistant
         }
 
         return $parsed->isPast() && ! $parsed->isToday() ? Carbon::now() : $parsed;
+    }
+
+    /**
+     * Found live: a customer asked to reschedule to a date that had already
+     * passed (today was 01.09.2026, they named 27.08.2026) and the AI treated
+     * it as a normal request instead of telling them it's invalid -- because
+     * parsePreferredDate() silently clamps a past date to "now" rather than
+     * flagging it, callers used to just search for slots starting today with
+     * no explanation, or (worse, seen in the real transcript) the intent
+     * extraction missed the past date entirely and the unconstrained reply
+     * engine improvised a vague "checking availability" promise. Call this
+     * BEFORE parsePreferredDate() wherever a customer-named date drives a
+     * new booking or reschedule, so a genuinely past date always gets an
+     * explicit, honest answer instead of being silently reinterpreted.
+     */
+    private function pastDateNotice(?string $preferredDate, AiDecision $decision): ?AiDecision
+    {
+        if ($preferredDate === null) {
+            return null;
+        }
+
+        try {
+            $parsed = Carbon::parse($preferredDate);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (! $parsed->isPast() || $parsed->isToday()) {
+            return null;
+        }
+
+        return $this->withReply(
+            $decision,
+            'booking_past_date',
+            'Эта дата уже прошла — не могу записать на неё. Подскажите, пожалуйста, дату начиная с сегодняшнего дня.',
+        );
     }
 
     /** @param array<int, array{employee_id:int, employee_name:string, starts_at:string, ends_at:string}> $slots */
