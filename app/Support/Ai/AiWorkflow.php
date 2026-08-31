@@ -31,6 +31,7 @@ use App\Support\Sentiment\SentimentDetector;
 use App\Support\TelegramClient;
 use App\Support\WhatsAppClient;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -360,6 +361,15 @@ class AiWorkflow
             'Answer naturally and helpfully in the same language the customer wrote in. If a question is about the company itself but you don\'t have the specific detail, ask one short clarifying question or say an operator will follow up.',
             "You only discuss this company's own services, booking, pricing and policies. If the customer asks something with no connection to the company at all (general knowledge, trivia, news, other businesses, coding help, or any other off-topic request), do NOT answer that question — do not provide the requested fact or information under any circumstances, even briefly. Instead, politely say that's outside what you can help with here, and steer the conversation back to the company's services. Never answer the off-topic question first and redirect after.",
             "Reply with ONLY the message you want the customer to read — plain conversational text. Never include headers or labels like 'Intent:', 'Summary:', 'Draft reply:' or 'Handoff:', and never analyze the request before answering it; that analysis is done separately and is not part of your output.",
+            // Requested explicitly: replies should read like a real person texting,
+            // not a formal business letter. Keeping this as its own instruction
+            // (rather than folding it into a persona) so every persona benefits —
+            // "Профессиональный"/"Премиум" still means no slang and proper address,
+            // but it shouldn't mean stock corporate boilerplate either. The blank-line
+            // guidance also feeds splitIntoBubbles() below, which splits an auto-sent
+            // reply on paragraph breaks into separate messages — a real person sends
+            // 2-3 short texts, not one long paragraph.
+            'Write like a real person texting on a messenger, not a formal letter: short sentences, everyday words, no corporate boilerplate ("Благодарим за обращение", "Сообщаем, что", "Спешим сообщить" and similar stock openers are forbidden regardless of persona). Keep the whole reply as short as it can be while still actually answering — usually 1-3 short sentences, rarely more. If you genuinely have more than one separate thought (answering the question AND asking something unrelated, or two distinct pieces of info), put a blank line between them so each reads as its own short message, the way people actually text — never merge unrelated thoughts into one long paragraph just to sound thorough.',
             // ЭТАП 8.2 — Human Request: the handoff itself is already forced by
             // LocalConversationAnalyzer's keyword match regardless of what this
             // model generates, but the customer-facing reply still comes from
@@ -915,57 +925,175 @@ class AiWorkflow
 
         $isTelegram = $provider === 'telegram';
         $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
+        $bubbles = $this->splitIntoBubbles($draft->body);
 
-        try {
-            $payload = $isTelegram
-                ? $this->telegram->sendMessage($tenant, $chatId, $draft->body)
-                : $this->chatwoot->sendOutgoingMessage($tenant, (string) $conversation->external_id, $draft->body);
-        } catch (RuntimeException $error) {
-            $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $error->getMessage()]])->save();
+        $send = function (string $text) use ($tenant, $conversation, $isTelegram, $chatId): ?array {
+            try {
+                $payload = $isTelegram
+                    ? $this->telegram->sendMessage($tenant, $chatId, $text)
+                    : $this->chatwoot->sendOutgoingMessage($tenant, (string) $conversation->external_id, $text);
+            } catch (RuntimeException $error) {
+                return ['error' => $error->getMessage()];
+            }
+
+            // Telegram external_id keeps the same `telegram-{chatId}-{messageId}` shape
+            // used everywhere else (webhook-ingested and operator-sent messages alike) —
+            // needed so this AI-sent message can later be resolved as a reply target (see
+            // ConversationReplyController::resolveTelegramReplyId()) or edited/deleted
+            // (see MessageController::parseTelegramExternalId()).
+            $externalId = $isTelegram
+                ? 'telegram-'.$chatId.'-'.Arr::get($payload, 'result.message_id')
+                : (string) (Arr::get($payload, 'id') ?? Arr::get($payload, 'payload.id') ?? '');
+
+            return ['external_id' => $externalId, 'payload' => $payload];
+        };
+
+        $result = $send($bubbles[0]);
+
+        if (isset($result['error'])) {
+            $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $result['error']]])->save();
 
             return;
         }
 
-        // Telegram external_id keeps the same `telegram-{chatId}-{messageId}` shape used
-        // everywhere else (webhook-ingested and operator-sent messages alike) — needed so
-        // this AI-sent message can later be resolved as a reply target (see
-        // ConversationReplyController::resolveTelegramReplyId()) or edited/deleted (see
-        // MessageController::parseTelegramExternalId()).
-        $externalId = $isTelegram
-            ? 'telegram-'.$chatId.'-'.Arr::get($payload, 'result.message_id')
-            : (string) (Arr::get($payload, 'id') ?? Arr::get($payload, 'payload.id') ?? $draft->external_id);
-
         $draft->forceFill([
-            'external_id' => $externalId,
-            'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $conversation->channel?->provider => $payload],
+            'body' => $bubbles[0],
+            'external_id' => $result['external_id'] ?: $draft->external_id,
+            'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $provider => $result['payload']],
         ])->save();
         $conversation->markFirstResponse();
+
+        $this->sendRemainingBubbles($tenant, $conversation, $draft, array_slice($bubbles, 1), $provider, $send);
     }
 
     /** WhatsApp/Instagram/Facebook branch of autoReply() — same job as the Telegram/Chatwoot block above, split out because each of the three has its own recipient-id prefix and reply payload shape (mirrors ConversationReplyController::send()'s equivalent branches for operator-sent replies). */
     private function autoReplyMeta(Tenant $tenant, Conversation $conversation, Message $draft, string $provider): void
     {
         $recipient = str_replace($provider.'-', '', (string) $conversation->external_id);
+        $bubbles = $this->splitIntoBubbles($draft->body);
 
-        try {
-            $payload = match ($provider) {
-                'whatsapp' => $this->whatsapp->sendMessage($tenant, $recipient, $draft->body),
-                'instagram' => $this->instagram->sendMessage($tenant, $recipient, $draft->body),
-                default => $this->facebook->sendMessage($tenant, $recipient, $draft->body),
-            };
-        } catch (RuntimeException $error) {
-            $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $error->getMessage()]])->save();
+        $send = function (string $text) use ($tenant, $recipient, $provider): array {
+            try {
+                $payload = match ($provider) {
+                    'whatsapp' => $this->whatsapp->sendMessage($tenant, $recipient, $text),
+                    'instagram' => $this->instagram->sendMessage($tenant, $recipient, $text),
+                    default => $this->facebook->sendMessage($tenant, $recipient, $text),
+                };
+            } catch (RuntimeException $error) {
+                return ['error' => $error->getMessage()];
+            }
+
+            $messageId = $provider === 'whatsapp' ? Arr::get($payload, 'messages.0.id') : Arr::get($payload, 'message_id');
+
+            return ['external_id' => $provider.'-'.$recipient.'-'.($messageId ?? Str::random(12)), 'payload' => $payload];
+        };
+
+        $result = $send($bubbles[0]);
+
+        if (isset($result['error'])) {
+            $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $result['error']]])->save();
 
             return;
         }
 
-        $messageId = $provider === 'whatsapp' ? Arr::get($payload, 'messages.0.id') : Arr::get($payload, 'message_id');
-
         $draft->forceFill([
-            'external_id' => $provider.'-'.$recipient.'-'.($messageId ?? Str::random(12)),
-            'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $provider => $payload],
+            'body' => $bubbles[0],
+            'external_id' => $result['external_id'],
+            'meta' => ($draft->meta ?? []) + ['draft' => false, 'auto_replied' => true, $provider => $result['payload']],
         ])->save();
         $conversation->markFirstResponse();
+
+        $this->sendRemainingBubbles($tenant, $conversation, $draft, array_slice($bubbles, 1), $provider, $send);
+    }
+
+    /**
+     * Sends bubbles[1..] as their own separate Message rows right after the first
+     * bubble (already sent as $draft's own row by the caller) — real people send
+     * 2-3 short texts, not one long paragraph; see splitIntoBubbles(). Each extra
+     * bubble is its own real send through the same channel API, so it shows as its
+     * own message on the customer's side too, not just visually split in the CRM.
+     * Best-effort per bubble: one failing partway through doesn't roll back the
+     * ones already sent, it just stops there (logged, not silently swallowed).
+     */
+    private function sendRemainingBubbles(Tenant $tenant, Conversation $conversation, Message $draft, array $bubbles, string $provider, callable $send): void
+    {
+        foreach ($bubbles as $index => $text) {
+            $result = $send($text);
+
+            if (isset($result['error'])) {
+                Log::warning('AI reply bubble failed to send', ['conversation_id' => $conversation->id, 'provider' => $provider, 'error' => $result['error']]);
+
+                return;
+            }
+
+            Message::withoutGlobalScopes()->create([
+                'tenant_id' => $tenant->id,
+                'conversation_id' => $conversation->id,
+                'sender_type' => 'ai',
+                'sender_name' => 'WERO AI',
+                'body' => $text,
+                'external_id' => $result['external_id'],
+                // A real stagger, not a random delay for its own sake — keeps arrival
+                // order visually correct in every client even if two sends' network
+                // round-trips complete out of order.
+                'sent_at' => now()->addMilliseconds(($index + 1) * 400),
+                'meta' => [
+                    'auto_replied' => true,
+                    'engine' => $draft->meta['engine'] ?? null,
+                    'ai_run_id' => $draft->meta['ai_run_id'] ?? null,
+                    'split_bubble' => true,
+                    $provider => $result['payload'],
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Real people rarely send one long paragraph in a messenger — they send 2-3
+     * short separate messages. Splits primarily on the model's own paragraph
+     * breaks (blank lines), which the system prompt's brevity instruction now
+     * encourages it to use for genuinely separate thoughts; only falls back to
+     * sentence-boundary grouping for a single long paragraph with no natural
+     * breaks, and leaves an already-short reply as one message either way. Capped
+     * at 3 bubbles — more than that reads as spammy, not human.
+     */
+    private function splitIntoBubbles(string $text): array
+    {
+        $paragraphs = array_values(array_filter(
+            array_map('trim', preg_split('/\n{2,}/', $text)),
+            fn (string $p): bool => $p !== '',
+        ));
+
+        if (count($paragraphs) > 1) {
+            if (count($paragraphs) <= 3) {
+                return $paragraphs;
+            }
+
+            // More than 3 genuinely separate paragraphs — still cap at 3 bubbles, but
+            // merge the overflow into the last one instead of silently dropping real
+            // content the model actually wrote.
+            $head = array_slice($paragraphs, 0, 2);
+            $tail = implode("\n\n", array_slice($paragraphs, 2));
+
+            return [...$head, $tail];
+        }
+
+        if (mb_strlen($text) < 220) {
+            return [$text];
+        }
+
+        $sentences = preg_split('/(?<=[.!?…])\s+(?=[А-ЯЁA-Z0-9])/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+
+        if (! $sentences || count($sentences) < 2) {
+            return [$text];
+        }
+
+        $groupCount = min(3, count($sentences));
+        $groups = array_chunk($sentences, (int) ceil(count($sentences) / $groupCount));
+
+        $chunks = array_map(fn (array $group): string => trim(implode(' ', $group)), $groups);
+
+        return array_values(array_filter($chunks, fn (string $c): bool => $c !== ''));
     }
 
     private function handoffTask(Tenant $tenant, Company $company, Lead $lead, Conversation $conversation, AiDecision $decision): CrmTask
