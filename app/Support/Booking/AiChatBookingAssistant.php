@@ -35,7 +35,8 @@ use Throwable;
  * Multi-turn state (which slots or which of the customer's bookings were
  * just offered) rides on the AI's own Message.meta — no new table. Each
  * offer tags a `flow` (new_booking/reschedule/disambiguate_cancel/
- * disambiguate_reschedule) so the next turn knows what a picked index means.
+ * disambiguate_reschedule/disambiguate_restore) so the next turn knows what
+ * a picked index means.
  */
 class AiChatBookingAssistant
 {
@@ -76,16 +77,21 @@ class AiChatBookingAssistant
     {
         $services = $this->context->activeServices($company);
         $activeBookings = $this->activeBookingsFor($tenant, $conversation);
+        $recentlyCancelled = $this->recentlyCancelledBookingsFor($tenant, $conversation);
         $lastMeta = $this->lastAiMeta($conversation);
         $offeredSlots = is_array($lastMeta['offered_slots'] ?? null) ? $lastMeta['offered_slots'] : [];
 
-        $intent = $this->extractor->extract($tenant, $conversation, $message, $services, $offeredSlots, $activeBookings);
+        $intent = $this->extractor->extract($tenant, $conversation, $message, $services, $offeredSlots, $activeBookings, $recentlyCancelled);
 
         if ($intent !== null) {
             $continued = $this->continueFlow($tenant, $company, $conversation, $lastMeta, $intent, $decision);
 
             if ($continued !== null) {
                 return $continued;
+            }
+
+            if ($intent['wants_restore']) {
+                return $this->startRestore($recentlyCancelled, $intent, $decision);
             }
 
             if ($intent['wants_cancel']) {
@@ -132,7 +138,7 @@ class AiChatBookingAssistant
             return $this->withReply($decision, 'booking_reoffer', $intro."\n".$this->formatOffers($offeredSlots), meta: $lastMeta);
         }
 
-        if (in_array($flow, ['disambiguate_cancel', 'disambiguate_reschedule'], true)) {
+        if (in_array($flow, ['disambiguate_cancel', 'disambiguate_reschedule', 'disambiguate_restore'], true)) {
             $offeredBookings = is_array($lastMeta['offered_bookings'] ?? null) ? $lastMeta['offered_bookings'] : [];
 
             if ($offeredBookings === []) {
@@ -183,6 +189,12 @@ class AiChatBookingAssistant
             return $this->offerRescheduleSlots($company, $booking, $from, $decision);
         }
 
+        if ($flow === 'disambiguate_restore' && $intent['selected_booking_index'] !== null && isset($offeredBookings[$intent['selected_booking_index']])) {
+            $booking = Booking::withoutGlobalScopes()->find($offeredBookings[$intent['selected_booking_index']]['id']);
+
+            return $booking ? $this->attemptRestore($booking, $decision) : null;
+        }
+
         return null;
     }
 
@@ -214,6 +226,28 @@ class AiChatBookingAssistant
         }
 
         return $this->offerBookingsForDisambiguation($activeBookings, 'disambiguate_reschedule', $decision, 'Уточните, пожалуйста, какую запись перенести:');
+    }
+
+    /**
+     * Customer changed their mind again after cancelling and wants the same
+     * appointment back. Found live: without this, "восстанови запись" fell
+     * through to the plain reply engine, which produced a vague non-committal
+     * promise ("пытаемся восстановить, скоро уточню") instead of either
+     * actually rebooking the slot or telling the customer it's gone -- the
+     * exact class of reply this whole module exists to prevent (see class
+     * docblock). @param Collection<int, Booking> $recentlyCancelled
+     */
+    private function startRestore(Collection $recentlyCancelled, array $intent, AiDecision $decision): AiDecision
+    {
+        if ($recentlyCancelled->isEmpty()) {
+            return $this->withReply($decision, 'booking_restore_none', 'У вас нет недавно отменённых записей, которые можно восстановить. Хотите оформить новую запись?');
+        }
+
+        if ($recentlyCancelled->count() === 1) {
+            return $this->attemptRestore($recentlyCancelled->first(), $decision);
+        }
+
+        return $this->offerBookingsForDisambiguation($recentlyCancelled, 'disambiguate_restore', $decision, 'Уточните, пожалуйста, какую отменённую запись восстановить:');
     }
 
     /** @param Collection<int, Service> $services */
@@ -401,6 +435,49 @@ class AiChatBookingAssistant
         return $this->withReply($decision, 'booking_cancelled', $text);
     }
 
+    /**
+     * Re-books the same service/employee/time as a cancelled booking, going
+     * through BookingService::create() (fresh conflict check included) rather
+     * than flipping the old row's status back -- someone else may well have
+     * taken that slot in the meantime, so this must behave exactly like a new
+     * booking attempt, offers-on-conflict included.
+     */
+    private function attemptRestore(Booking $cancelled, AiDecision $decision): AiDecision
+    {
+        $service = $cancelled->service ?? Service::withoutGlobalScopes()->find($cancelled->service_id);
+
+        if (! $service) {
+            return $this->withReply($decision, 'booking_restore_error', 'Не получилось найти услугу для этой записи. Оператор свяжется с вами.', handoff: true);
+        }
+
+        try {
+            $booking = $this->bookings->create([
+                'tenant_id' => $cancelled->tenant_id,
+                'company_id' => $cancelled->company_id,
+                'customer_id' => $cancelled->customer_id,
+                'service_id' => $cancelled->service_id,
+                'employee_id' => $cancelled->employee_id,
+                'starts_at' => $cancelled->starts_at->toIso8601String(),
+                'notes' => 'Восстановлено через AI-чат',
+            ], null);
+        } catch (BookingConflictException) {
+            $company = $cancelled->company ?? Company::withoutGlobalScopes()->find($cancelled->company_id);
+
+            if (! $company) {
+                return $this->withReply($decision, 'booking_restore_conflict', 'Извините, это время уже заняли, и запись восстановить не получилось. Оператор свяжется с вами.', handoff: true);
+            }
+
+            $apology = $this->offerNewBookingSlots($company, $service, $cancelled->starts_at->copy()->startOfDay(), $decision);
+
+            return $this->prefixApology($apology, 'Извините, то время уже заняли. ');
+        }
+
+        $when = $this->formatWhen($this->localIso($booking));
+        $text = "Готово! Восстановил(а) вашу запись на «{$booking->service?->name}» — {$when}, мастер {$booking->employee?->name}.";
+
+        return $this->withReply($decision, 'booking_restored', $text);
+    }
+
     private function prefixApology(AiDecision $decision, string $prefix): AiDecision
     {
         return new AiDecision(
@@ -479,6 +556,25 @@ class AiChatBookingAssistant
             ->with(['service:id,name', 'employee:id,name', 'company:id,timezone'])
             ->orderBy('starts_at')
             ->limit(10)
+            ->get();
+    }
+
+    /**
+     * Only the last 24h -- "восстанови запись" should mean the booking the
+     * customer just cancelled in this same conversation, not resurrect
+     * something from weeks ago that a "wants_restore" misfire might latch onto.
+     * @return Collection<int, Booking>
+     */
+    private function recentlyCancelledBookingsFor(Tenant $tenant, Conversation $conversation): Collection
+    {
+        return Booking::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('customer_id', $conversation->customer_id)
+            ->where('status', Booking::STATUS_CANCELLED)
+            ->where('updated_at', '>=', Carbon::now()->subDay())
+            ->with(['service:id,name', 'employee:id,name', 'company:id,timezone'])
+            ->orderByDesc('updated_at')
+            ->limit(5)
             ->get();
     }
 
