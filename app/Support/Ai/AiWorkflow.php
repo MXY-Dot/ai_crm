@@ -379,6 +379,12 @@ class AiWorkflow
             // here — without this line the AI would just answer the underlying
             // question and never actually acknowledge the handoff.
             'If the customer explicitly asks to speak with a human, an operator, or a manager, do not try to resolve their request yourself — acknowledge that you\'re connecting them with a team member and keep your reply short.',
+            // Found live: without a real booking/calendar system connected for this
+            // company, nothing stops the model from confidently telling a customer
+            // their appointment/order is "confirmed" for a specific time it just
+            // invented, with nothing actually reserved anywhere. Never do this —
+            // acknowledge their preferred time/details and say the team will confirm.
+            'You cannot personally check real appointment availability, reserve a specific time slot, or confirm an order — you have no live access to the booking calendar or inventory in this reply. Never tell a customer their booking/appointment/order is "confirmed" or state a specific date/time as already reserved. When they want to schedule or order something, acknowledge their preferred details and say a team member will confirm the exact time/availability shortly.',
             $agent->instructions ? 'Agent instructions: '.$agent->instructions : '',
             // ЭТАП 9.3 — AI Goal Engine: shapes what the assistant steers the
             // conversation toward, without a separate LLM call — just a stronger
@@ -687,6 +693,8 @@ class AiWorkflow
      */
     private function enforceBusinessRules(AiAgent $agent, AiDecision $decision): AiDecision
     {
+        $decision = $this->preventFakeBookingConfirmation($decision);
+
         if ($agent->max_discount_percent === null || $decision->replyText === null) {
             return $decision;
         }
@@ -704,6 +712,66 @@ class AiWorkflow
             nextAction: 'handoff_operator',
             handoffRequired: true,
             replyText: 'Спасибо за ваш интерес! Уточню детали по скидке и вернусь с точным предложением — оператор свяжется с вами в ближайшее время.',
+        );
+    }
+
+    /**
+     * Found live: for any tenant WITHOUT the booking_calendar module actually
+     * wired up (AiChatBookingAssistant::isAvailableFor() false -- true for most
+     * tenants today, this is the default, not the exception), nothing else in
+     * the pipeline stops the raw LLM reply from confidently telling a customer
+     * their appointment/order is "confirmed" for a specific date/time it
+     * invented — no real Booking row, no CrmTask, no handoff, nobody at the
+     * company ever finds out. Observed verbatim in production testing:
+     * "запись на окрашивание волос подтверждена — 1 сентября в 15:00" with zero
+     * backing state. AiChatBookingAssistant already enforces the equivalent
+     * real-availability-only rule when the module IS active (see its own
+     * docblock) and unconditionally overrides whatever this method produces —
+     * this is purely the backstop for when it isn't, called before that so a
+     * booking-enabled tenant's real flow always wins regardless.
+     */
+    private function preventFakeBookingConfirmation(AiDecision $decision): AiDecision
+    {
+        if ($decision->replyText === null) {
+            return $decision;
+        }
+
+        // Per-sentence, not whole-text: a sentence ASKING whether the customer wants to
+        // book ("Хотите записаться на 15:00?") must never trip this — only a sentence
+        // that itself states the booking as already done, with no "?" in it, does.
+        $sentences = preg_split('/(?<=[.!?])\s+/u', $decision->replyText) ?: [$decision->replyText];
+
+        // Perfective/past-tense confirmation verbs only — deliberately excludes the
+        // infinitive/imperative forms ("записаться", "запишите", "укажите") a normal
+        // offer or clarifying question uses, so those never false-positive here.
+        $confirmationVerb = '/(?:подтвержд\w*|записал\w*|записан\w*|оформлен\w*|забронирован\w*|зарезервирован\w*|готово[,!]?\s+запис\w*)/iu';
+        $timeToken = '/\d{1,2}[:.,]\d{2}|\d{1,2}\s+(?:январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)/iu';
+
+        $confirmsBooking = false;
+
+        foreach ($sentences as $sentence) {
+            if (str_contains($sentence, '?')) {
+                continue;
+            }
+
+            if (preg_match($confirmationVerb, $sentence) === 1 && preg_match($timeToken, $sentence) === 1) {
+                $confirmsBooking = true;
+
+                break;
+            }
+        }
+
+        if (! $confirmsBooking) {
+            return $decision;
+        }
+
+        return new AiDecision(
+            confidence: $decision->confidence,
+            intent: $decision->intent,
+            summary: $decision->summary.' [Заблокировано: AI попытался подтвердить запись на конкретное время без реальной системы бронирования]',
+            nextAction: 'handoff_operator',
+            handoffRequired: true,
+            replyText: 'Записал(а) ваше пожелание по времени — уточню у команды и подтвержу вам точную запись в ближайшее время.',
         );
     }
 
@@ -795,17 +863,16 @@ class AiWorkflow
         ]);
     }
 
-    private const DEFAULT_GREETING = 'Здравствуйте! Рады видеть вас снова 👋 Чем можем помочь?';
-
     private const PHONE_REQUEST_TEXT = 'Поделитесь, пожалуйста, номером телефона, чтобы мы могли связаться с вами по записи 📱';
 
     /**
-     * On a customer's very first message, once we already know their phone (either
-     * this call only happens after process()'s mandatory-phone gate has already
-     * passed, or — same method, same result — they were already a known customer
-     * from a past conversation, see ChatwootWebhookHandler::customer()'s phone/
-     * email/name matching): send a plain welcome-back greeting. Telegram-only
-     * before this; now also covers 'website' widget conversations.
+     * On a customer's very first message, sends the tenant's own configured welcome
+     * text (hours, a promo, etc.) if they set one — deliberate operator content, shown
+     * verbatim, never generated. No generic fallback greeting anymore: found live that
+     * every reply engine (Dify/direct-LLM/local-mvp) already opens its own first-message
+     * answer with a natural greeting of its own (see their respective "isFirstMessage"
+     * prompt instructions/replyText() logic) — a templated "Рады видеть вас снова" here
+     * landed as a redundant SECOND greeting stacked right before the real answer.
      */
     private function greetCustomer(Tenant $tenant, Conversation $conversation): void
     {
@@ -815,7 +882,12 @@ class AiWorkflow
             return;
         }
 
-        $greeting = trim((string) Arr::get($conversation->channel?->settings ?? [], 'welcome_message')) ?: self::DEFAULT_GREETING;
+        $greeting = trim((string) Arr::get($conversation->channel?->settings ?? [], 'welcome_message'));
+
+        if ($greeting === '') {
+            return;
+        }
+
         $this->sendSystemMessage($tenant, $conversation, $provider, $greeting);
     }
 
