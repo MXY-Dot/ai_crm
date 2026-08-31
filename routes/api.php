@@ -176,6 +176,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
 
     Route::middleware(ResolveTenant::class)->group(function (): void {
         Route::get('analytics', [AnalyticsController::class, 'index']);
+        Route::get('analytics/export.xlsx', [AnalyticsController::class, 'exportXlsx']);
         Route::get('analytics/knowledge-gaps', [AnalyticsController::class, 'knowledgeGaps']);
         Route::get('analytics/reports', [AiAnalyticsReportController::class, 'index']);
         Route::post('analytics/reports/generate', [AiAnalyticsReportController::class, 'generate'])->middleware('throttle:5,10');

@@ -9,6 +9,7 @@ import AiPerformancePanel, { type AiPerformance } from '../components/dashboard/
 import AiReportsPanel from '../components/dashboard/analytics/AiReportsPanel.vue';
 import AnalyticsExportMenu from '../components/dashboard/analytics/AnalyticsExportMenu.vue';
 import AnalyticsKpis, { type PeriodKpisFull } from '../components/dashboard/analytics/AnalyticsKpis.vue';
+import ConversationFunnelPanel, { type FunnelStage } from '../components/dashboard/analytics/ConversationFunnelPanel.vue';
 import DissatisfiedCustomersPanel, { type DissatisfiedCustomerRow } from '../components/dashboard/analytics/DissatisfiedCustomersPanel.vue';
 import KnowledgeGapsPanel from '../components/dashboard/analytics/KnowledgeGapsPanel.vue';
 import LlmUsagePanel, { type LlmUsageRow } from '../components/dashboard/analytics/LlmUsagePanel.vue';
@@ -44,6 +45,7 @@ type Analytics = {
     topics: TopicRow[];
     operators: OperatorRow[];
     lost_customers: LostCustomers;
+    conversation_funnel: FunnelStage[];
 };
 
 const dashboard = useCrmDashboardStore();
@@ -105,7 +107,7 @@ defineOptions({ layout: AppLayout });
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <AnalyticsPeriodFilter v-model:preset="preset" v-model:from="customFrom" v-model:to="customTo" v-model:compare="compare" />
-                <AnalyticsExportMenu data-tour="analytics-export" :target="exportTarget" :conversations="data?.raw.conversations ?? []" />
+                <AnalyticsExportMenu data-tour="analytics-export" :target="exportTarget" :conversations="data?.raw.conversations ?? []" :query-string="queryString" :tenant-slug="tenant?.slug ?? ''" />
             </div>
         </div>
 
@@ -117,6 +119,7 @@ defineOptions({ layout: AppLayout });
             <PeriodComparisonPanel v-if="compare" :current="data?.kpis ?? null" :previous="data?.previous_kpis ?? null" />
             <AnalyticsKpis data-tour="analytics-kpis" :kpis="data?.kpis ?? null" :open-tasks-count="openTasks.length" />
             <AiReportsPanel :tenant-slug="tenant?.slug ?? ''" />
+            <ConversationFunnelPanel :data="data?.conversation_funnel ?? null" :loading="loading" />
 
             <div class="grid gap-6 lg:grid-cols-3" data-tour="analytics-charts">
                 <DialogsTrendChart :conversations="data?.raw.conversations ?? []" />

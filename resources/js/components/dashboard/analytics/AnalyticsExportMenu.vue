@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { FileImage, FileSpreadsheet } from '@lucide/vue';
+import { FileDown, FileImage, FileSpreadsheet } from '@lucide/vue';
 import type { Conversation } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 
-const props = defineProps<{ target: HTMLElement | null; conversations: Conversation[] }>();
+const props = defineProps<{ target: HTMLElement | null; conversations: Conversation[]; queryString: string; tenantSlug: string }>();
 const locale = useLocaleStore();
 const exporting = ref(false);
 
@@ -17,6 +17,18 @@ function downloadBlob(blob: Blob, filename: string): void {
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+}
+
+// A plain download navigation can't carry the X-Tenant-Id header apiRequest()
+// normally sends -- ResolveTenant strictly requires either that header or a
+// tenant_id query param (no session-user fallback), so this appends it
+// explicitly, same pattern already used for the Instagram/Facebook OAuth
+// connect links.
+function exportXlsx(): void {
+    const url = `/api/analytics/export.xlsx?${props.queryString}&tenant_id=${encodeURIComponent(props.tenantSlug)}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.click();
 }
 
 async function exportImage(): Promise<void> {
@@ -64,6 +76,9 @@ function exportCsv(): void {
         </Button>
         <Button size="sm" variant="outline" type="button" :disabled="!conversations.length" @click="exportCsv">
             <FileSpreadsheet class="h-4 w-4" />{{ locale.t('analytics.exportCsv') }}
+        </Button>
+        <Button size="sm" variant="outline" type="button" @click="exportXlsx">
+            <FileDown class="h-4 w-4" />{{ locale.t('analytics.exportXlsx') }}
         </Button>
     </div>
 </template>

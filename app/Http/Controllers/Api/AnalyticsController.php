@@ -17,6 +17,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * ЭТАП 19.1-19.5 — tenant-facing analytics ("Глубокая аналитика"). Backs
@@ -75,6 +78,87 @@ class AnalyticsController extends Controller
             'topics' => $this->snapshot->topics($start, $end),
             'operators' => $this->operators($start, $end),
             'lost_customers' => $this->lostCustomers(),
+            'conversation_funnel' => $this->snapshot->conversationFunnel($start, $end),
+        ]);
+    }
+
+    /**
+     * ТЗ раздел 24 — реальный Excel-экспорт (не CSV/скриншот, см.
+     * AnalyticsExportMenu.vue). Reuses the exact same numbers index() returns
+     * (same AnalyticsSnapshot calls), just laid out across sheets instead of
+     * one JSON blob -- never a second, divergent set of queries.
+     */
+    public function exportXlsx(Request $request): StreamedResponse
+    {
+        [$start, $end, $bucket] = $this->range->resolve($request);
+
+        $kpis = $this->snapshot->kpis($start, $end);
+        $funnel = $this->snapshot->conversationFunnel($start, $end);
+        $topics = $this->snapshot->topics($start, $end);
+        $outcomes = $this->snapshot->outcomes($start, $end);
+        $sentiment = $this->snapshot->sentimentBreakdown($start, $end);
+        $operators = $this->operators($start, $end);
+
+        $spreadsheet = new Spreadsheet();
+
+        $kpiSheet = $spreadsheet->getActiveSheet();
+        $kpiSheet->setTitle('KPI');
+        $kpiSheet->fromArray(['Период', $start->toDateString().' — '.$end->toDateString()], null, 'A1');
+        $kpiLabels = [
+            'messages' => 'Сообщений', 'conversations' => 'Обращений', 'unique_customers' => 'Уникальных клиентов',
+            'new_customers' => 'Новых клиентов', 'repeat_customers' => 'Повторных клиентов', 'total_leads' => 'Всего лидов',
+            'conversion_rate' => 'Конверсия, %', 'ai_runs' => 'Запусков AI', 'avg_confidence' => 'Средняя уверенность AI, %',
+            'avg_latency_ms' => 'Среднее время ответа AI, мс', 'ai_replacement_rate' => 'AI решил самостоятельно, %',
+            'handed_to_operator' => 'Передано оператору', 'fully_ai_handled' => 'Полностью обработано AI',
+            'avg_messages_per_conversation' => 'Сообщений на диалог', 'active_conversations' => 'Активных диалогов сейчас',
+        ];
+        $row = 3;
+        foreach ($kpiLabels as $key => $label) {
+            $kpiSheet->setCellValue("A{$row}", $label);
+            $kpiSheet->setCellValue("B{$row}", $kpis[$key] ?? '');
+            $row++;
+        }
+        $kpiSheet->getColumnDimension('A')->setWidth(36);
+
+        $funnelSheet = $spreadsheet->createSheet();
+        $funnelSheet->setTitle('Воронка');
+        $funnelSheet->fromArray(['Стадия', 'Количество', '% от начала'], null, 'A1');
+        $funnelSheet->fromArray(array_map(fn (array $s) => [$s['label'], $s['count'], $s['percent_of_total']], $funnel), null, 'A2');
+        $funnelSheet->getColumnDimension('A')->setWidth(30);
+
+        $topicsSheet = $spreadsheet->createSheet();
+        $topicsSheet->setTitle('Темы обращений');
+        $topicsSheet->fromArray(['Тема', 'Количество', '%', 'Изменение, %', 'Новая'], null, 'A1');
+        $topicsSheet->fromArray(array_map(fn (array $t) => [$t['topic'], $t['count'], $t['percent'], $t['change_percent'], $t['is_new'] ? 'да' : ''], $topics), null, 'A2');
+        $topicsSheet->getColumnDimension('A')->setWidth(24);
+
+        $outcomesSheet = $spreadsheet->createSheet();
+        $outcomesSheet->setTitle('Результаты диалогов');
+        $outcomesSheet->fromArray(['Результат', 'Количество', '%'], null, 'A1');
+        $outcomesSheet->fromArray(array_map(fn (array $o) => [$o['outcome'], $o['count'], $o['percent']], $outcomes), null, 'A2');
+        $outcomesSheet->getColumnDimension('A')->setWidth(26);
+
+        $sentimentSheet = $spreadsheet->createSheet();
+        $sentimentSheet->setTitle('Настроение');
+        $sentimentSheet->fromArray(['Настроение', 'Количество', '%'], null, 'A1');
+        $sentimentSheet->fromArray(array_map(fn (array $s) => [$s['sentiment'], $s['count'], $s['percent']], $sentiment), null, 'A2');
+        $sentimentSheet->getColumnDimension('A')->setWidth(20);
+
+        $operatorsSheet = $spreadsheet->createSheet();
+        $operatorsSheet->setTitle('Операторы');
+        $operatorsSheet->fromArray(['Оператор', 'Диалогов', 'Закрыто', 'Средняя оценка', 'Недовольных'], null, 'A1');
+        $operatorsSheet->fromArray(array_map(fn (array $o) => [$o['name'], $o['conversations'], $o['closed'], $o['avg_quality_score'], $o['unhappy_count']], $operators), null, 'A2');
+        $operatorsSheet->getColumnDimension('A')->setWidth(24);
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'analytics-'.$start->toDateString().'-'.$end->toDateString().'.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet): void {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 

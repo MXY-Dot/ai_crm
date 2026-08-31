@@ -199,6 +199,74 @@ class AnalyticsSnapshot
         ])->values()->all();
     }
 
+    /**
+     * ТЗ раздел 10 — the 8-stage engagement funnel. Genuinely nested (each
+     * stage is a strict subset of the one before it, not 8 independent counts)
+     * so this behaves like an actual funnel, not 8 unrelated numbers that could
+     * technically go back up. Every stage maps to a real, already-tracked
+     * signal -- no invented "interest score":
+     *
+     * Написали → conversations created in period.
+     * Получили ответ → first_response_at is set.
+     * Продолжили диалог → the customer sent a 2nd message (real back-and-forth,
+     *   not just one question that went nowhere).
+     * Заинтересовались → the linked Lead crossed into 'qualified' (or 'won') --
+     *   this is exactly what AiWorkflow::process() already uses that status
+     *   transition for.
+     * Оставили заявку → ConversationAnalysis outcome is 'lead_created' or
+     *   'consultation_requested'.
+     * Оставили контакты → the customer has a phone on file (not guaranteed on
+     *   every channel -- Instagram/Facebook DMs never require one).
+     * Совершили целевое действие → outcome is 'sale' or 'booking'.
+     * Успешно завершили диалог → outcome is 'resolved', or is_resolved is true.
+     *
+     * The last 4 stages only ever have data for conversations
+     * `conversations:analyze` has already processed (post-hoc, after resolve/
+     * timeout) -- same "sparse until it accumulates" honesty as the rest of
+     * this codebase's analytics, not a bug.
+     */
+    public function conversationFunnel(Carbon $start, Carbon $end): array
+    {
+        $conversations = Conversation::query()
+            ->whereBetween('created_at', [$start, $end])
+            ->with('lead:id,status')
+            ->withCount(['messages as customer_message_count' => fn ($q) => $q->where('sender_type', 'customer')])
+            ->get(['id', 'lead_id', 'customer_id', 'first_response_at']);
+
+        $customerPhones = Customer::query()
+            ->whereIn('id', $conversations->pluck('customer_id')->filter()->unique())
+            ->pluck('phone', 'id');
+
+        $analyses = ConversationAnalysis::query()
+            ->whereIn('conversation_id', $conversations->pluck('id'))
+            ->get(['conversation_id', 'outcome', 'is_resolved'])
+            ->keyBy('conversation_id');
+
+        $wrote = $conversations;
+        $gotReply = $wrote->filter(fn (Conversation $c): bool => $c->first_response_at !== null);
+        $continued = $gotReply->filter(fn (Conversation $c): bool => $c->customer_message_count >= 2);
+        $interested = $continued->filter(fn (Conversation $c): bool => in_array($c->lead?->status, ['qualified', 'won'], true));
+        $leftRequest = $interested->filter(fn (Conversation $c): bool => in_array($analyses[$c->id]->outcome ?? null, ['lead_created', 'consultation_requested'], true));
+        $leftContacts = $leftRequest->filter(fn (Conversation $c): bool => ! empty($customerPhones[$c->customer_id] ?? null));
+        $targetAction = $leftContacts->filter(fn (Conversation $c): bool => in_array($analyses[$c->id]->outcome ?? null, ['sale', 'booking'], true));
+        $resolved = $targetAction->filter(fn (Conversation $c): bool => ($analyses[$c->id]->outcome ?? null) === 'resolved' || ($analyses[$c->id]->is_resolved ?? false) === true);
+
+        $stages = [
+            ['stage' => 'wrote', 'label' => 'Написали', 'count' => $wrote->count()],
+            ['stage' => 'got_reply', 'label' => 'Получили ответ', 'count' => $gotReply->count()],
+            ['stage' => 'continued', 'label' => 'Продолжили диалог', 'count' => $continued->count()],
+            ['stage' => 'interested', 'label' => 'Заинтересовались', 'count' => $interested->count()],
+            ['stage' => 'left_request', 'label' => 'Оставили заявку', 'count' => $leftRequest->count()],
+            ['stage' => 'left_contacts', 'label' => 'Оставили контакты', 'count' => $leftContacts->count()],
+            ['stage' => 'target_action', 'label' => 'Совершили целевое действие', 'count' => $targetAction->count()],
+            ['stage' => 'resolved', 'label' => 'Успешно завершили диалог', 'count' => $resolved->count()],
+        ];
+
+        $top = $stages[0]['count'] ?: 1;
+
+        return array_map(fn (array $s): array => $s + ['percent_of_total' => round($s['count'] / $top * 100, 1)], $stages);
+    }
+
     /** Share of AI runs that did NOT require a human handoff — "AI resolved it alone." */
     public function replacementRate(Builder $runs): float
     {
