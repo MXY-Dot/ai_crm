@@ -2,6 +2,7 @@
 
 namespace App\Support\Ai;
 
+use App\Jobs\NotifyConversationEventJob;
 use App\Jobs\NotifyVipContactJob;
 use App\Models\AiAgent;
 use App\Models\AiSystemPrompt;
@@ -111,6 +112,12 @@ class AiWorkflow
         $this->autoReply($tenant, $conversation, $draft);
         $this->showTyping($tenant, $conversation, false);
 
+        // ТЗ раздел 15 — real-time notifications fire at most once per conversation
+        // per event type; captured BEFORE this turn's label/status writes below so
+        // we can tell a genuinely new trigger apart from one already flagged on an
+        // earlier message in the same conversation.
+        $wasQualified = $lead->status === 'qualified';
+
         $lead->forceFill([
             'score' => $decision->confidence,
             'ai_summary' => $decision->summary,
@@ -129,11 +136,22 @@ class AiWorkflow
             $conversation->customer->forceFill(['language' => $detectedLanguage])->save();
         }
 
+        $hadComplaintLabel = in_array('complaint', $conversation->labels ?? [], true);
+        $hadUnhappyLabel = in_array('unhappy', $conversation->labels ?? [], true);
+        $hadHandoffLabel = in_array('handoff', $conversation->labels ?? [], true);
+
         // ЭТАП 3.7 — only labels with a real backing signal (AiRun.intent already
         // classifies these); no invented 'hot_lead'/'delivery' label with nothing
         // behind it — see Conversation::addLabel() for the manual-add counterpart.
         if (in_array($decision->intent, ['complaint', 'payment_policy'], true)) {
             $conversation->addLabel($decision->intent === 'complaint' ? 'complaint' : 'payment');
+        }
+        // Doubles as this turn's notification-dedup marker (see notifyConversationEvents()).
+        if ($sentiment === 'negative') {
+            $conversation->addLabel('unhappy');
+        }
+        if ($decision->handoffRequired) {
+            $conversation->addLabel('handoff');
         }
 
         $conversation->forceFill([
@@ -141,6 +159,8 @@ class AiWorkflow
             'status' => $decision->handoffRequired ? ConversationStatus::PENDING_OPERATOR : $conversation->status,
             'priority' => ($decision->handoffRequired || $sentiment === 'negative') ? 'high' : $conversation->priority,
         ])->save();
+
+        $this->notifyConversationEvents($tenant, $conversation, $lead, $decision, $sentiment, $wasQualified, $hadComplaintLabel, $hadUnhappyLabel, $hadHandoffLabel);
 
         // ЭТАП 16.11 — while this tenant's AI is genuinely down (not just this one
         // handoff), new conversations go straight to a human instead of waiting on
@@ -1177,5 +1197,42 @@ class AiWorkflow
             ['tenant_id' => $tenant->id, 'company_id' => $company->id, 'lead_id' => $lead->id, 'title' => 'AI handoff: '.$conversation->subject],
             ['status' => 'open', 'priority' => 'high', 'description' => $decision->summary]
         );
+    }
+
+    /**
+     * ТЗ раздел 15 — real-time smart notifications. Only 4 of the spec's 14
+     * trigger types (the ones with a real, already-computed signal at this
+     * exact point in the pipeline — see the docblock on NotifyConversationEventJob
+     * for why these four specifically); each fires at most once per conversation,
+     * gated on the label/lead-status state captured just before this turn's
+     * writes so a customer staying negative/qualified across many messages
+     * doesn't spam staff on every single one.
+     */
+    private function notifyConversationEvents(
+        Tenant $tenant,
+        Conversation $conversation,
+        Lead $lead,
+        AiDecision $decision,
+        string $sentiment,
+        bool $wasQualified,
+        bool $hadComplaintLabel,
+        bool $hadUnhappyLabel,
+        bool $hadHandoffLabel,
+    ): void {
+        if ($sentiment === 'negative' && ! $hadUnhappyLabel) {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'unhappy_customer');
+        }
+
+        if ($decision->intent === 'complaint' && ! $hadComplaintLabel) {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'complaint');
+        }
+
+        if ($decision->handoffRequired && ! $hadHandoffLabel) {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'handoff_needed');
+        }
+
+        if (! $wasQualified && $lead->status === 'qualified') {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'lead_qualified');
+        }
     }
 }

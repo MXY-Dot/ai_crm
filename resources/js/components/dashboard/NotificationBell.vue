@@ -194,6 +194,14 @@ async function sendAnnouncement(): Promise<void> {
                 <p v-if="loaded && ! items.length" class="p-6 text-center text-sm ui-subtle">Нет уведомлений</p>
             </div>
 
+            <div v-if="! props.admin" class="border-t p-2 border-border">
+                <button
+                    type="button"
+                    class="flex w-full items-center justify-center gap-2 rounded-lg p-2 text-xs font-medium transition hover:bg-muted ui-subtle"
+                    @click="open = false; router.visit(pagePaths.notifications)"
+                >Все уведомления</button>
+            </div>
+
             <div v-if="props.admin" class="border-t p-2 border-border">
                 <button
                     type="button"
