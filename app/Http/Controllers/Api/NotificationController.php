@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Notifications\AppNotification;
+use App\Support\Notifications\NotificationTypeBuckets;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -11,21 +12,13 @@ use Illuminate\Validation\Rule;
 
 class NotificationController extends Controller
 {
-    /** ТЗ раздел 17 — Центр уведомлений type-bucket filters ("Продажи"/"Жалобы"/"Ошибки AI"/"Работа операторов"), mapped onto the real `type` values notifications are actually created with (see NotifyConversationEventJob/NotifyVipContactJob/AiReportGenerator). */
-    private const BUCKETS = [
-        'sales' => ['lead_qualified', 'vip_contact', 'competitor_mentioned'],
-        'complaints' => ['complaint', 'wants_manager'],
-        'ai_errors' => ['handoff_needed', 'ai_knowledge_gap', 'repeated_problem'],
-        'operators' => ['operator_idle', 'waiting_too_long'],
-    ];
-
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
             // 'unread'/'read' also serve as the spec's "Новые"/"Решённые" — this
             // data model only has read/unread, not a separate resolved state.
             'status' => ['nullable', Rule::in(['all', 'unread', 'read', 'critical'])],
-            'bucket' => ['nullable', Rule::in(array_keys(self::BUCKETS))],
+            'bucket' => ['nullable', Rule::in(array_keys(NotificationTypeBuckets::BUCKETS))],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
 
@@ -52,7 +45,7 @@ class NotificationController extends Controller
         }
 
         if (isset($data['bucket'])) {
-            $types = self::BUCKETS[$data['bucket']];
+            $types = NotificationTypeBuckets::BUCKETS[$data['bucket']];
             $candidates = $types === []
                 ? collect()
                 : $candidates->filter(fn (DatabaseNotification $n): bool => in_array($n->data['type'] ?? '', $types, true));

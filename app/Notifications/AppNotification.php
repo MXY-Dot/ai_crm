@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Company;
 use App\Models\User;
 use App\Notifications\Channels\TenantTelegramChannel;
+use App\Support\Notifications\NotificationTypeBuckets;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -101,7 +102,7 @@ class AppNotification extends Notification
             return false;
         }
 
-        return (bool) ($this->preferences($notifiable)['email'] ?? true);
+        return $this->channelEnabled($notifiable, 'email', true);
     }
 
     private function wantsTelegram(object $notifiable): bool
@@ -110,7 +111,30 @@ class AppNotification extends Notification
             return false;
         }
 
-        return (bool) ($this->preferences($notifiable)['telegram_bot'] ?? false);
+        return $this->channelEnabled($notifiable, 'telegram_bot', false);
+    }
+
+    /**
+     * ТЗ раздел 18 — per-type channel routing, one toggle per (bucket,
+     * channel) pair rather than per individual `type` string --
+     * NotificationTypeBuckets groups the same way the Центр уведомлений
+     * bucket filter already does, so an owner configures "жалобы" once, not
+     * 'complaint' and 'wants_manager' separately. A bucket-specific value
+     * overrides the global email/telegram_bot toggle; when absent (null,
+     * the default for every tenant that has never touched this per-type UI),
+     * the global toggle still applies -- nothing changes for anyone else.
+     */
+    private function channelEnabled(User $notifiable, string $channel, bool $globalDefault): bool
+    {
+        $preferences = $this->preferences($notifiable);
+        $bucket = NotificationTypeBuckets::bucketFor($this->type);
+        $override = $bucket !== null ? ($preferences['types'][$bucket][$channel] ?? null) : null;
+
+        if ($override !== null) {
+            return (bool) $override;
+        }
+
+        return (bool) ($preferences[$channel] ?? $globalDefault);
     }
 
     /**
