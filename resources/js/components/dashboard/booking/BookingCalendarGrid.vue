@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useLocaleStore } from '../../../stores/locale';
 
 export type BookingRow = {
@@ -20,6 +20,9 @@ const START_HOUR = 8;
 const END_HOUR = 21;
 const SLOT_MINUTES = 15;
 const SLOT_COUNT = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
+const HEADER_HEIGHT = 40;
+const ROW_HEIGHT = 22;
+const TIME_GUTTER = 64;
 
 const STATUS_COLORS: Record<string, string> = {
     temp_hold: 'bg-muted text-muted-foreground',
@@ -34,6 +37,24 @@ const STATUS_COLORS: Record<string, string> = {
     no_show: 'bg-destructive/10 text-destructive',
 };
 
+const STATUS_DOTS: Record<string, string> = {
+    temp_hold: 'bg-muted-foreground',
+    awaiting_payment: 'bg-amber-500',
+    payment_review: 'bg-orange-500',
+    confirmed: 'bg-blue-500',
+    client_arrived: 'bg-indigo-500',
+    in_progress: 'bg-purple-500',
+    completed: 'bg-emerald-500',
+    rescheduled: 'bg-muted-foreground',
+    cancelled: 'bg-muted-foreground',
+    no_show: 'bg-destructive',
+};
+
+const EMPLOYEE_ACCENTS = ['bg-sky-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500', 'bg-indigo-500'];
+function employeeAccent(index: number): string {
+    return EMPLOYEE_ACCENTS[index % EMPLOYEE_ACCENTS.length];
+}
+
 function slotStart(index: number): Date {
     const d = new Date(props.date + 'T00:00:00');
     d.setHours(START_HOUR, 0, 0, 0);
@@ -43,7 +64,8 @@ function slotStart(index: number): Date {
 
 const slots = computed(() => Array.from({ length: SLOT_COUNT }, (_, i) => {
     const d = slotStart(i);
-    return { row: i + 2, label: d.getMinutes() === 0 ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '' };
+    const isHour = d.getMinutes() === 0;
+    return { row: i + 2, label: isHour ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '', isHour };
 }));
 
 function rowForIso(iso: string): number {
@@ -60,41 +82,95 @@ function isoForSlot(index: number): string {
     return slotStart(index).toISOString();
 }
 
-const gridTemplateColumns = computed(() => `56px repeat(${Math.max(props.employees.length, 1)}, minmax(160px, 1fr))`);
+function formatRange(startsAt: string, endsAt: string): string {
+    const fmt = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return `${fmt(startsAt)}–${fmt(endsAt)}`;
+}
+
+function statusLabel(status: string): string {
+    return locale.t('booking.statuses.' + status);
+}
+
+const gridTemplateColumns = computed(() => `${TIME_GUTTER}px repeat(${Math.max(props.employees.length, 1)}, minmax(160px, 1fr))`);
+
+// A live "now" line, same idea as any real calendar app -- only meaningful when
+// looking at today, ticks forward on its own without needing a page reload.
+const now = ref(new Date());
+let nowTimer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => {
+    nowTimer = setInterval(() => { now.value = new Date(); }, 60_000);
+});
+onUnmounted(() => {
+    if (nowTimer) clearInterval(nowTimer);
+});
+
+function toLocalDateString(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const minutesIntoDay = computed(() => (now.value.getHours() - START_HOUR) * 60 + now.value.getMinutes());
+const showNowLine = computed(() => props.date === toLocalDateString(now.value) && minutesIntoDay.value >= 0 && minutesIntoDay.value <= SLOT_COUNT * SLOT_MINUTES);
+const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_MINUTES) * ROW_HEIGHT);
 </script>
 
 <template>
-    <div class="overflow-x-auto rounded-xl border border-border">
-        <div class="grid text-xs" :style="{ gridTemplateColumns, gridTemplateRows: '36px', gridAutoRows: '18px' }">
-            <div class="sticky top-0 z-10 border-b border-border bg-background" style="grid-row: 1; grid-column: 1"></div>
-            <div v-for="(e, ei) in employees" :key="e.id" class="sticky top-0 z-10 truncate border-b border-l border-border bg-background px-2 py-2 text-sm font-medium ui-text" :style="{ gridRow: 1, gridColumn: ei + 2 }">
-                {{ e.name }}
-            </div>
-
-            <template v-for="slot in slots" :key="slot.row">
-                <div class="border-b border-border pr-2 text-right text-[10px] ui-subtle" :style="{ gridRow: slot.row, gridColumn: 1 }">{{ slot.label }}</div>
+    <div class="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
+        <div class="relative max-h-[70vh] overflow-auto">
+            <div class="grid text-xs" :style="{ gridTemplateColumns, gridTemplateRows: `${HEADER_HEIGHT}px`, gridAutoRows: `${ROW_HEIGHT}px` }">
+                <div class="sticky top-0 left-0 z-20 border-b border-border bg-background" style="grid-row: 1; grid-column: 1"></div>
                 <div
                     v-for="(e, ei) in employees"
-                    :key="e.id + '-' + slot.row"
-                    class="cursor-pointer border-b border-l border-border hover:bg-accent/40"
-                    :style="{ gridRow: slot.row, gridColumn: ei + 2 }"
-                    @click="emit('create-at', e.id, isoForSlot(slot.row - 2))"
-                />
-            </template>
+                    :key="e.id"
+                    class="sticky top-0 z-10 flex items-center gap-2 truncate border-b border-l border-border bg-background px-3 text-sm font-semibold ui-text"
+                    :style="{ gridRow: 1, gridColumn: ei + 2 }"
+                >
+                    <span class="h-2 w-2 shrink-0 rounded-full" :class="employeeAccent(ei)" />
+                    <span class="truncate">{{ e.name }}</span>
+                </div>
 
-            <button
-                v-for="booking in bookings"
-                :key="booking.id"
-                type="button"
-                class="m-px overflow-hidden rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm"
-                :class="STATUS_COLORS[booking.status] ?? 'bg-muted'"
-                :style="{ gridRow: `${rowForIso(booking.starts_at)} / ${rowForIso(booking.ends_at)}`, gridColumn: employeeColumn(booking.employee_id) }"
-                @click.stop="emit('open', booking.id)"
+                <template v-for="slot in slots" :key="slot.row">
+                    <div
+                        class="sticky left-0 z-10 border-b bg-background pr-2.5 text-right text-[10.5px] font-medium ui-subtle"
+                        :class="slot.isHour ? 'border-border' : 'border-border/30'"
+                        :style="{ gridRow: slot.row, gridColumn: 1 }"
+                    >{{ slot.label }}</div>
+                    <div
+                        v-for="(e, ei) in employees"
+                        :key="e.id + '-' + slot.row"
+                        class="cursor-pointer border-l border-border transition-colors hover:bg-accent/50"
+                        :class="slot.isHour ? 'border-b border-border' : 'border-b border-border/30'"
+                        :style="{ gridRow: slot.row, gridColumn: ei + 2 }"
+                        @click="emit('create-at', e.id, isoForSlot(slot.row - 2))"
+                    />
+                </template>
+
+                <button
+                    v-for="booking in bookings"
+                    :key="booking.id"
+                    type="button"
+                    :title="`${booking.customer?.name ?? '—'} · ${booking.service?.name ?? ''} · ${statusLabel(booking.status)}`"
+                    class="relative z-[6] m-0.5 flex flex-col justify-center gap-px overflow-hidden rounded-lg border px-2 py-1 text-left leading-tight shadow-sm transition-all hover:z-[7] hover:shadow-md hover:brightness-105"
+                    :class="STATUS_COLORS[booking.status] ?? 'bg-muted'"
+                    :style="{ gridRow: `${rowForIso(booking.starts_at)} / ${rowForIso(booking.ends_at)}`, gridColumn: employeeColumn(booking.employee_id) }"
+                    @click.stop="emit('open', booking.id)"
+                >
+                    <span class="flex items-center gap-1.5">
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[booking.status] ?? 'bg-muted-foreground'" />
+                        <span class="truncate text-[11px] font-semibold">{{ booking.customer?.name ?? '—' }}</span>
+                    </span>
+                    <span class="truncate pl-3 text-[10.5px] opacity-80">{{ booking.service?.name }}</span>
+                    <span class="truncate pl-3 text-[10px] font-medium tabular-nums opacity-70">{{ formatRange(booking.starts_at, booking.ends_at) }}</span>
+                </button>
+            </div>
+
+            <div
+                v-if="showNowLine"
+                class="pointer-events-none absolute right-0 z-[5] flex items-center"
+                :style="{ top: nowLineTop + 'px', left: `${TIME_GUTTER}px` }"
             >
-                <span class="block truncate font-medium">{{ booking.customer?.name ?? '—' }}</span>
-                <span class="block truncate">{{ booking.service?.name }}</span>
-                <span class="block truncate">{{ locale.t('booking.statuses.' + booking.status) }}</span>
-            </button>
+                <span class="-ml-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                <span class="h-px flex-1 bg-red-500/70" />
+            </div>
         </div>
     </div>
 </template>
