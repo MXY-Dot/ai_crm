@@ -9,10 +9,12 @@ use App\Models\BookingStatusHistory;
 use App\Models\CancellationPolicy;
 use App\Models\Employee;
 use App\Models\Service;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Payments\PaymentGatewayClient;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -22,10 +24,14 @@ use Throwable;
  */
 class BookingService
 {
+    public function __construct(private readonly BookingReminderSender $reminders)
+    {
+    }
+
     /** $actor is null only for AiChatBookingAssistant's AI-initiated bookings (no logged-in User exists there) -- $data must then carry an explicit 'tenant_id', since it can no longer be read off $actor. */
     public function create(array $data, ?User $actor): Booking
     {
-        return DB::transaction(function () use ($data, $actor) {
+        $booking = DB::transaction(function () use ($data, $actor) {
             $service = Service::query()->findOrFail($data['service_id']);
             $employee = Employee::query()->findOrFail($data['employee_id']);
             $this->lockRow('employees', $employee->id);
@@ -47,10 +53,17 @@ class BookingService
                 ->value('custom_price') ?? $service->price);
 
             $prepayment = $service->prepaymentAmountFor($price);
-            $status = $prepayment > 0 ? Booking::STATUS_AWAITING_PAYMENT : Booking::STATUS_CONFIRMED;
+
+            // ТЗ раздел 13 — временная бронь: unpaid slot is only held for a short,
+            // owner-configurable window (default 15 min, see CancellationPolicy::hold_minutes)
+            // before ExpireBookingHoldsCommand releases it automatically. A booking with no
+            // prepayment needed skips the hold entirely and confirms straight away.
+            $tenantId = $actor?->tenant_id ?? $data['tenant_id'];
+            $holdMinutes = $this->policyFor($data['company_id'], $service->id)->hold_minutes ?: 15;
+            $status = $prepayment > 0 ? Booking::STATUS_TEMP_HOLD : Booking::STATUS_CONFIRMED;
 
             $booking = Booking::create([
-                'tenant_id' => $actor?->tenant_id ?? $data['tenant_id'],
+                'tenant_id' => $tenantId,
                 'company_id' => $data['company_id'],
                 'customer_id' => $data['customer_id'],
                 'service_id' => $service->id,
@@ -62,6 +75,7 @@ class BookingService
                 'price' => $price,
                 'prepayment_amount' => $prepayment,
                 'prepayment_status' => $prepayment > 0 ? 'pending' : 'none',
+                'hold_expires_at' => $prepayment > 0 ? Carbon::now()->addMinutes($holdMinutes) : null,
                 'notes' => $data['notes'] ?? null,
                 'created_by_user_id' => $actor?->id,
             ]);
@@ -70,14 +84,19 @@ class BookingService
 
             return $booking;
         });
+
+        $this->notifyBestEffort($booking, fn (BookingReminderSender $r, Tenant $t, Booking $b) => $r->sendCreated($t, $b));
+
+        return $booking;
     }
 
     public function reschedule(Booking $booking, Carbon $newStart, ?User $actor, bool $isClientInitiated = false, ?string $comment = null): Booking
     {
         // Same UTC-normalization concern as create() -- defend here too regardless of what the caller passed in.
         $newStart = $newStart->copy()->utc();
+        $oldWhen = $this->formatLocal($booking);
 
-        return DB::transaction(function () use ($booking, $newStart, $actor, $isClientInitiated, $comment) {
+        $booking = DB::transaction(function () use ($booking, $newStart, $actor, $isClientInitiated, $comment) {
             $this->lockRow('employees', $booking->employee_id);
             if ($booking->resource_id) {
                 $this->lockRow('resources', $booking->resource_id);
@@ -120,11 +139,15 @@ class BookingService
 
             return $booking->refresh();
         });
+
+        $this->notifyBestEffort($booking, fn (BookingReminderSender $r, Tenant $t, Booking $b) => $r->sendRescheduled($t, $b, $oldWhen));
+
+        return $booking;
     }
 
     public function cancel(Booking $booking, ?User $actor, string $reason, bool $isClientInitiated = false): Booking
     {
-        return DB::transaction(function () use ($booking, $actor, $reason, $isClientInitiated) {
+        $booking = DB::transaction(function () use ($booking, $actor, $reason, $isClientInitiated) {
             if (! in_array($booking->status, Booking::ACTIVE_STATUSES, true)) {
                 throw new BookingConflictException('Эта запись уже завершена или отменена.');
             }
@@ -151,13 +174,17 @@ class BookingService
 
             return $booking->refresh();
         });
+
+        $this->notifyBestEffort($booking, fn (BookingReminderSender $r, Tenant $t, Booking $b) => $r->sendCancelled($t, $b));
+
+        return $booking;
     }
 
     public function updateStatus(Booking $booking, string $newStatus, User $actor, ?string $comment = null): Booking
     {
         abort_unless(in_array($newStatus, Booking::STATUSES, true), 422, 'Неизвестный статус записи.');
 
-        return DB::transaction(function () use ($booking, $newStatus, $actor, $comment) {
+        $booking = DB::transaction(function () use ($booking, $newStatus, $actor, $comment) {
             $oldStatus = $booking->status;
             $updates = ['status' => $newStatus];
 
@@ -173,6 +200,12 @@ class BookingService
 
             return $booking->refresh();
         });
+
+        if ($newStatus === Booking::STATUS_COMPLETED) {
+            $this->notifyBestEffort($booking, fn (BookingReminderSender $r, Tenant $t, Booking $b) => $r->sendCompleted($t, $b));
+        }
+
+        return $booking;
     }
 
     public function storePaymentProof(Booking $booking, string $filePath, ?float $amount, ?string $operationNumber, User $actor): BookingPaymentProof
@@ -194,11 +227,16 @@ class BookingService
         });
     }
 
+    // ТЗ раздел 16 -- 'resubmission_requested' is the "запросить другой скриншот" action:
+    // distinct from a flat rejection so staff/UI can tell "customer needs to try again"
+    // apart from "this payment claim was denied."
+    public const PROOF_DECISIONS = ['confirmed', 'rejected', 'resubmission_requested'];
+
     public function reviewPaymentProof(BookingPaymentProof $proof, string $decision, User $actor, ?string $comment = null): Booking
     {
-        abort_unless(in_array($decision, ['confirmed', 'rejected'], true), 422);
+        abort_unless(in_array($decision, self::PROOF_DECISIONS, true), 422);
 
-        return DB::transaction(function () use ($proof, $decision, $actor, $comment) {
+        $booking = DB::transaction(function () use ($proof, $decision, $actor, $comment) {
             if ($proof->status !== 'pending') {
                 throw new BookingConflictException('Этот скриншот уже проверен.');
             }
@@ -228,10 +266,101 @@ class BookingService
             if ($decision === 'confirmed') {
                 $booking->update(['status' => Booking::STATUS_CONFIRMED, 'prepayment_status' => 'confirmed']);
             } else {
+                // Both 'rejected' and 'resubmission_requested' send the booking back to the
+                // same place -- customer needs to pay/submit again -- they only differ in the
+                // proof row's own status and the comment shown to staff.
                 $booking->update(['status' => Booking::STATUS_AWAITING_PAYMENT, 'prepayment_status' => 'pending']);
             }
 
-            $this->logStatus($booking, $oldStatus, $booking->status, $actor, $decision === 'confirmed' ? 'Оплата подтверждена' : ('Оплата отклонена'.($comment ? ': '.$comment : '')));
+            $historyComment = match ($decision) {
+                'confirmed' => 'Оплата подтверждена',
+                'resubmission_requested' => 'Запрошен другой скриншот оплаты'.($comment ? ': '.$comment : ''),
+                default => 'Оплата отклонена'.($comment ? ': '.$comment : ''),
+            };
+            $this->logStatus($booking, $oldStatus, $booking->status, $actor, $historyComment);
+
+            return $booking->refresh();
+        });
+
+        if ($decision === 'confirmed') {
+            $this->notifyBestEffort($booking, fn (BookingReminderSender $r, Tenant $t, Booking $b) => $r->sendPaymentConfirmed($t, $b));
+        }
+
+        return $booking;
+    }
+
+    /**
+     * ТЗ раздел 16 -- "отметить оплату наличными": staff bypasses the screenshot flow
+     * entirely because the customer paid in person. Allowed from any pre-confirmed state
+     * with a real prepayment on the booking, including mid-review (staff can always
+     * override what the customer submitted with what they actually received).
+     */
+    public function markPaidCash(Booking $booking, User $actor, ?string $comment = null): Booking
+    {
+        if ($booking->prepayment_amount <= 0) {
+            throw new BookingConflictException('У этой записи нет предоплаты, отмечать нечего.');
+        }
+
+        if (! in_array($booking->status, [Booking::STATUS_TEMP_HOLD, Booking::STATUS_AWAITING_PAYMENT, Booking::STATUS_PAYMENT_REVIEW], true)) {
+            throw new BookingConflictException('Оплату для этой записи отмечать уже поздно — проверьте текущий статус.');
+        }
+
+        $booking = DB::transaction(function () use ($booking, $actor, $comment) {
+            $oldStatus = $booking->status;
+            $booking->update(['status' => Booking::STATUS_CONFIRMED, 'prepayment_status' => 'confirmed']);
+            $this->logStatus($booking, $oldStatus, Booking::STATUS_CONFIRMED, $actor, 'Оплата наличными подтверждена'.($comment ? ': '.$comment : ''));
+
+            return $booking->refresh();
+        });
+
+        $this->notifyBestEffort($booking, fn (BookingReminderSender $r, Tenant $t, Booking $b) => $r->sendPaymentConfirmed($t, $b));
+
+        return $booking;
+    }
+
+    /**
+     * ТЗ раздел 19 -- refund lifecycle, kept as its own explicit action rather than
+     * folded into cancel(): a refund can be requested for a booking that's already
+     * cancelled (the customer only asks for their money back after finding out the visit
+     * won't happen), so this must not require any particular booking status beyond "this
+     * prepayment was actually paid."
+     */
+    public function requestRefund(Booking $booking, User $actor, ?string $reason = null): Booking
+    {
+        if ($booking->prepayment_status === 'refund_pending' || $booking->prepayment_status === 'refund_processing') {
+            return $booking;
+        }
+
+        if ($booking->prepayment_status !== 'confirmed') {
+            throw new BookingConflictException('Возврат можно оформить только для подтверждённой оплаты.');
+        }
+
+        return DB::transaction(function () use ($booking, $actor, $reason) {
+            $booking->update(['prepayment_status' => 'refund_pending']);
+            $this->logStatus($booking, $booking->status, $booking->status, $actor, 'Запрошен возврат предоплаты'.($reason ? ': '.$reason : ''));
+
+            return $booking->refresh();
+        });
+    }
+
+    public const REFUND_STATUSES = ['refund_processing', 'refunded', 'refund_rejected'];
+
+    public function updateRefundStatus(Booking $booking, string $status, User $actor, ?string $comment = null): Booking
+    {
+        abort_unless(in_array($status, self::REFUND_STATUSES, true), 422);
+
+        if (! in_array($booking->prepayment_status, ['refund_pending', 'refund_processing'], true)) {
+            throw new BookingConflictException('Для этой записи не был запрошен возврат.');
+        }
+
+        return DB::transaction(function () use ($booking, $status, $actor, $comment) {
+            $booking->update(['prepayment_status' => $status]);
+            $label = match ($status) {
+                'refund_processing' => 'Возврат выполняется',
+                'refunded' => 'Возврат выполнен',
+                default => 'Возврат отклонён',
+            };
+            $this->logStatus($booking, $booking->status, $booking->status, $actor, $label.($comment ? ': '.$comment : ''));
 
             return $booking->refresh();
         });
@@ -298,7 +427,9 @@ class BookingService
     /** Idempotent: a gateway retrying the same webhook after we already processed it (status no longer 'pending') is a silent no-op, not an error. */
     public function confirmGatewayPayment(BookingGatewayPayment $payment, array $parsedWebhook): Booking
     {
-        return DB::transaction(function () use ($payment, $parsedWebhook) {
+        $succeeded = false;
+
+        $booking = DB::transaction(function () use ($payment, $parsedWebhook, &$succeeded) {
             $payment = BookingGatewayPayment::query()->lockForUpdate()->findOrFail($payment->id);
 
             if ($payment->status !== 'pending') {
@@ -317,12 +448,19 @@ class BookingService
             if ($parsedWebhook['status'] === 'succeeded') {
                 $booking->update(['status' => Booking::STATUS_CONFIRMED, 'prepayment_status' => 'confirmed']);
                 $this->logStatus($booking, $oldStatus, Booking::STATUS_CONFIRMED, null, 'Оплата подтверждена через '.$payment->gateway);
+                $succeeded = true;
             } else {
                 $this->logStatus($booking, $oldStatus, $oldStatus, null, 'Оплата через '.$payment->gateway.' не прошла');
             }
 
             return $booking->refresh();
         });
+
+        if ($succeeded) {
+            $this->notifyBestEffort($booking, fn (BookingReminderSender $r, Tenant $t, Booking $b) => $r->sendPaymentConfirmed($t, $b));
+        }
+
+        return $booking;
     }
 
     public function policyFor(int $companyId, ?int $serviceId): CancellationPolicy
@@ -395,5 +533,32 @@ class BookingService
     private function lockRow(string $table, int $id): void
     {
         DB::table($table)->where('id', $id)->lockForUpdate()->first();
+    }
+
+    /** Same "d.m в H:i" shape BookingReminderSender/AiChatBookingAssistant already use for customer-facing times. */
+    private function formatLocal(Booking $booking): string
+    {
+        $company = $booking->company ?? \App\Models\Company::withoutGlobalScopes()->find($booking->company_id);
+        $timezone = $company?->timezone ?: config('app.timezone');
+
+        return $booking->starts_at->copy()->setTimezone($timezone)->translatedFormat('d.m в H:i');
+    }
+
+    /**
+     * Every reminder/notification send (see BookingReminderSender) is best-effort by
+     * design: a customer with no messageable channel on file, or a transient send
+     * failure, must never turn a successful booking write into a failed API response.
+     */
+    private function notifyBestEffort(Booking $booking, callable $send): void
+    {
+        try {
+            $tenant = Tenant::query()->find($booking->tenant_id);
+
+            if ($tenant) {
+                $send($this->reminders, $tenant, $booking);
+            }
+        } catch (Throwable $error) {
+            Log::warning('BookingService: notification failed', ['booking_id' => $booking->id, 'error' => $error->getMessage()]);
+        }
     }
 }

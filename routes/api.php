@@ -264,6 +264,8 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('bookings/{booking}/payment-proof', [BookingController::class, 'storePaymentProof'])->middleware('throttle:20,1');
         Route::patch('bookings/{booking}/payment-proof/{paymentProof}', [BookingController::class, 'reviewPaymentProof']);
         Route::post('bookings/{booking}/gateway-payment', [BookingController::class, 'initiateGatewayPayment'])->middleware('throttle:20,1');
+        Route::post('bookings/{booking}/mark-cash-paid', [BookingController::class, 'markCashPaid']);
+        Route::post('bookings/{booking}/refund', [BookingController::class, 'refund']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

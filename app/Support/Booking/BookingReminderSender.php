@@ -39,6 +39,86 @@ class BookingReminderSender
     {
         $booking->loadMissing(['customer', 'service', 'employee', 'company']);
 
+        if ($this->sendMessage($tenant, $booking, $this->message($booking), 'reminder_24h') === null) {
+            return false;
+        }
+
+        $booking->forceFill(['reminder_sent_at' => now()])->save();
+
+        return true;
+    }
+
+    /**
+     * ТЗ раздел 20 -- the remaining event-triggered reminders, beyond the original
+     * 24h-before one above. Each is a thin wrapper around sendMessage() with its own
+     * dedupe key in the newer reminders_sent JSON column (kept separate from
+     * reminder_sent_at, which stays 24h-only for backward compatibility). All are
+     * best-effort by design (see sendMessage()'s docblock) -- called straight from
+     * BookingService's write methods, and must never be able to fail a real booking
+     * action just because the customer has no messageable channel on file.
+     */
+    public function sendCreated(Tenant $tenant, Booking $booking): bool
+    {
+        return $this->sendOnce($tenant, $booking, 'created', $this->createdMessage($booking));
+    }
+
+    public function sendPaymentConfirmed(Tenant $tenant, Booking $booking): bool
+    {
+        return $this->sendOnce($tenant, $booking, 'payment_confirmed', $this->paymentConfirmedMessage($booking));
+    }
+
+    public function sendRescheduled(Tenant $tenant, Booking $booking, string $oldWhen): bool
+    {
+        // Reschedule can happen more than once per booking -- keyed by the new time so
+        // each real reschedule still sends its own notice instead of only the first.
+        return $this->sendOnce($tenant, $booking, 'rescheduled_'.$booking->starts_at->timestamp, $this->rescheduledMessage($booking, $oldWhen));
+    }
+
+    public function sendCancelled(Tenant $tenant, Booking $booking): bool
+    {
+        return $this->sendOnce($tenant, $booking, 'cancelled', $this->cancelledMessage($booking));
+    }
+
+    public function sendCompleted(Tenant $tenant, Booking $booking): bool
+    {
+        return $this->sendOnce($tenant, $booking, 'completed', $this->completedMessage($booking));
+    }
+
+    public function send3HoursBefore(Tenant $tenant, Booking $booking): bool
+    {
+        return $this->sendOnce($tenant, $booking, '3h_before', $this->threeHoursMessage($booking));
+    }
+
+    private function sendOnce(Tenant $tenant, Booking $booking, string $eventKey, string $text): bool
+    {
+        if (in_array($eventKey, $booking->reminders_sent ?? [], true)) {
+            return false;
+        }
+
+        $booking->loadMissing(['customer', 'service', 'employee', 'company']);
+
+        if ($this->sendMessage($tenant, $booking, $text, $eventKey) === null) {
+            return false;
+        }
+
+        $sent = $booking->reminders_sent ?? [];
+        $sent[] = $eventKey;
+        $booking->forceFill(['reminders_sent' => array_values(array_unique($sent))])->save();
+
+        return true;
+    }
+
+    /**
+     * Shared send path for every reminder/notification, old and new: resolves the
+     * customer's most recently messaged channel, sends through it, and records a real
+     * Message row so the notice shows up in the Inbox thread like any other outbound
+     * send. Returns the resulting external_id, or null when there's no messageable
+     * channel or the send itself failed -- never throws, since a booking write (create/
+     * reschedule/cancel/confirm payment) must always succeed regardless of whether the
+     * customer can be proactively notified.
+     */
+    private function sendMessage(Tenant $tenant, Booking $booking, string $text, string $eventKey): ?string
+    {
         $conversation = Conversation::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->where('customer_id', $booking->customer_id)
@@ -50,10 +130,8 @@ class BookingReminderSender
         $provider = $conversation?->channel?->provider;
 
         if (! $conversation || ! $provider) {
-            return false;
+            return null;
         }
-
-        $text = $this->message($booking);
 
         try {
             $externalId = match ($provider) {
@@ -66,20 +144,18 @@ class BookingReminderSender
         } catch (Throwable $error) {
             Log::warning('BookingReminderSender: send failed', [
                 'booking_id' => $booking->id,
+                'event' => $eventKey,
                 'provider' => $provider,
                 'error' => $error->getMessage(),
             ]);
 
-            return false;
+            return null;
         }
 
         if ($externalId === null) {
-            return false;
+            return null;
         }
 
-        // Recorded as a real Message (sender_type 'system', same enum
-        // ChatwootWebhookHandler already accepts) so the reminder shows up in
-        // the conversation thread in Inbox, same as any other outbound send.
         Message::withoutGlobalScopes()->create([
             'tenant_id' => $tenant->id,
             'conversation_id' => $conversation->id,
@@ -88,12 +164,69 @@ class BookingReminderSender
             'body' => $text,
             'external_id' => $externalId,
             'sent_at' => now(),
-            'meta' => ['event' => 'booking_reminder', 'booking_id' => $booking->id],
+            'meta' => ['event' => 'booking_'.$eventKey, 'booking_id' => $booking->id],
         ]);
 
-        $booking->forceFill(['reminder_sent_at' => now()])->save();
+        return $externalId;
+    }
 
-        return true;
+    private function whereWhomWhen(Booking $booking): array
+    {
+        $timezone = $booking->company?->timezone ?: config('app.timezone');
+        $when = $booking->starts_at->copy()->setTimezone($timezone)->translatedFormat('d.m в H:i');
+        $service = $booking->service?->name ?? 'услугу';
+        $employee = $booking->employee?->name;
+        $company = $booking->company?->name;
+
+        return [$when, $service, $employee ? " к {$employee}" : '', $company ? " в «{$company}»" : ''];
+    }
+
+    private function createdMessage(Booking $booking): string
+    {
+        [$when, $service, $withWhom, $where] = $this->whereWhomWhen($booking);
+
+        $paymentNote = $booking->prepayment_amount > 0
+            ? ' Для подтверждения потребуется предоплата — свяжемся с вами по деталям оплаты.'
+            : '';
+
+        return "Вы записаны: «{$service}»{$withWhom}{$where} — {$when}.{$paymentNote}";
+    }
+
+    private function paymentConfirmedMessage(Booking $booking): string
+    {
+        [$when, $service, $withWhom, $where] = $this->whereWhomWhen($booking);
+
+        return "Оплата получена, ваша запись подтверждена: «{$service}»{$withWhom}{$where} — {$when}.";
+    }
+
+    private function rescheduledMessage(Booking $booking, string $oldWhen): string
+    {
+        [$when, $service, $withWhom, $where] = $this->whereWhomWhen($booking);
+
+        return "Ваша запись перенесена: «{$service}»{$withWhom}{$where} — было {$oldWhen}, стало {$when}.";
+    }
+
+    private function cancelledMessage(Booking $booking): string
+    {
+        [$when, $service, $withWhom, $where] = $this->whereWhomWhen($booking);
+
+        return "Ваша запись отменена: «{$service}»{$withWhom}{$where} — {$when}.";
+    }
+
+    private function completedMessage(Booking $booking): string
+    {
+        $service = $booking->service?->name ?? 'услугу';
+        $company = $booking->company?->name;
+        $where = $company ? " в «{$company}»" : '';
+
+        return "Спасибо, что посетили нас{$where}! Будем рады видеть вас снова — если хотите повторить «{$service}», просто напишите нам.";
+    }
+
+    private function threeHoursMessage(Booking $booking): string
+    {
+        [$when, $service, $withWhom, $where] = $this->whereWhomWhen($booking);
+
+        return "Напоминаем: сегодня в {$when} у вас запись на «{$service}»{$withWhom}{$where}.";
     }
 
     private function message(Booking $booking): string

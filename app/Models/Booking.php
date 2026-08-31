@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'company_id', 'customer_id', 'service_id', 'employee_id', 'resource_id', 'starts_at', 'ends_at', 'status', 'price', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count'])]
+#[Fillable(['tenant_id', 'company_id', 'customer_id', 'service_id', 'employee_id', 'resource_id', 'starts_at', 'ends_at', 'status', 'price', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
 class Booking extends Model
 {
     use BelongsToTenant;
@@ -37,7 +37,10 @@ class Booking extends Model
         self::STATUS_CONFIRMED, self::STATUS_CLIENT_ARRIVED, self::STATUS_IN_PROGRESS,
     ];
 
-    public const PREPAYMENT_STATUSES = ['none', 'pending', 'review', 'confirmed', 'refund_pending', 'refunded', 'rejected', 'kept'];
+    // ТЗ раздел 19 -- 'rejected' means a submitted payment PROOF was rejected (customer still
+    // owes payment); the two refund-specific statuses below are deliberately distinct so a
+    // rejected refund request is never confused with a rejected payment screenshot.
+    public const PREPAYMENT_STATUSES = ['none', 'pending', 'review', 'confirmed', 'refund_pending', 'refund_processing', 'refunded', 'refund_rejected', 'rejected', 'kept'];
 
     protected function casts(): array
     {
@@ -46,6 +49,7 @@ class Booking extends Model
             'ends_at' => 'datetime',
             'hold_expires_at' => 'datetime',
             'reminder_sent_at' => 'datetime',
+            'reminders_sent' => 'array',
             'price' => 'float',
             'prepayment_amount' => 'float',
             'reschedule_count' => 'integer',

@@ -228,7 +228,7 @@ class BookingController extends Controller
         abort_unless($paymentProof->booking_id === $booking->id, 404);
 
         $data = $request->validate([
-            'decision' => ['required', Rule::in(['confirmed', 'rejected'])],
+            'decision' => ['required', Rule::in(BookingService::PROOF_DECISIONS)],
             'comment' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -243,5 +243,52 @@ class BookingController extends Controller
         $audit->record('booking.payment_proof_reviewed', $booking, $booking->toArray(), $before, $request);
 
         return response()->json($booking->load('paymentProofs.reviewedBy:id,name'));
+    }
+
+    /** ТЗ раздел 16 -- "отметить оплату наличными". */
+    public function markCashPaid(Request $request, Booking $booking, BookingService $bookingService, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('update', $booking);
+
+        $data = $request->validate(['comment' => ['nullable', 'string', 'max:500']]);
+        $before = $booking->toArray();
+
+        try {
+            $booking = $bookingService->markPaidCash($booking, $request->user(), $data['comment'] ?? null);
+        } catch (BookingConflictException $e) {
+            throw ValidationException::withMessages(['booking' => $e->getMessage()]);
+        }
+
+        $audit->record('booking.marked_cash_paid', $booking, $booking->toArray(), $before, $request);
+
+        return response()->json($booking);
+    }
+
+    /** ТЗ раздел 19 -- запрос и обработка возврата предоплаты. */
+    public function refund(Request $request, Booking $booking, BookingService $bookingService, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('update', $booking);
+
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['request', 'processing', 'refunded', 'rejected'])],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $before = $booking->toArray();
+
+        try {
+            if ($data['action'] === 'request') {
+                $booking = $bookingService->requestRefund($booking, $request->user(), $data['comment'] ?? null);
+            } else {
+                $status = ['processing' => 'refund_processing', 'refunded' => 'refunded', 'rejected' => 'refund_rejected'][$data['action']];
+                $booking = $bookingService->updateRefundStatus($booking, $status, $request->user(), $data['comment'] ?? null);
+            }
+        } catch (BookingConflictException $e) {
+            throw ValidationException::withMessages(['booking' => $e->getMessage()]);
+        }
+
+        $audit->record('booking.refund_'.$data['action'], $booking, $booking->toArray(), $before, $request);
+
+        return response()->json($booking);
     }
 }

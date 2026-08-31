@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\Storage;
 #[Fillable(['booking_id', 'file_path', 'amount', 'operation_number', 'status', 'reviewed_by_user_id', 'reviewed_at', 'comment'])]
 class BookingPaymentProof extends Model
 {
-    public const STATUSES = ['pending', 'confirmed', 'rejected'];
+    // ТЗ раздел 16 -- 'resubmission_requested' is deliberately distinct from a flat 'rejected':
+    // it means the booking goes back to awaiting a NEW screenshot, not that the payment claim
+    // itself was denied.
+    public const STATUSES = ['pending', 'confirmed', 'rejected', 'resubmission_requested'];
 
     protected $appends = ['file_url'];
 

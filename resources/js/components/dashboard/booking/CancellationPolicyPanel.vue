@@ -13,7 +13,7 @@ const props = defineProps<{ tenantSlug: string }>();
 const locale = useLocaleStore();
 const loading = ref(true);
 const saving = ref(false);
-const form = ref({ free_reschedule_hours: 48, late_reschedule_hours: 24, max_client_reschedules: 2, no_show_forfeits_prepayment: true });
+const form = ref({ free_reschedule_hours: 48, late_reschedule_hours: 24, max_client_reschedules: 2, no_show_forfeits_prepayment: true, hold_minutes: 15 });
 
 async function load(): Promise<void> {
     loading.value = true;
@@ -56,6 +56,9 @@ async function save(): Promise<void> {
             </label>
             <label class="grid gap-1 text-sm ui-text">{{ locale.t('booking.policyMax') }}
                 <Input v-model.number="form.max_client_reschedules" type="number" min="0" />
+            </label>
+            <label class="grid gap-1 text-sm ui-text">{{ locale.t('booking.policyHold') }}
+                <Input v-model.number="form.hold_minutes" type="number" min="10" max="60" />
             </label>
             <label class="flex items-center justify-between text-sm ui-text">{{ locale.t('booking.policyForfeit') }}
                 <Switch v-model="form.no_show_forfeits_prepayment" />

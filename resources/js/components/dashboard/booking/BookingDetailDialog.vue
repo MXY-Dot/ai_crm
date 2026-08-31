@@ -158,7 +158,7 @@ async function copyCheckoutUrl(): Promise<void> {
     }
 }
 
-async function reviewProof(proof: PaymentProof, decision: 'confirmed' | 'rejected'): Promise<void> {
+async function reviewProof(proof: PaymentProof, decision: 'confirmed' | 'rejected' | 'resubmission_requested'): Promise<void> {
     if (! booking.value) return;
     busy.value = true;
     try {
@@ -173,8 +173,41 @@ async function reviewProof(proof: PaymentProof, decision: 'confirmed' | 'rejecte
     }
 }
 
+async function markCashPaid(): Promise<void> {
+    if (! booking.value || ! confirm(locale.t('booking.markCashPaidConfirm'))) return;
+    busy.value = true;
+    try {
+        await apiRequest(`/api/bookings/${booking.value.id}/mark-cash-paid`, { method: 'POST', tenant: props.tenantSlug });
+        toast.success(locale.t('booking.saved'));
+        emit('changed');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        busy.value = false;
+    }
+}
+
+async function refundAction(action: 'request' | 'processing' | 'refunded' | 'rejected'): Promise<void> {
+    if (! booking.value) return;
+    busy.value = true;
+    try {
+        await apiRequest(`/api/bookings/${booking.value.id}/refund`, { method: 'POST', body: { action }, tenant: props.tenantSlug });
+        toast.success(locale.t('booking.saved'));
+        emit('changed');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        busy.value = false;
+    }
+}
+
 const isActive = computed(() => booking.value && ! ['completed', 'cancelled', 'no_show'].includes(booking.value.status));
 const pendingProof = computed(() => booking.value?.payment_proofs.find((p) => p.status === 'pending') ?? null);
+const canMarkCash = computed(() => booking.value && booking.value.prepayment_amount > 0 && booking.value.prepayment_status !== 'confirmed' && ! ['refund_pending', 'refund_processing', 'refunded'].includes(booking.value.prepayment_status));
+const canRequestRefund = computed(() => booking.value?.prepayment_status === 'confirmed');
+const refundInFlight = computed(() => booking.value && ['refund_pending', 'refund_processing'].includes(booking.value.prepayment_status));
 </script>
 
 <template>
@@ -192,7 +225,7 @@ const pendingProof = computed(() => booking.value?.payment_proofs.find((p) => p.
                     <p class="font-medium ui-text">{{ booking.customer?.name }} <span class="ui-subtle">· {{ booking.customer?.phone }}</span></p>
                     <p class="ui-subtle">{{ booking.service?.name }} · {{ booking.employee?.name }}<span v-if="booking.resource"> · {{ booking.resource.name }}</span></p>
                     <p class="ui-subtle">{{ new Date(booking.starts_at).toLocaleString() }} — {{ new Date(booking.ends_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }}</p>
-                    <p class="ui-subtle">{{ locale.t('booking.price') }}: {{ booking.price }}<span v-if="booking.prepayment_amount"> · {{ locale.t('booking.prepayment') }}: {{ booking.prepayment_amount }} ({{ booking.prepayment_status }})</span></p>
+                    <p class="ui-subtle">{{ locale.t('booking.price') }}: {{ booking.price }}<span v-if="booking.prepayment_amount"> · {{ locale.t('booking.prepayment') }}: {{ booking.prepayment_amount }} ({{ locale.t('booking.prepaymentStatuses.' + booking.prepayment_status) }})</span></p>
                     <p v-if="booking.notes" class="ui-subtle">{{ booking.notes }}</p>
                     <p class="font-medium ui-text">{{ locale.t('booking.statuses.' + booking.status) }}</p>
                 </section>
@@ -215,8 +248,9 @@ const pendingProof = computed(() => booking.value?.payment_proofs.find((p) => p.
                     <a :href="pendingProof.file_url" target="_blank" class="text-xs text-primary underline">{{ pendingProof.file_url }}</a>
                     <p v-if="pendingProof.amount" class="text-xs ui-subtle">{{ locale.t('booking.proofAmount') }}: {{ pendingProof.amount }}</p>
                     <p v-if="pendingProof.operation_number" class="text-xs ui-subtle">{{ locale.t('booking.proofOperation') }}: {{ pendingProof.operation_number }}</p>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <Button size="sm" :disabled="busy" @click="reviewProof(pendingProof, 'confirmed')">{{ locale.t('booking.confirmPayment') }}</Button>
+                        <Button size="sm" variant="outline" :disabled="busy" @click="reviewProof(pendingProof, 'resubmission_requested')">{{ locale.t('booking.requestNewScreenshot') }}</Button>
                         <Button size="sm" variant="outline" :disabled="busy" @click="reviewProof(pendingProof, 'rejected')">{{ locale.t('booking.rejectPayment') }}</Button>
                     </div>
                 </section>
@@ -237,6 +271,20 @@ const pendingProof = computed(() => booking.value?.payment_proofs.find((p) => p.
                         <Input v-model="proofOperation" :placeholder="locale.t('booking.proofOperation')" />
                     </div>
                     <Button size="sm" class="w-fit" :disabled="busy || ! proofFile" @click="uploadProof">{{ locale.t('booking.uploadProof') }}</Button>
+
+                    <Button v-if="canMarkCash" size="sm" variant="outline" class="mt-2 w-fit" :disabled="busy" @click="markCashPaid">{{ locale.t('booking.markCashPaid') }}</Button>
+                </section>
+
+                <section v-if="canRequestRefund || refundInFlight" class="grid gap-2 rounded-lg border border-border p-3">
+                    <p class="text-xs font-medium ui-subtle">{{ locale.t('booking.refundSection') }}: {{ locale.t('booking.prepaymentStatuses.' + booking.prepayment_status) }}</p>
+                    <div class="flex flex-wrap gap-2">
+                        <Button v-if="canRequestRefund" size="sm" variant="outline" :disabled="busy" @click="refundAction('request')">{{ locale.t('booking.requestRefund') }}</Button>
+                        <template v-if="refundInFlight">
+                            <Button size="sm" variant="outline" :disabled="busy" @click="refundAction('processing')">{{ locale.t('booking.refundMarkProcessing') }}</Button>
+                            <Button size="sm" :disabled="busy" @click="refundAction('refunded')">{{ locale.t('booking.markRefunded') }}</Button>
+                            <Button size="sm" variant="outline" :disabled="busy" @click="refundAction('rejected')">{{ locale.t('booking.rejectRefund') }}</Button>
+                        </template>
+                    </div>
                 </section>
 
                 <section v-if="isActive" class="grid gap-2">

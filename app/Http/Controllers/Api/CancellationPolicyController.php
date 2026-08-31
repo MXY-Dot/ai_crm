@@ -35,6 +35,8 @@ class CancellationPolicyController extends Controller
             'late_reschedule_hours' => ['required', 'integer', 'min:0', 'lte:free_reschedule_hours'],
             'max_client_reschedules' => ['required', 'integer', 'min:0', 'max:20'],
             'no_show_forfeits_prepayment' => ['required', 'boolean'],
+            // ТЗ раздел 13 -- владелец может установить от 10 до 60 минут.
+            'hold_minutes' => ['required', 'integer', 'min:10', 'max:60'],
         ]);
 
         $company = Company::query()->where('tenant_id', $user->tenant_id)->firstOrFail();

@@ -14,6 +14,8 @@ Schedule::command('conversations:follow-up')->hourly()->withoutOverlapping();
 Schedule::command('conversations:analyze')->hourly()->withoutOverlapping();
 Schedule::command('customers:post-service-follow-up')->daily()->withoutOverlapping();
 Schedule::command('bookings:send-reminders')->hourly()->withoutOverlapping();
+Schedule::command('bookings:send-reminders-3h')->everyFifteenMinutes()->withoutOverlapping();
+Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
 // 04:00 UTC ≈ 09:00 in Tajikistan (UTC+5) — start of the business day, so the
 // report is waiting when the owner opens WERO, not generated mid-shift.
 Schedule::command('analytics:generate-reports --type=weekly')->weeklyOn(1, '04:00')->withoutOverlapping();
