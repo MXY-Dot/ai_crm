@@ -18,6 +18,11 @@ Schedule::command('bookings:send-reminders-3h')->everyFifteenMinutes()->withoutO
 Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
 Schedule::command('conversations:notify-idle-operator')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('conversations:notify-waiting-too-long')->everyFiveMinutes()->withoutOverlapping();
+// ТЗ раздел 18 — notification delivery frequency digests (see
+// AppNotification::passesFrequencyGate() for the per-event suppression side).
+Schedule::command('notifications:send-digests --frequency=hourly')->hourly()->withoutOverlapping();
+Schedule::command('notifications:send-digests --frequency=daily')->dailyAt('04:00')->withoutOverlapping();
+Schedule::command('notifications:send-digests --frequency=weekly')->weeklyOn(1, '04:00')->withoutOverlapping();
 // 04:00 UTC ≈ 09:00 in Tajikistan (UTC+5) — start of the business day, so the
 // report is waiting when the owner opens WERO, not generated mid-shift.
 Schedule::command('analytics:generate-reports --type=weekly')->weeklyOn(1, '04:00')->withoutOverlapping();

@@ -25,6 +25,9 @@ class AppNotification extends Notification
     /** No new column/migration — stored inside the existing `data` JSON blob, same as title/body/action_url. */
     public const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
+    /** ТЗ раздел 18 — delivery frequency. 'instant' is the default (today's behavior); the other three defer mail/Telegram to NotifySendDigestsCommand instead of sending per-event (see passesFrequencyGate() below). */
+    public const FREQUENCIES = ['instant', 'hourly', 'daily', 'weekly', 'critical_only'];
+
     public function __construct(
         private readonly string $type,
         private readonly string $title,
@@ -94,7 +97,7 @@ class AppNotification extends Notification
 
     private function wantsMail(object $notifiable): bool
     {
-        if (! $notifiable instanceof User || ! $notifiable->email) {
+        if (! $notifiable instanceof User || ! $notifiable->email || ! $this->passesFrequencyGate($notifiable)) {
             return false;
         }
 
@@ -103,11 +106,36 @@ class AppNotification extends Notification
 
     private function wantsTelegram(object $notifiable): bool
     {
-        if (! $notifiable instanceof User || ! $notifiable->telegram_chat_id) {
+        if (! $notifiable instanceof User || ! $notifiable->telegram_chat_id || ! $this->passesFrequencyGate($notifiable)) {
             return false;
         }
 
         return (bool) ($this->preferences($notifiable)['telegram_bot'] ?? false);
+    }
+
+    /**
+     * ТЗ раздел 18 — "сразу / раз в час / ежедневно / еженедельно / только
+     * критические". 'urgent' always bypasses digest mode and sends right
+     * away regardless of frequency -- a complaint or a stuck AI pipeline
+     * sitting in an hourly digest for up to an hour defeats the point of
+     * calling it urgent. Non-urgent items under a digest frequency are
+     * still written to the database channel (toDatabase() isn't gated here,
+     * so the notification center always shows everything) -- they just don't
+     * also fire mail/Telegram per-event; NotifySendDigestsCommand picks up
+     * whatever's still undigested (digested_at IS NULL) on its own schedule.
+     */
+    private function passesFrequencyGate(User $notifiable): bool
+    {
+        $frequency = (string) ($this->preferences($notifiable)['frequency'] ?? 'instant');
+
+        if ($this->priority === 'urgent') {
+            return true;
+        }
+
+        return match ($frequency) {
+            'critical_only', 'hourly', 'daily', 'weekly' => false,
+            default => true,
+        };
     }
 
     private function preferences(User $notifiable): array
