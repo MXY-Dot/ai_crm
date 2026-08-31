@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useCrmDashboardStore } from '../../stores/crmDashboard';
-import { useLocaleStore } from '../../stores/locale';
 import { Card } from '../ui/card';
+import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
+import { useCrmDashboardStore } from '../../stores/crmDashboard';
+import { useLocaleStore } from '../../stores/locale';
 
 const FREQUENCIES = ['instant', 'hourly', 'daily', 'weekly', 'critical_only'] as const;
 type Frequency = (typeof FREQUENCIES)[number];
@@ -36,9 +37,32 @@ const notifications = computed(() => {
         push: (value.push as boolean) ?? false,
         telegram_bot: (value.telegram_bot as boolean) ?? false,
         frequency: (value.frequency as Frequency) ?? 'instant',
+        large_order_threshold: (value.large_order_threshold as number | null) ?? null,
         types,
     };
 });
+
+// Local editable copy so typing a threshold doesn't PATCH on every keystroke —
+// only when the field loses focus, same UX as any other blur-to-save number input.
+const largeOrderThresholdInput = ref('');
+watch(() => notifications.value.large_order_threshold, (value) => {
+    largeOrderThresholdInput.value = value ? String(value) : '';
+}, { immediate: true });
+
+/** ТЗ раздел 15 — "появился крупный заказ" threshold, in the tenant's own currency. Empty/0 turns the trigger off entirely — no invented default. */
+async function saveLargeOrderThreshold(): Promise<void> {
+    if (! company.value) return;
+
+    const parsed = parseFloat(largeOrderThresholdInput.value);
+    const threshold = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+
+    await store.updateCompany(company.value.id, {
+        brand_settings: {
+            ...(company.value.brand_settings ?? {}),
+            notifications: { ...notifications.value, large_order_threshold: threshold },
+        },
+    });
+}
 
 /** null = inherits the global email/telegram toggle above; true/false = explicit per-type override. */
 function typeChannelValue(bucket: Bucket, channel: 'email' | 'telegram_bot'): boolean | null {
@@ -120,6 +144,23 @@ async function setTypeChannel(bucket: Bucket, channel: 'email' | 'telegram_bot',
                         <SelectItem v-for="f in FREQUENCIES" :key="f" :value="f">{{ locale.t('company.notifyFrequencyOptions.' + f) }}</SelectItem>
                     </SelectContent>
                 </Select>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium ui-text">{{ locale.t('company.notifyLargeOrder') }}</p>
+                    <p class="text-xs ui-subtle">{{ locale.t('company.notifyLargeOrderHelp') }}</p>
+                </div>
+                <Input
+                    v-model="largeOrderThresholdInput"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="h-9 w-32"
+                    :placeholder="locale.t('company.notifyLargeOrderOff')"
+                    :disabled="busy"
+                    @blur="saveLargeOrderThreshold"
+                    @keyup.enter="saveLargeOrderThreshold"
+                />
             </div>
 
             <div>

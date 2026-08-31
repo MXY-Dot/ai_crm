@@ -143,6 +143,23 @@ class AiWorkflow
         $hadWantsManagerLabel = in_array('wants_manager', $conversation->labels ?? [], true);
         $hadCompetitorLabel = in_array('competitor_mentioned', $conversation->labels ?? [], true);
         $hadRepeatedProblemLabel = in_array('repeated_problem', $conversation->labels ?? [], true);
+        $hadLargeOrderLabel = in_array('large_order', $conversation->labels ?? [], true);
+
+        // ТЗ раздел 15 — "появился крупный заказ". Only real when the tenant has
+        // actually set a threshold in their own currency (Company settings,
+        // notifications.large_order_threshold) -- no invented global default,
+        // since a "large" order for a coffee shop and a jewelry store aren't
+        // remotely the same number. Same currency-tagged-number regex
+        // discipline as extractDiscountPercent() below, just reading the
+        // CUSTOMER's message instead of the AI's own reply.
+        $largeOrderThreshold = (float) Arr::get($company->brand_settings ?? [], 'notifications.large_order_threshold', 0);
+        $orderAmount = $largeOrderThreshold > 0 ? $this->extractOrderAmount($message->body) : null;
+        if ($orderAmount !== null && $lead->amount === null) {
+            $lead->forceFill(['amount' => $orderAmount])->save();
+        }
+        if ($orderAmount !== null && $orderAmount >= $largeOrderThreshold && ! $hadLargeOrderLabel) {
+            $conversation->addLabel('large_order');
+        }
 
         // ЭТАП 3.7 — only labels with a real backing signal (AiRun.intent already
         // classifies these); no invented 'hot_lead'/'delivery' label with nothing
@@ -184,7 +201,7 @@ class AiWorkflow
             'priority' => ($decision->handoffRequired || $sentiment === 'negative') ? 'high' : $conversation->priority,
         ])->save();
 
-        $this->notifyConversationEvents($tenant, $conversation, $lead, $decision, $sentiment, $wasQualified, $hadComplaintLabel, $hadUnhappyLabel, $hadHandoffLabel, $hadWantsManagerLabel, $hadCompetitorLabel, $hadRepeatedProblemLabel);
+        $this->notifyConversationEvents($tenant, $conversation, $lead, $decision, $sentiment, $wasQualified, $hadComplaintLabel, $hadUnhappyLabel, $hadHandoffLabel, $hadWantsManagerLabel, $hadCompetitorLabel, $hadRepeatedProblemLabel, $hadLargeOrderLabel);
 
         // ЭТАП 16.11 — while this tenant's AI is genuinely down (not just this one
         // handoff), new conversations go straight to a human instead of waiting on
@@ -868,6 +885,29 @@ class AiWorkflow
     }
 
     /**
+     * ТЗ раздел 15 — "появился крупный заказ". Same currency-tagged-number
+     * discipline as extractDiscountPercent() above: only matches a number
+     * directly adjacent to a currency word/symbol, so an ordinary phone
+     * number, quantity or date in the customer's message never counts as an
+     * amount. Thousands separators (space, comma, non-breaking space -- all
+     * common in ru-market chat text, e.g. "5 000 сомони") are stripped;
+     * amounts are treated as whole units, no decimal parsing attempted.
+     */
+    private function extractOrderAmount(string $text): ?float
+    {
+        $currency = 'сомони|смн\.?|TJS|руб\w*|RUB|\$|USD|долл\w*';
+
+        if (! preg_match('/(\d[\d\s,\x{00A0}]{0,12}\d|\d)\s*(?:'.$currency.')|(?:'.$currency.')\s*(\d[\d\s,\x{00A0}]{0,12}\d|\d)/iu', $text, $matches)) {
+            return null;
+        }
+
+        $raw = ($matches[1] ?? '') !== '' ? $matches[1] : ($matches[2] ?? '');
+        $amount = (float) str_replace([' ', ',', "\u{00A0}"], '', $raw);
+
+        return $amount > 0 ? $amount : null;
+    }
+
+    /**
      * @param array{text: string, provider: string, model: string, tokens_in: ?int, tokens_out: ?int, latency_ms: int, cost_usd: ?float, used_backup?: bool}|null $usage
      */
     private function run(Tenant $tenant, AiAgent $agent, Conversation $conversation, Lead $lead, Message $message, AiDecision $decision, string $engine, ?array $usage): AiRun
@@ -1252,12 +1292,13 @@ class AiWorkflow
     }
 
     /**
-     * ТЗ раздел 15 — real-time smart notifications. 8 of the spec's 14 trigger
-     * types now (the ones with a real, already-computed signal at this exact
-     * point in the pipeline — see the docblock on NotifyConversationEventJob);
-     * each fires at most once per conversation, gated on the label/lead-status
-     * state captured just before this turn's writes so a customer staying
-     * negative/qualified across many messages doesn't spam staff on every one.
+     * ТЗ раздел 15 — real-time smart notifications, the subset with a real,
+     * already-computed signal at this exact point in the pipeline (see the
+     * docblock on NotifyConversationEventJob for the full trigger list,
+     * including the ones dispatched from elsewhere). Each fires at most once
+     * per conversation, gated on the label/lead-status state captured just
+     * before this turn's writes so a customer staying negative/qualified
+     * across many messages doesn't spam staff on every one.
      */
     private function notifyConversationEvents(
         Tenant $tenant,
@@ -1272,6 +1313,7 @@ class AiWorkflow
         bool $hadWantsManagerLabel,
         bool $hadCompetitorLabel,
         bool $hadRepeatedProblemLabel,
+        bool $hadLargeOrderLabel,
     ): void {
         if ($sentiment === 'negative' && ! $hadUnhappyLabel) {
             NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'unhappy_customer');
@@ -1302,6 +1344,10 @@ class AiWorkflow
         // the AiRun count query.
         if (! $hadRepeatedProblemLabel && in_array('repeated_problem', $conversation->labels ?? [], true)) {
             NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'repeated_problem');
+        }
+
+        if (! $hadLargeOrderLabel && in_array('large_order', $conversation->labels ?? [], true)) {
+            NotifyConversationEventJob::dispatch($tenant->id, $conversation->id, 'large_order');
         }
     }
 }

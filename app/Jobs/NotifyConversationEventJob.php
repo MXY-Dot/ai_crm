@@ -23,11 +23,11 @@ use Illuminate\Queue\SerializesModels;
  * NotifyIdleOperatorConversationsCommand instead, gated the same way via its
  * own 'operator_idle' label; 'waiting_too_long' fires from
  * NotifyWaitingTooLongConversationsCommand the same way, via 'waiting_too_long'.
- * Still missing from the spec's 14: VIP-customer (actually already covered
- * separately -- see AiWorkflow::process()'s NotifyVipContactJob dispatch on
- * a VIP customer's first message, just not part of this TYPES list) and
- * large-order (no chat-time order-amount extraction exists anywhere in this
- * codebase, so there is no real signal to trigger on).
+ * VIP-customer is actually already covered separately -- see
+ * AiWorkflow::process()'s NotifyVipContactJob dispatch on a VIP customer's
+ * first message, just not part of this TYPES list. 'large_order' reads the
+ * amount AiWorkflow::extractOrderAmount() wrote onto the conversation's own
+ * Lead, so it needs 'lead' eager-loaded too (see content() below).
  */
 class NotifyConversationEventJob implements ShouldQueue
 {
@@ -38,6 +38,7 @@ class NotifyConversationEventJob implements ShouldQueue
     public const TYPES = [
         'unhappy_customer', 'complaint', 'handoff_needed', 'lead_qualified', 'operator_idle',
         'wants_manager', 'competitor_mentioned', 'repeated_problem', 'ai_knowledge_gap', 'waiting_too_long',
+        'large_order',
     ];
 
     public function __construct(
@@ -50,7 +51,7 @@ class NotifyConversationEventJob implements ShouldQueue
     public function handle(): void
     {
         $tenant = Tenant::query()->find($this->tenantId);
-        $conversation = Conversation::withoutGlobalScopes()->with('customer')->find($this->conversationId);
+        $conversation = Conversation::withoutGlobalScopes()->with(['customer', 'lead'])->find($this->conversationId);
 
         if (! $tenant || ! $conversation || ! in_array($this->eventType, self::TYPES, true)) {
             return;
@@ -90,6 +91,7 @@ class NotifyConversationEventJob implements ShouldQueue
             'repeated_problem' => ['Клиент повторяет один вопрос', "{$name} уже несколько раз обращается по одной и той же теме — похоже, вопрос не решается.", 'normal'],
             'ai_knowledge_gap' => ['AI не нашёл ответ в базе знаний', "По вопросу от «{$name}» в базе знаний недостаточно информации.", 'normal'],
             'waiting_too_long' => ['Клиент долго ждёт ответа', "{$name} написал(а) и не получил(а) вообще никакого ответа уже больше 10 минут.", 'urgent'],
+            'large_order' => ['Крупный заказ', "{$name} упомянул(а) сумму".($conversation->lead?->amount ? ' — '.number_format((float) $conversation->lead->amount, 0, ',', ' ') : '').", похоже на крупный заказ.", 'high'],
         };
     }
 }

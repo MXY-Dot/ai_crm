@@ -12,7 +12,7 @@ namespace App\Support\Notifications;
 class NotificationTypeBuckets
 {
     public const BUCKETS = [
-        'sales' => ['lead_qualified', 'vip_contact', 'competitor_mentioned'],
+        'sales' => ['lead_qualified', 'vip_contact', 'competitor_mentioned', 'large_order'],
         'complaints' => ['complaint', 'wants_manager'],
         'ai_errors' => ['handoff_needed', 'ai_knowledge_gap', 'repeated_problem'],
         'operators' => ['operator_idle', 'waiting_too_long'],
