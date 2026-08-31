@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AiAgentController;
 use App\Http\Controllers\Api\AiAnalyticsReportController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\BookingReportsController;
 use App\Http\Controllers\Api\CancellationPolicyController;
 use App\Http\Controllers\Api\ChatwootSyncController;
 use App\Http\Controllers\Api\ConversationAiDraftController;
@@ -266,6 +267,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('bookings/{booking}/gateway-payment', [BookingController::class, 'initiateGatewayPayment'])->middleware('throttle:20,1');
         Route::post('bookings/{booking}/mark-cash-paid', [BookingController::class, 'markCashPaid']);
         Route::post('bookings/{booking}/refund', [BookingController::class, 'refund']);
+        Route::get('booking-reports', [BookingReportsController::class, 'index']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

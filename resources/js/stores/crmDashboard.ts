@@ -160,23 +160,27 @@ export type KnowledgeDocument = {
     chunks_count: number;
 };
 
+export type TenantUserRole = 'super_admin' | 'owner' | 'manager' | 'operator' | 'specialist' | 'accountant';
+
 export type TenantUser = {
     id: number;
     name: string;
     email: string;
     phone: string | null;
-    role: 'super_admin' | 'owner' | 'manager' | 'operator';
+    role: TenantUserRole;
     status: 'active' | 'invited' | 'disabled';
     last_login_at: string | null;
+    employee_id: number | null;
 };
 
 export type TenantUserPayload = {
     name?: string;
     email?: string;
     phone?: string | null;
-    role?: 'super_admin' | 'owner' | 'manager' | 'operator';
+    role?: TenantUserRole;
     status?: 'active' | 'invited' | 'disabled';
     password?: string;
+    employee_id?: number | null;
 };
 
 export type AuditLog = {

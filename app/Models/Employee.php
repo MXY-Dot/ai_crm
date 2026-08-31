@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['tenant_id', 'company_id', 'name', 'position', 'phone', 'photo_path', 'is_active'])]
 class Employee extends Model
@@ -36,5 +37,11 @@ class Employee extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    /** ТЗ раздел 21 -- a "Специалист" login is only meaningfully scoped once linked back to their own staff profile (see BookingPolicy). Not every Employee has a User account. */
+    public function user(): HasOne
+    {
+        return $this->hasOne(User::class);
     }
 }

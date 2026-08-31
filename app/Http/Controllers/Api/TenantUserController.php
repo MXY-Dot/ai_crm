@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
 use App\Support\Tenancy\TenantContext;
@@ -20,7 +21,7 @@ class TenantUserController extends Controller
         return response()->json(User::query()
             ->where('tenant_id', $context->id())
             ->latest()
-            ->get(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at']));
+            ->get(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at', 'employee_id']));
     }
 
     public function store(Request $request, TenantContext $context, AuditLogger $audit): JsonResponse
@@ -34,10 +35,16 @@ class TenantUserController extends Controller
             'role' => ['required', Rule::in(User::ROLES)],
             'status' => ['nullable', Rule::in(['active', 'invited', 'disabled'])],
             'password' => ['nullable', 'string', 'min:8', 'max:120'],
+            // ТЗ раздел 21 -- only meaningful for role=specialist, but accepted
+            // regardless of role so an owner can pre-link it before switching roles.
+            'employee_id' => ['nullable', 'integer'],
         ]);
+
+        $employeeId = $this->resolveEmployeeId($context, $data['employee_id'] ?? null);
 
         $user = User::query()->create([
             'tenant_id' => $context->id(),
+            'employee_id' => $employeeId,
             'name' => $data['name'],
             'email' => $data['email'],
             'phone' => $data['phone'] ?? null,
@@ -65,7 +72,12 @@ class TenantUserController extends Controller
             'role' => ['sometimes', Rule::in(User::ROLES)],
             'status' => ['sometimes', Rule::in(['active', 'invited', 'disabled'])],
             'password' => ['nullable', 'string', 'min:8', 'max:120'],
+            'employee_id' => ['sometimes', 'nullable', 'integer'],
         ]);
+
+        if (array_key_exists('employee_id', $data)) {
+            $data['employee_id'] = $this->resolveEmployeeId($context, $data['employee_id']);
+        }
 
         if (array_key_exists('password', $data) && $data['password']) {
             $data['password'] = Hash::make($data['password']);
@@ -79,6 +91,16 @@ class TenantUserController extends Controller
         $audit->record('tenant_user.updated', $user, $this->auditUser($user), $oldAudit, $request);
 
         return response()->json($this->resource($user));
+    }
+
+    /** Never trust a raw employee_id across tenants -- resolves it against this tenant's own employees or rejects it outright (404, same as any other cross-tenant lookup in this app). */
+    private function resolveEmployeeId(TenantContext $context, ?int $employeeId): ?int
+    {
+        if ($employeeId === null) {
+            return null;
+        }
+
+        return Employee::withoutGlobalScopes()->where('tenant_id', $context->id())->findOrFail($employeeId)->id;
     }
 
     private function authorizeManageUsers(TenantContext $context): void
@@ -95,11 +117,11 @@ class TenantUserController extends Controller
 
     private function resource(User $user): array
     {
-        return $user->only(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at']);
+        return $user->only(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at', 'employee_id']);
     }
 
     private function auditUser(User $user): array
     {
-        return $user->only(['id', 'name', 'email', 'phone', 'role', 'status']);
+        return $user->only(['id', 'name', 'email', 'phone', 'role', 'status', 'employee_id']);
     }
 }

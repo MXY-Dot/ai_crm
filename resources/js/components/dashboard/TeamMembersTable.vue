@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useCrmDashboardStore, type TenantUser } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
+import { apiRequest } from '../../lib/apiClient';
 import { timeAgo } from '../../lib/format';
 import SearchInput from './SearchInput.vue';
 import TableFiltersButton from './TableFiltersButton.vue';
@@ -10,10 +11,31 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
+type Employee = { id: number; name: string };
+
 const props = defineProps<{ members: TenantUser[]; selfId: number | null }>();
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
-const roles: TenantUser['role'][] = ['owner', 'manager', 'operator'];
+const roles: TenantUser['role'][] = ['owner', 'manager', 'operator', 'specialist', 'accountant'];
+const employees = ref<Employee[]>([]);
+
+onMounted(async () => {
+    try {
+        employees.value = await apiRequest<Employee[]>('/api/employees', { tenant: store.tenant?.slug ?? null });
+    } catch {
+        // Non-fatal -- the linked-specialist name just won't resolve, role management still works.
+    }
+});
+
+function employeeName(employeeId: number | null): string {
+    return employees.value.find((e) => e.id === employeeId)?.name ?? '';
+}
+
+async function linkEmployee(member: TenantUser, employeeId: string): Promise<void> {
+    const id = employeeId ? Number(employeeId) : null;
+    if (member.employee_id !== id) await store.updateTenantUser(member.id, { employee_id: id });
+}
+
 const query = ref('');
 const statusFilter = ref('all');
 const statusOptions = ['active', 'invited', 'disabled'] as const;
@@ -86,6 +108,12 @@ async function toggleStatus(member: TenantUser): Promise<void> {
                     <SelectTrigger class="h-9 w-40"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem v-for="role in roles" :key="role" :value="role">{{ locale.t(`team.roles.${role}`) }}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select v-if="member.role === 'specialist'" :model-value="member.employee_id ? String(member.employee_id) : undefined" @update:model-value="(value) => linkEmployee(member, value as string)">
+                    <SelectTrigger class="h-9 w-40"><SelectValue :placeholder="locale.t('team.linkedEmployee')">{{ employeeName(member.employee_id) }}</SelectValue></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="employee in employees" :key="employee.id" :value="String(employee.id)">{{ employee.name }}</SelectItem>
                     </SelectContent>
                 </Select>
                 <Button size="sm" variant="secondary" :disabled="store.busy || isProtectedOwner(member)" @click="toggleStatus(member)">

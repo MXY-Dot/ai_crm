@@ -8,6 +8,7 @@ use App\Models\BookingPaymentProof;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Service;
+use App\Models\User;
 use App\Support\Audit\AuditLogger;
 use App\Support\Booking\AvailabilityCalculator;
 use App\Support\Booking\BookingConflictException;
@@ -33,9 +34,16 @@ class BookingController extends Controller
             'employee_id' => ['nullable', 'integer'],
         ]);
 
+        $user = $request->user();
+        // ТЗ раздел 21 -- a specialist's employee_id filter is enforced server-side,
+        // not just left to whatever the client happened to request (see
+        // BookingPolicy::view()'s matching row-level check for the /show endpoint).
+        $employeeFilter = $user->role === User::ROLE_SPECIALIST ? $user->employee_id : ($data['employee_id'] ?? null);
+
         $bookings = Booking::query()
             ->with(['customer:id,name,phone', 'service:id,name,duration_minutes,price', 'employee:id,name', 'resource:id,name'])
-            ->when($data['employee_id'] ?? null, fn ($q) => $q->where('employee_id', $data['employee_id']))
+            ->when($employeeFilter, fn ($q) => $q->where('employee_id', $employeeFilter))
+            ->when($user->role === User::ROLE_SPECIALIST && ! $employeeFilter, fn ($q) => $q->whereRaw('1 = 0'))
             ->where('starts_at', '<', Carbon::parse($data['date_to']))
             ->where('ends_at', '>', Carbon::parse($data['date_from']))
             ->orderBy('starts_at')
@@ -201,7 +209,7 @@ class BookingController extends Controller
     /** See AlifPayClient's docblock -- creates a real invoice call, but nothing here has been tested against a real Alif endpoint yet. */
     public function initiateGatewayPayment(Request $request, Booking $booking, BookingService $bookingService, AlifPayClient $alif, AuditLogger $audit): JsonResponse
     {
-        Gate::authorize('update', $booking);
+        Gate::authorize('managePayments', $booking);
 
         $data = $request->validate(['gateway' => ['required', Rule::in(['alif'])]]);
 
@@ -224,7 +232,7 @@ class BookingController extends Controller
 
     public function reviewPaymentProof(Request $request, Booking $booking, BookingPaymentProof $paymentProof, BookingService $bookingService, AuditLogger $audit): JsonResponse
     {
-        Gate::authorize('update', $booking);
+        Gate::authorize('managePayments', $booking);
         abort_unless($paymentProof->booking_id === $booking->id, 404);
 
         $data = $request->validate([
@@ -248,7 +256,7 @@ class BookingController extends Controller
     /** ТЗ раздел 16 -- "отметить оплату наличными". */
     public function markCashPaid(Request $request, Booking $booking, BookingService $bookingService, AuditLogger $audit): JsonResponse
     {
-        Gate::authorize('update', $booking);
+        Gate::authorize('managePayments', $booking);
 
         $data = $request->validate(['comment' => ['nullable', 'string', 'max:500']]);
         $before = $booking->toArray();
@@ -267,7 +275,7 @@ class BookingController extends Controller
     /** ТЗ раздел 19 -- запрос и обработка возврата предоплаты. */
     public function refund(Request $request, Booking $booking, BookingService $bookingService, AuditLogger $audit): JsonResponse
     {
-        Gate::authorize('update', $booking);
+        Gate::authorize('managePayments', $booking);
 
         $data = $request->validate([
             'action' => ['required', Rule::in(['request', 'processing', 'refunded', 'rejected'])],
