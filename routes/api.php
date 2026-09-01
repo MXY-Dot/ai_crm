@@ -83,7 +83,15 @@ Route::match(['get', 'post'], 'facebook/webhook', FacebookWebhookController::cla
 // Public, unauthenticated — the payment gateway calls this directly, no
 // X-Tenant-Id header possible. See PaymentGatewayWebhookController's docblock
 // for how the {paymentId} in the URL (not a header) resolves the tenant.
-Route::post('payments/{gateway}/webhook/{paymentId}', PaymentGatewayWebhookController::class)->middleware('throttle:60,1');
+// The bare {paymentId} route (no type segment) is the original Booking-only
+// URL, already baked into every in-flight Booking checkout link -- left
+// untouched. Order payments use the new {type}/{paymentId} route below.
+Route::post('payments/{gateway}/webhook/{paymentId}', PaymentGatewayWebhookController::class)
+    ->where('paymentId', '[0-9]+')
+    ->middleware('throttle:60,1');
+Route::post('payments/{gateway}/webhook/{type}/{paymentId}', PaymentGatewayWebhookController::class)
+    ->where(['type' => 'order', 'paymentId' => '[0-9]+'])
+    ->middleware('throttle:60,1');
 
 // Public, unauthenticated — a website visitor's browser, not a logged-in User.
 // See WidgetController's docblock for the trust model (site key = public app id).
@@ -295,6 +303,11 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('orders/{order}/return/{orderReturn}', [OrderController::class, 'reviewReturn']);
         Route::post('orders/{order}/return/{orderReturn}/refund', [OrderController::class, 'markReturnRefunded']);
         Route::patch('orders/{order}/delivery', [OrderController::class, 'updateDelivery']);
+        Route::post('orders/{order}/payment-proof', [OrderController::class, 'storePaymentProof'])->middleware('throttle:20,1');
+        Route::patch('orders/{order}/payment-proof/{paymentProof}', [OrderController::class, 'reviewPaymentProof']);
+        Route::post('orders/{order}/gateway-payment', [OrderController::class, 'initiateGatewayPayment'])->middleware('throttle:20,1');
+        Route::post('orders/{order}/mark-cash-paid', [OrderController::class, 'markCashPaid']);
+        Route::post('orders/{order}/payment-refund', [OrderController::class, 'refundPayment']);
         Route::get('order-reports', [OrderReportsController::class, 'index']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');

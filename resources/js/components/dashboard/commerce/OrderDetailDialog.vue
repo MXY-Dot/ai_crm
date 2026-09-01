@@ -5,8 +5,9 @@ import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { CodeBlock } from '../../ui/code-block';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/dialog';
-import { Input } from '../../ui/input';
+import { Input, InputGroup } from '../../ui/input';
 import { Money } from '../../ui/money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Skeleton } from '../../ui/skeleton';
@@ -28,7 +29,10 @@ type OrderDetail = {
     status_history: { id: number; old_status: string | null; new_status: string; comment: string | null; changed_by: { name: string } | null; created_at: string }[];
     delivery: { method: string; address: string | null; tracking_number: string | null; carrier: string | null; status: string; notes: string | null } | null;
     returns: { id: number; reason: string; status: string; refund_amount: number | null }[];
+    payment_proofs: { id: number; file_url: string; amount: number | null; operation_number: string | null; status: string; comment: string | null }[];
 };
+
+type GatewayPayment = { id: number; gateway: string; checkout_url: string | null; status: string };
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
 const NEXT_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed'];
@@ -58,9 +62,15 @@ const deliveryNotes = ref('');
 
 const returnReason = ref('');
 
+const proofAmount = ref<number | null>(null);
+const proofOperation = ref('');
+const proofFile = ref<File | null>(null);
+const gatewayPayment = ref<GatewayPayment | null>(null);
+
 async function load(): Promise<void> {
     if (! props.orderId) return;
     loading.value = true;
+    gatewayPayment.value = null;
     try {
         order.value = await apiRequest<OrderDetail>(`/api/orders/${props.orderId}`, { tenant: props.tenantSlug });
         nextStatus.value = order.value.status;
@@ -85,6 +95,98 @@ async function load(): Promise<void> {
 watch([() => props.open, () => props.orderId], ([open]) => { if (open) load(); });
 
 const isActive = computed(() => !! order.value && ACTIVE_STATUSES.includes(order.value.status));
+const pendingProof = computed(() => order.value?.payment_proofs.find((p) => p.status === 'pending') ?? null);
+const canMarkCash = computed(() => order.value && ['unpaid', 'review'].includes(order.value.payment_status));
+const canRequestRefund = computed(() => order.value?.payment_status === 'paid');
+const refundInFlight = computed(() => order.value && ['refund_pending', 'refund_processing'].includes(order.value.payment_status));
+
+function onFileChange(event: Event): void {
+    proofFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+async function uploadProof(): Promise<void> {
+    if (! order.value || ! proofFile.value) return;
+    busy.value = true;
+    try {
+        const body = new FormData();
+        body.append('file', proofFile.value);
+        if (proofAmount.value) body.append('amount', String(proofAmount.value));
+        if (proofOperation.value) body.append('operation_number', proofOperation.value);
+        await apiRequest(`/api/orders/${order.value.id}/payment-proof`, { method: 'POST', body, tenant: props.tenantSlug });
+        toast.success(locale.t('commerce.saved'));
+        proofFile.value = null;
+        proofAmount.value = null;
+        proofOperation.value = '';
+        emit('changed');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        busy.value = false;
+    }
+}
+
+async function reviewProof(proof: OrderDetail['payment_proofs'][number], decision: 'confirmed' | 'rejected' | 'resubmission_requested'): Promise<void> {
+    if (! order.value) return;
+    busy.value = true;
+    try {
+        await apiRequest(`/api/orders/${order.value.id}/payment-proof/${proof.id}`, { method: 'PATCH', body: { decision }, tenant: props.tenantSlug });
+        toast.success(locale.t('commerce.saved'));
+        emit('changed');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        busy.value = false;
+    }
+}
+
+async function createGatewayPayment(): Promise<void> {
+    if (! order.value) return;
+    busy.value = true;
+    try {
+        gatewayPayment.value = await apiRequest<GatewayPayment>(`/api/orders/${order.value.id}/gateway-payment`, {
+            method: 'POST',
+            body: { gateway: 'alif' },
+            tenant: props.tenantSlug,
+        });
+        toast.success('Счёт создан — скопируйте ссылку и отправьте клиенту');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось создать счёт на оплату');
+    } finally {
+        busy.value = false;
+    }
+}
+
+async function markCashPaid(): Promise<void> {
+    if (! order.value || ! confirm(locale.t('commerce.markCashPaidConfirm'))) return;
+    busy.value = true;
+    try {
+        await apiRequest(`/api/orders/${order.value.id}/mark-cash-paid`, { method: 'POST', tenant: props.tenantSlug });
+        toast.success(locale.t('commerce.saved'));
+        emit('changed');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        busy.value = false;
+    }
+}
+
+async function refundAction(action: 'request' | 'processing' | 'refunded' | 'rejected'): Promise<void> {
+    if (! order.value) return;
+    busy.value = true;
+    try {
+        await apiRequest(`/api/orders/${order.value.id}/payment-refund`, { method: 'POST', body: { action }, tenant: props.tenantSlug });
+        toast.success(locale.t('commerce.saved'));
+        emit('changed');
+        await load();
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        busy.value = false;
+    }
+}
 
 async function changeStatus(): Promise<void> {
     if (! order.value || nextStatus.value === order.value.status) return;
@@ -192,6 +294,49 @@ async function requestReturn(): Promise<void> {
                     <span>{{ locale.t('commerce.discount') }}</span><span class="text-right"><Money :value="order.discount_amount" tone="muted" negative /></span>
                     <span class="font-medium ui-text">{{ locale.t('commerce.total') }}</span><span class="text-right"><Money :value="order.total" tone="lg" /></span>
                 </div>
+
+                <section v-if="pendingProof" class="grid gap-2 rounded-lg border border-border p-3">
+                    <p class="text-xs font-medium ui-subtle">{{ locale.t('commerce.paymentReview') }}</p>
+                    <a :href="pendingProof.file_url" target="_blank" class="text-xs text-primary underline">{{ pendingProof.file_url }}</a>
+                    <p v-if="pendingProof.amount" class="text-xs ui-subtle">{{ locale.t('commerce.proofAmount') }}: <Money :value="pendingProof.amount" tone="muted" /></p>
+                    <p v-if="pendingProof.operation_number" class="text-xs ui-subtle">{{ locale.t('commerce.proofOperation') }}: {{ pendingProof.operation_number }}</p>
+                    <div class="flex flex-wrap gap-2">
+                        <Button size="sm" :disabled="busy" @click="reviewProof(pendingProof, 'confirmed')">{{ locale.t('commerce.confirmPayment') }}</Button>
+                        <Button size="sm" variant="outline" :disabled="busy" @click="reviewProof(pendingProof, 'resubmission_requested')">{{ locale.t('commerce.requestNewScreenshot') }}</Button>
+                        <Button size="sm" variant="outline" :disabled="busy" @click="reviewProof(pendingProof, 'rejected')">{{ locale.t('commerce.rejectPayment') }}</Button>
+                    </div>
+                </section>
+
+                <section v-else-if="isActive && order.payment_status !== 'paid'" class="grid gap-2 rounded-lg border border-border p-3">
+                    <p class="text-xs font-medium ui-subtle">Оплата онлайн (Alif Pay)</p>
+                    <p v-if="! gatewayPayment" class="text-xs ui-subtle">Создать счёт и получить ссылку на оплату для клиента.</p>
+                    <Button v-if="! gatewayPayment?.checkout_url" size="sm" variant="outline" class="w-fit" :disabled="busy" @click="createGatewayPayment">Создать ссылку на оплату</Button>
+                    <CodeBlock v-else :code="gatewayPayment.checkout_url" label="Ссылка на оплату" wrap />
+
+                    <p class="mt-2 text-xs font-medium ui-subtle">{{ locale.t('commerce.uploadProof') }}</p>
+                    <input type="file" accept="image/*,.pdf" class="text-xs" @change="onFileChange">
+                    <div class="flex gap-2">
+                        <InputGroup v-model.number="proofAmount" type="number" :placeholder="locale.t('commerce.proofAmount')" class="w-32">
+                            <template #suffix>{{ locale.t('commerce.currency') }}</template>
+                        </InputGroup>
+                        <Input v-model="proofOperation" :placeholder="locale.t('commerce.proofOperation')" />
+                    </div>
+                    <Button size="sm" class="w-fit" :disabled="busy || ! proofFile" @click="uploadProof">{{ locale.t('commerce.uploadProof') }}</Button>
+
+                    <Button v-if="canMarkCash" size="sm" variant="outline" class="mt-2 w-fit" :disabled="busy" @click="markCashPaid">{{ locale.t('commerce.markCashPaid') }}</Button>
+                </section>
+
+                <section v-if="canRequestRefund || refundInFlight" class="grid gap-2 rounded-lg border border-border p-3">
+                    <p class="text-xs font-medium ui-subtle">{{ locale.t('commerce.refundSection') }}: {{ locale.t('commerce.paymentStatuses.' + order.payment_status) }}</p>
+                    <div class="flex flex-wrap gap-2">
+                        <Button v-if="canRequestRefund" size="sm" variant="outline" :disabled="busy" @click="refundAction('request')">{{ locale.t('commerce.requestRefund') }}</Button>
+                        <template v-if="refundInFlight">
+                            <Button size="sm" variant="outline" :disabled="busy" @click="refundAction('processing')">{{ locale.t('commerce.refundMarkProcessing') }}</Button>
+                            <Button size="sm" :disabled="busy" @click="refundAction('refunded')">{{ locale.t('commerce.markRefunded') }}</Button>
+                            <Button size="sm" variant="outline" :disabled="busy" @click="refundAction('rejected')">{{ locale.t('commerce.rejectRefund') }}</Button>
+                        </template>
+                    </div>
+                </section>
 
                 <section v-if="isActive" class="grid gap-2">
                     <p class="text-xs font-medium ui-subtle">{{ locale.t('commerce.changeStatus') }}</p>

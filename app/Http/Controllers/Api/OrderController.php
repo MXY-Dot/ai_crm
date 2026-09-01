@@ -6,16 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderDelivery;
+use App\Models\OrderPaymentProof;
 use App\Models\OrderReturn;
 use App\Support\Audit\AuditLogger;
 use App\Support\Commerce\OrderException;
 use App\Support\Commerce\OrderService;
+use App\Support\Payments\AlifPayClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class OrderController extends Controller
 {
@@ -70,6 +73,7 @@ class OrderController extends Controller
             'delivery',
             'returns.requestedBy:id,name',
             'returns.reviewedBy:id,name',
+            'paymentProofs.reviewedBy:id,name',
         ]));
     }
 
@@ -236,5 +240,113 @@ class OrderController extends Controller
         $audit->record('order.delivery_updated', $order, $delivery->toArray(), [], $request);
 
         return response()->json($delivery);
+    }
+
+    public function storePaymentProof(Request $request, Order $order, OrderService $orders): JsonResponse
+    {
+        Gate::authorize('update', $order);
+
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:8192'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
+            'operation_number' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $path = $data['file']->store('payment-proofs/'.$order->tenant_id, 'public');
+
+        $proof = $orders->storePaymentProof($order, $path, $data['amount'] ?? null, $data['operation_number'] ?? null, $request->user());
+
+        return response()->json($proof, 201);
+    }
+
+    public function reviewPaymentProof(Request $request, Order $order, OrderPaymentProof $paymentProof, OrderService $orders, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('managePayments', $order);
+        abort_unless($paymentProof->order_id === $order->id, 404);
+
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(OrderService::PROOF_DECISIONS)],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $before = $order->toArray();
+
+        try {
+            $order = $orders->reviewPaymentProof($paymentProof, $data['decision'], $request->user(), $data['comment'] ?? null);
+        } catch (OrderException $e) {
+            throw ValidationException::withMessages(['operation_number' => $e->getMessage()]);
+        }
+
+        $audit->record('order.payment_proof_reviewed', $order, $order->toArray(), $before, $request);
+
+        return response()->json($order->load('paymentProofs.reviewedBy:id,name'));
+    }
+
+    /** See AlifPayClient's docblock -- creates a real invoice call, but nothing here has been tested against a real Alif endpoint yet. */
+    public function initiateGatewayPayment(Request $request, Order $order, OrderService $orders, AlifPayClient $alif, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('managePayments', $order);
+
+        $data = $request->validate(['gateway' => ['required', Rule::in(['alif'])]]);
+
+        $client = match ($data['gateway']) {
+            'alif' => $alif,
+        };
+
+        try {
+            $payment = $orders->initiateGatewayPayment($order, $data['gateway'], $client, $request->user());
+        } catch (OrderException $e) {
+            throw ValidationException::withMessages(['order' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            throw ValidationException::withMessages(['gateway' => 'Не удалось создать счёт на оплату: '.$e->getMessage()]);
+        }
+
+        $audit->record('order.gateway_payment_initiated', $order, ['gateway' => $data['gateway'], 'payment_id' => $payment->id], [], $request);
+
+        return response()->json($payment, 201);
+    }
+
+    public function markCashPaid(Request $request, Order $order, OrderService $orders, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('managePayments', $order);
+
+        $before = $order->toArray();
+
+        try {
+            $order = $orders->markPaidCash($order, $request->user());
+        } catch (OrderException $e) {
+            throw ValidationException::withMessages(['order' => $e->getMessage()]);
+        }
+
+        $audit->record('order.marked_cash_paid', $order, $order->toArray(), $before, $request);
+
+        return response()->json($order);
+    }
+
+    public function refundPayment(Request $request, Order $order, OrderService $orders, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('managePayments', $order);
+
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['request', 'processing', 'refunded', 'rejected'])],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $before = $order->toArray();
+
+        try {
+            if ($data['action'] === 'request') {
+                $order = $orders->requestRefund($order, $request->user(), $data['comment'] ?? null);
+            } else {
+                $status = ['processing' => 'refund_processing', 'refunded' => 'refunded', 'rejected' => 'refund_rejected'][$data['action']];
+                $order = $orders->updateRefundStatus($order, $status, $request->user(), $data['comment'] ?? null);
+            }
+        } catch (OrderException $e) {
+            throw ValidationException::withMessages(['order' => $e->getMessage()]);
+        }
+
+        $audit->record('order.payment_refund_updated', $order, $order->toArray(), $before, $request);
+
+        return response()->json($order);
     }
 }

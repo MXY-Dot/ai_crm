@@ -33,7 +33,12 @@ class Order extends Model
         self::STATUS_SHIPPED, self::STATUS_DELIVERED,
     ];
 
-    public const PAYMENT_STATUSES = ['unpaid', 'paid', 'refunded'];
+    // 'review' -- a payment-proof screenshot was submitted and is awaiting staff review,
+    // distinct from plain 'unpaid'. 'refund_pending'/'refund_processing'/'refund_rejected'
+    // mirror BookingService's refund lifecycle, written here since Order has no separate
+    // prepayment_status field the way Booking does -- this is the one field for both
+    // "did the customer pay" and "is a refund of that payment in flight".
+    public const PAYMENT_STATUSES = ['unpaid', 'review', 'paid', 'refund_pending', 'refund_processing', 'refunded', 'refund_rejected'];
 
     protected function casts(): array
     {
@@ -83,5 +88,15 @@ class Order extends Model
     public function returns(): HasMany
     {
         return $this->hasMany(OrderReturn::class)->latest('id');
+    }
+
+    public function paymentProofs(): HasMany
+    {
+        return $this->hasMany(OrderPaymentProof::class)->latest('id');
+    }
+
+    public function gatewayPayments(): HasMany
+    {
+        return $this->hasMany(OrderGatewayPayment::class)->latest('id');
     }
 }

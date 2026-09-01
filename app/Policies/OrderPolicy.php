@@ -46,6 +46,13 @@ class OrderPolicy
             && in_array($user->role, [User::ROLE_OWNER, User::ROLE_MANAGER, User::ROLE_OPERATOR, User::ROLE_ACCOUNTANT], true);
     }
 
+    /** Payment confirmation/refunds -- same role list as manageReturns() and BookingPolicy::managePayments(). */
+    public function managePayments(User $user, Order $record): bool
+    {
+        return $this->canUseTenant($user) && $user->tenant_id === $record->tenant_id
+            && in_array($user->role, [User::ROLE_OWNER, User::ROLE_MANAGER, User::ROLE_OPERATOR, User::ROLE_ACCOUNTANT], true);
+    }
+
     private function canUseTenant(User $user): bool
     {
         return $user->tenant_id !== null && $user->tenant_id === app(TenantContext::class)->id();
