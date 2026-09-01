@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Resource;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -29,12 +28,18 @@ class ResourceController extends TenantResourceController
         ];
     }
 
-    /** Restaurant settings (Столики tab) needs just the `type=table` rows -- optional filter, unused calls keep today's unfiltered behavior. */
-    public function index(Request $request): JsonResponse
+    /**
+     * Restaurant settings (Столики tab) needs just the `type=table` rows -- optional
+     * filter, unused calls keep today's unfiltered behavior. Signature must match
+     * TenantResourceController::index(): JsonResponse exactly (no params) -- PHP
+     * enforces override compatibility even though Laravel would happily inject a
+     * Request parameter here; request() reads the current request without one.
+     */
+    public function index(): JsonResponse
     {
         Gate::authorize('viewAny', Resource::class);
 
-        $data = $request->validate(['type' => ['nullable', Rule::in(Resource::TYPES)]]);
+        $data = request()->validate(['type' => ['nullable', Rule::in(Resource::TYPES)]]);
 
         return response()->json(
             Resource::query()
