@@ -41,11 +41,6 @@ function itemClass(activeHref: string, href: string): string {
         : 'border-transparent ui-subtle hover:bg-muted hover:text-foreground';
 }
 
-// No room for a nested disclosure UI once the sidebar itself is icon-only --
-// every group's children just join the flat icon list instead, same as an
-// ungrouped item always has.
-const flatItems = computed<SidebarNavItem[]>(() => props.navItems.flatMap((entry) => (isGroup(entry) ? entry.children : [entry])));
-
 // A group containing the current page starts open, so navigating deep into a
 // module never hides where you are; other groups start closed to keep the
 // list short. Re-derived on every navigation rather than persisted, which
@@ -70,6 +65,36 @@ function toggleGroup(id: string): void {
     const next = new Set(openGroups.value);
     if (next.has(id)) next.delete(id); else next.add(id);
     openGroups.value = next;
+}
+
+// A real height transition rather than an instant show/hide -- a plain CSS
+// grid-template-rows animation is possible but harder to eyeball-verify
+// without a browser on hand, so this measures the real content height in JS
+// (the standard, reliable Vue accordion-expand technique) and animates to it.
+function onGroupEnter(el: Element): void {
+    const target = el as HTMLElement;
+    target.style.height = '0px';
+    target.style.overflow = 'hidden';
+    // Force a reflow so the browser registers the 0px start before animating.
+    void target.offsetHeight;
+    target.style.transition = 'height 200ms ease-out';
+    target.style.height = `${target.scrollHeight}px`;
+}
+
+function onGroupAfterEnter(el: Element): void {
+    const target = el as HTMLElement;
+    target.style.height = '';
+    target.style.overflow = '';
+    target.style.transition = '';
+}
+
+function onGroupLeave(el: Element): void {
+    const target = el as HTMLElement;
+    target.style.height = `${target.scrollHeight}px`;
+    target.style.overflow = 'hidden';
+    void target.offsetHeight;
+    target.style.transition = 'height 200ms ease-in';
+    target.style.height = '0px';
 }
 </script>
 
@@ -135,24 +160,56 @@ function toggleGroup(id: string): void {
         <TooltipProvider :delay-duration="200">
             <div class="mt-6 min-h-0 flex-1 overflow-y-auto">
                 <nav v-if="collapsed" class="space-y-1" data-tour="nav">
-                    <Tooltip v-for="item in flatItems" :key="item.href" :disabled="false">
-                        <TooltipTrigger as-child>
-                            <Link
-                                :href="item.href"
-                                class="flex h-10 w-full items-center justify-center gap-3 rounded-lg border-l-4 px-0 text-sm font-medium transition"
-                                :class="itemClass(activeHref, item.href)"
-                            >
-                                <span class="relative shrink-0">
-                                    <component :is="item.icon" class="h-4 w-4" />
-                                    <span
-                                        v-if="item.badge"
-                                        class="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full px-0.5 text-[9px] font-bold bg-primary text-primary-foreground"
-                                    >{{ item.badge > 9 ? '9+' : item.badge }}</span>
-                                </span>
-                            </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">{{ item.label }}</TooltipContent>
-                    </Tooltip>
+                    <template v-for="entry in navItems" :key="isGroup(entry) ? entry.id : entry.href">
+                        <Tooltip v-if="! isGroup(entry)" :disabled="false">
+                            <TooltipTrigger as-child>
+                                <Link
+                                    :href="entry.href"
+                                    class="flex h-10 w-full items-center justify-center gap-3 rounded-lg border-l-4 px-0 text-sm font-medium transition"
+                                    :class="itemClass(activeHref, entry.href)"
+                                >
+                                    <span class="relative shrink-0">
+                                        <component :is="entry.icon" class="h-4 w-4" />
+                                        <span
+                                            v-if="entry.badge"
+                                            class="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full px-0.5 text-[9px] font-bold bg-primary text-primary-foreground"
+                                        >{{ entry.badge > 9 ? '9+' : entry.badge }}</span>
+                                    </span>
+                                </Link>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{{ entry.label }}</TooltipContent>
+                        </Tooltip>
+
+                        <!-- Collapsed groups open a flyout dropdown instead of flattening their
+                             children into the icon list -- flattening made the list grow with every
+                             group's items and forced the whole rail to scroll; a dropdown keeps the
+                             rail's item count fixed no matter how many modules exist. -->
+                        <DropdownMenu v-else>
+                            <DropdownMenuTrigger as-child>
+                                <button
+                                    type="button"
+                                    :title="entry.label"
+                                    :aria-label="entry.label"
+                                    class="flex h-10 w-full items-center justify-center rounded-lg border-l-4 px-0 text-sm font-medium transition"
+                                    :class="groupContainsActive(entry) ? itemClass(activeHref, entry.id) : 'border-transparent ui-subtle hover:bg-muted hover:text-foreground'"
+                                >
+                                    <component :is="entry.icon" class="h-4 w-4" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" align="start" class="w-56">
+                                <DropdownMenuItem v-for="child in entry.children" :key="child.href" as-child>
+                                    <Link :href="child.href" class="flex items-center gap-2">
+                                        <component :is="child.icon" class="h-4 w-4 ui-subtle" />
+                                        <span class="flex-1">{{ child.label }}</span>
+                                        <span
+                                            v-if="child.badge"
+                                            class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-bold bg-primary text-primary-foreground"
+                                        >{{ child.badge > 99 ? '99+' : child.badge }}</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </template>
                 </nav>
 
                 <nav v-else class="space-y-1" data-tour="nav">
@@ -182,24 +239,19 @@ function toggleGroup(id: string): void {
                                 <span class="min-w-0 flex-1 truncate text-left">{{ entry.label }}</span>
                                 <ChevronDown class="h-3.5 w-3.5 shrink-0 transition-transform" :class="openGroups.has(entry.id) ? 'rotate-180' : ''" />
                             </button>
-                            <div
-                                class="grid transition-[grid-template-rows] duration-200 ease-in-out"
-                                :style="{ gridTemplateRows: openGroups.has(entry.id) ? '1fr' : '0fr' }"
-                            >
-                                <div class="overflow-hidden">
-                                    <div class="mt-1 ml-3 space-y-1 border-l border-sidebar-border pl-3 pt-1">
-                                        <Link
-                                            v-for="child in entry.children" :key="child.href"
-                                            :href="child.href"
-                                            class="flex h-9 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
-                                            :class="itemClass(activeHref, child.href)"
-                                        >
-                                            <component :is="child.icon" class="h-3.5 w-3.5 shrink-0" />
-                                            <span class="min-w-0 flex-1 truncate">{{ child.label }}</span>
-                                        </Link>
-                                    </div>
+                            <Transition @enter="onGroupEnter" @after-enter="onGroupAfterEnter" @leave="onGroupLeave">
+                                <div v-if="openGroups.has(entry.id)" class="mt-1 ml-3 space-y-1 border-l border-sidebar-border pl-3 pt-1">
+                                    <Link
+                                        v-for="child in entry.children" :key="child.href"
+                                        :href="child.href"
+                                        class="flex h-9 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
+                                        :class="itemClass(activeHref, child.href)"
+                                    >
+                                        <component :is="child.icon" class="h-3.5 w-3.5 shrink-0" />
+                                        <span class="min-w-0 flex-1 truncate">{{ child.label }}</span>
+                                    </Link>
                                 </div>
-                            </div>
+                            </Transition>
                         </div>
                     </template>
                 </nav>

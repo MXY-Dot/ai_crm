@@ -5,7 +5,15 @@ import { reactiveOmit } from '@vueuse/core'
 import { TabsRoot, useForwardPropsEmits } from 'reka-ui'
 import { cn } from '@/lib/utils'
 
-const props = defineProps</* @vue-ignore */ TabsRootProps & { class?: HTMLAttributes['class'] }>()
+// unmountOnHide defaults to false here (reka-ui's own default is true) -- with
+// it true, switching away from a tab and back fully unmounts+remounts that
+// panel, re-running its onMounted() data fetch and flashing its loading
+// skeleton again for data that was already loaded a moment ago. Keeping
+// inactive panels mounted (just hidden) fixes that jank everywhere Tabs is
+// used, in one place, without touching every panel's own load() logic.
+const props = withDefaults(defineProps</* @vue-ignore */ TabsRootProps & { class?: HTMLAttributes['class'] }>(), {
+  unmountOnHide: false,
+})
 const emits = defineEmits()
 
 const delegatedProps = reactiveOmit(props, 'class')
