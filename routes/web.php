@@ -117,6 +117,10 @@ Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])-
         $dashboardPage($request, $dashboard, 'BookingCalendarPage'))->name('booking');
     Route::get('/booking-settings', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'BookingSettingsPage'))->name('booking-settings');
+    Route::get('/orders', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'OrdersPage'))->name('orders');
+    Route::get('/catalog-settings', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'CatalogSettingsPage'))->name('catalog-settings');
     Route::get('/analytics', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'AnalyticsPage'))->name('analytics');
     Route::get('/notifications', fn (Request $request, DashboardData $dashboard) =>

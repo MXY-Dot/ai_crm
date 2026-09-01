@@ -34,6 +34,9 @@ use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\MetaOAuthController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationSettingsController;
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\OrderReportsController;
+use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SuperAdminAnalyticsController;
 use App\Http\Controllers\Api\SuperAdminBillingController;
@@ -278,6 +281,21 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('bookings/{booking}/mark-cash-paid', [BookingController::class, 'markCashPaid']);
         Route::post('bookings/{booking}/refund', [BookingController::class, 'refund']);
         Route::get('booking-reports', [BookingReportsController::class, 'index']);
+
+        // Каталог + заказы + возвраты + доставка (module_key: catalog_products/orders/returns/delivery_tracking).
+        Route::apiResource('products', ProductController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        Route::get('orders', [OrderController::class, 'index']);
+        Route::get('order-returns', [OrderController::class, 'indexReturns']);
+        Route::post('orders', [OrderController::class, 'store']);
+        Route::get('orders/{order}', [OrderController::class, 'show']);
+        Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus']);
+        Route::post('orders/{order}/cancel', [OrderController::class, 'cancel']);
+        Route::post('orders/{order}/return', [OrderController::class, 'storeReturn']);
+        Route::patch('orders/{order}/return/{orderReturn}', [OrderController::class, 'reviewReturn']);
+        Route::post('orders/{order}/return/{orderReturn}/refund', [OrderController::class, 'markReturnRefunded']);
+        Route::patch('orders/{order}/delivery', [OrderController::class, 'updateDelivery']);
+        Route::get('order-reports', [OrderReportsController::class, 'index']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

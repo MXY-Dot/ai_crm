@@ -8,7 +8,7 @@ export type Role = 'super_admin' | 'owner' | 'manager' | 'operator';
  */
 const SUPER_ADMIN_ONLY: DashboardPage[] = ['vip', 'campaigns'];
 const OWNER_ONLY: DashboardPage[] = ['billing', 'settings'];
-const MANAGER_PLUS: DashboardPage[] = ['ai', 'knowledge', 'analytics', 'integrations', 'marketplace', 'team', 'booking-settings'];
+const MANAGER_PLUS: DashboardPage[] = ['ai', 'knowledge', 'analytics', 'integrations', 'marketplace', 'team', 'booking-settings', 'catalog-settings'];
 
 export function canAccessPage(role: Role | string | undefined | null, page: DashboardPage): boolean {
     if (! role) return false;
