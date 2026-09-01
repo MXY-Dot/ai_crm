@@ -31,7 +31,20 @@ class ChatwootWebhookHandler
         return DB::transaction(function () use ($tenant, $payload): array {
             $company = $this->company($tenant);
             $channel = $this->channel($tenant, $company, $payload);
-            $customer = $this->customer($tenant, $company, $payload);
+
+            // A returning conversation is the strongest identity signal available --
+            // stronger than re-matching this message's phone/email/name against the
+            // whole customer table, which can drift (a Telegram display name changed,
+            // a phone came formatted with a leading '+' this time but not last time)
+            // and silently reassign or duplicate the customer on every single message.
+            // Resolve it first and reuse its existing customer when there is one.
+            $existingCustomerId = Conversation::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('company_id', $company->id)
+                ->where('external_id', $this->externalConversationId($payload))
+                ->value('customer_id');
+
+            $customer = $this->customer($tenant, $company, $payload, $existingCustomerId);
             $lead = $this->lead($tenant, $company, $customer, $payload);
             $conversation = $this->conversation($tenant, $company, $channel, $customer, $lead, $payload);
             $message = $this->message($tenant, $conversation, $payload);
@@ -155,13 +168,36 @@ class ChatwootWebhookHandler
         );
     }
 
-    private function customer(Tenant $tenant, Company $company, array $payload): Customer
+    private function customer(Tenant $tenant, Company $company, array $payload, ?int $existingCustomerId = null): Customer
     {
         $name = $this->string($payload, ['sender.name', 'contact.name', 'customer.name'], 'Unknown customer');
         $phone = $this->string($payload, ['sender.phone_number', 'sender.phone', 'contact.phone_number', 'customer.phone']);
         $email = $this->string($payload, ['sender.email', 'contact.email', 'customer.email']);
         $source = $this->string($payload, ['channel.provider', 'provider'], 'chatwoot');
         $avatarUrl = $this->string($payload, ['sender.avatar_url', 'contact.avatar_url']);
+
+        // Reuse the conversation's already-linked customer when there is one, just
+        // refreshing it with whatever new signal this message carries (e.g. a phone
+        // number shared partway through the chat) -- never re-derive identity from
+        // scratch for a message that already belongs to a known conversation.
+        if ($existingCustomerId) {
+            $existing = Customer::withoutGlobalScopes()->find($existingCustomerId);
+
+            if ($existing) {
+                $data = array_filter([
+                    'name' => $name !== 'Unknown customer' ? $name : null,
+                    'phone' => $phone,
+                    'email' => $email,
+                    'avatar_url' => $avatarUrl !== '' ? $avatarUrl : null,
+                ], fn ($value) => $value !== null);
+
+                if ($data !== []) {
+                    $existing->update($data);
+                }
+
+                return $existing;
+            }
+        }
 
         return $this->customers->findOrCreate($tenant, $company, $name, $phone, $email, $source, ['chatwoot' => true], $avatarUrl !== '' ? $avatarUrl : null);
     }
