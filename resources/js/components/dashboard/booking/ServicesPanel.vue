@@ -7,6 +7,7 @@ import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { EmptyState } from '../../ui/empty-state';
+import { Money } from '../../ui/money';
 import { Skeleton } from '../../ui/skeleton';
 import { Switch } from '../../ui/switch';
 import ServiceFormDialog, { type ServiceRow } from './ServiceFormDialog.vue';
@@ -91,9 +92,10 @@ function prepaymentLabel(service: ServiceRow): string {
             <div v-for="service in services" :key="service.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div class="min-w-0">
                     <p class="text-sm font-medium ui-text">{{ service.name }}</p>
-                    <p class="text-xs ui-subtle">{{ service.duration_minutes }} мин · {{ service.price }} · {{ prepaymentLabel(service) }}</p>
+                    <p class="text-xs ui-subtle">{{ service.duration_minutes }} {{ locale.t('booking.minutesUnit') }} · {{ prepaymentLabel(service) }}</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <Money :value="service.price" tone="lg" />
                     <Switch :model-value="service.is_active" @update:model-value="toggleActive(service)" />
                     <Button variant="ghost" size="icon" @click="openEdit(service)"><Pencil class="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" @click="remove(service)"><Trash2 class="h-4 w-4 text-destructive" /></Button>

@@ -7,6 +7,7 @@ import { Button } from '../../ui/button';
 import { DatePicker } from '../../ui/date-picker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
+import { Money } from '../../ui/money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 
 type Service = { id: number; name: string; duration_minutes: number; price: number };
@@ -135,7 +136,7 @@ const canSubmit = computed(() => !! selectedSlot.value && (customerMode.value ==
                         <Select v-model="serviceIdStr">
                             <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem v-for="s in services" :key="s.id" :value="String(s.id)">{{ s.name }} · {{ s.duration_minutes }} мин · {{ s.price }}</SelectItem>
+                                <SelectItem v-for="s in services" :key="s.id" :value="String(s.id)">{{ s.name }} · {{ s.duration_minutes }} {{ locale.t('booking.minutesUnit') }} · {{ s.price }} {{ locale.t('commerce.currency') }}</SelectItem>
                             </SelectContent>
                         </Select>
                     </label>
@@ -161,12 +162,12 @@ const canSubmit = computed(() => !! selectedSlot.value && (customerMode.value ==
                         <div v-else class="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
                             <button
                                 v-for="slot in slots" :key="slot.employee_id + slot.starts_at" type="button"
-                                class="rounded-md border px-2 py-1 text-xs"
+                                class="rounded-md border px-2 py-1 text-xs font-medium tabular-nums"
                                 :class="selectedSlot === slot ? 'border-primary bg-primary/10 text-primary' : 'border-border ui-text'"
                                 @click="selectedSlot = slot"
                             >
-                                {{ new Date(slot.starts_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }}
-                                <span v-if="! employeeId" class="ui-subtle"> · {{ slot.employee_name }}</span>
+                                {{ new Date(slot.starts_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }}
+                                <span v-if="! employeeId" class="font-normal ui-subtle"> · {{ slot.employee_name }}</span>
                             </button>
                         </div>
                     </div>
@@ -195,7 +196,7 @@ const canSubmit = computed(() => !! selectedSlot.value && (customerMode.value ==
                     <Input v-model="notes" :placeholder="locale.t('booking.notes')" />
 
                     <p v-if="selectedService && selectedSlot" class="text-xs ui-subtle">
-                        {{ locale.t('booking.price') }}: {{ selectedService.price }}
+                        {{ locale.t('booking.price') }}: <Money :value="selectedService.price" tone="muted" />
                     </p>
                 </div>
                 <DialogFooter>

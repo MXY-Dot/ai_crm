@@ -5,7 +5,7 @@ import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
-import { Input } from '../../ui/input';
+import { Input, InputGroup } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
@@ -81,10 +81,14 @@ async function submit(): Promise<void> {
                     <Textarea v-model="form.description" :placeholder="locale.t('booking.serviceDescription')" class="min-h-16" />
                     <div class="grid grid-cols-2 gap-3">
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.serviceDuration') }}
-                            <Input v-model.number="form.duration_minutes" type="number" min="5" step="5" required />
+                            <InputGroup v-model.number="form.duration_minutes" type="number" min="5" step="5" required>
+                                <template #suffix>{{ locale.t('booking.minutesUnit') }}</template>
+                            </InputGroup>
                         </label>
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.servicePrice') }}
-                            <Input v-model.number="form.price" type="number" min="0" step="0.01" />
+                            <InputGroup v-model.number="form.price" type="number" min="0" step="0.01">
+                                <template #suffix>{{ locale.t('commerce.currency') }}</template>
+                            </InputGroup>
                         </label>
                     </div>
                     <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.servicePrepaymentType') }}
@@ -100,11 +104,15 @@ async function submit(): Promise<void> {
                     </label>
                     <label v-if="form.prepayment_type === 'fixed' || form.prepayment_type === 'percent'" class="grid gap-1 text-xs ui-subtle">
                         {{ locale.t('booking.servicePrepaymentValue') }}
-                        <Input v-model.number="form.prepayment_value" type="number" min="0" step="0.01" />
+                        <InputGroup v-model.number="form.prepayment_value" type="number" min="0" step="0.01">
+                            <template #suffix>{{ form.prepayment_type === 'percent' ? '%' : locale.t('commerce.currency') }}</template>
+                        </InputGroup>
                     </label>
                     <div class="grid grid-cols-2 gap-3">
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.serviceBuffer') }}
-                            <Input v-model.number="form.buffer_after_minutes" type="number" min="0" step="5" />
+                            <InputGroup v-model.number="form.buffer_after_minutes" type="number" min="0" step="5">
+                                <template #suffix>{{ locale.t('booking.minutesUnit') }}</template>
+                            </InputGroup>
                         </label>
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('booking.serviceResource') }}
                             <Select v-model="resourceValue">

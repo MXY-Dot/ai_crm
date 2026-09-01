@@ -5,7 +5,7 @@ import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
-import { Input } from '../../ui/input';
+import { Input, InputGroup } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
 
@@ -74,7 +74,9 @@ async function submit(): Promise<void> {
                     </div>
                     <Textarea v-model="form.description" :placeholder="locale.t('commerce.productDescription')" class="min-h-16" />
                     <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('commerce.productPrice') }}
-                        <Input v-model.number="form.price" type="number" min="0" step="0.01" />
+                        <InputGroup v-model.number="form.price" type="number" min="0" step="0.01">
+                            <template #suffix>{{ locale.t('commerce.currency') }}</template>
+                        </InputGroup>
                     </label>
                     <label class="flex items-center justify-between text-sm ui-text">{{ locale.t('commerce.productTrackStock') }}
                         <Switch v-model="form.track_stock" />

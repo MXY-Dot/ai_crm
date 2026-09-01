@@ -7,6 +7,7 @@ import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { EmptyState } from '../../ui/empty-state';
+import { Money } from '../../ui/money';
 import { Skeleton } from '../../ui/skeleton';
 import { Switch } from '../../ui/switch';
 import ProductFormDialog, { type ProductRow } from './ProductFormDialog.vue';
@@ -85,9 +86,10 @@ function stockLabel(product: ProductRow): string {
             <div v-for="product in products" :key="product.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div class="min-w-0">
                     <p class="text-sm font-medium ui-text">{{ product.name }}</p>
-                    <p class="text-xs ui-subtle">{{ product.category || '—' }} · {{ product.price }} {{ locale.t('commerce.currency') }} · {{ stockLabel(product) }}</p>
+                    <p class="text-xs ui-subtle">{{ product.category || '—' }} · {{ stockLabel(product) }}</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <Money :value="product.price" tone="lg" />
                     <Switch :model-value="product.is_active" @update:model-value="toggleActive(product)" />
                     <Button variant="ghost" size="icon" @click="openEdit(product)"><Pencil class="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" @click="remove(product)"><Trash2 class="h-4 w-4 text-destructive" /></Button>

@@ -7,6 +7,7 @@ import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input } from '../../ui/input';
+import { Money } from '../../ui/money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Skeleton } from '../../ui/skeleton';
 import { Textarea } from '../../ui/textarea';
@@ -31,6 +32,10 @@ type OrderDetail = {
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
 const NEXT_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed'];
+
+function formatDateTime(iso: string): string {
+    return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 const props = defineProps<{ open: boolean; orderId: number | null; tenantSlug: string }>();
 const emit = defineEmits<{ 'update:open': [boolean]; changed: [] }>();
@@ -169,20 +174,23 @@ async function requestReturn(): Promise<void> {
                         <p class="font-medium ui-text">{{ order.customer?.name ?? '—' }}</p>
                         <p class="text-xs ui-subtle">{{ order.customer?.phone }}</p>
                     </div>
-                    <Badge>{{ locale.t('commerce.statuses.' + order.status) }}</Badge>
+                    <div class="text-right">
+                        <Badge>{{ locale.t('commerce.statuses.' + order.status) }}</Badge>
+                        <p class="mt-1 text-xs font-medium tabular-nums ui-text">{{ formatDateTime(order.created_at) }}</p>
+                    </div>
                 </div>
 
                 <div class="divide-y divide-border rounded-lg border border-border">
                     <div v-for="item in order.items" :key="item.id" class="flex items-center justify-between px-3 py-2 text-xs">
                         <span class="ui-text">{{ item.product_name }} × {{ item.quantity }}</span>
-                        <span class="ui-subtle">{{ item.line_total }} {{ locale.t('commerce.currency') }}</span>
+                        <Money :value="item.line_total" tone="muted" />
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-1 text-xs ui-subtle">
-                    <span>{{ locale.t('commerce.subtotal') }}</span><span class="text-right">{{ order.subtotal }}</span>
-                    <span>{{ locale.t('commerce.deliveryFee') }}</span><span class="text-right">{{ order.delivery_fee }}</span>
-                    <span>{{ locale.t('commerce.discount') }}</span><span class="text-right">-{{ order.discount_amount }}</span>
-                    <span class="font-medium ui-text">{{ locale.t('commerce.total') }}</span><span class="text-right font-medium ui-text">{{ order.total }} {{ locale.t('commerce.currency') }}</span>
+                <div class="grid grid-cols-2 items-center gap-1 text-xs ui-subtle">
+                    <span>{{ locale.t('commerce.subtotal') }}</span><span class="text-right"><Money :value="order.subtotal" tone="muted" /></span>
+                    <span>{{ locale.t('commerce.deliveryFee') }}</span><span class="text-right"><Money :value="order.delivery_fee" tone="muted" /></span>
+                    <span>{{ locale.t('commerce.discount') }}</span><span class="text-right"><Money :value="order.discount_amount" tone="muted" negative /></span>
+                    <span class="font-medium ui-text">{{ locale.t('commerce.total') }}</span><span class="text-right"><Money :value="order.total" tone="lg" /></span>
                 </div>
 
                 <section v-if="isActive" class="grid gap-2">
@@ -240,7 +248,7 @@ async function requestReturn(): Promise<void> {
                     <p class="text-xs font-medium ui-subtle">{{ locale.t('commerce.requestReturn') }}</p>
                     <div v-for="r in order.returns" :key="r.id" class="rounded-lg border border-border px-3 py-2 text-xs">
                         <p class="ui-text">{{ r.reason }}</p>
-                        <p class="ui-subtle">{{ locale.t('commerce.returnStatuses.' + r.status) }}<span v-if="r.refund_amount"> · {{ r.refund_amount }} {{ locale.t('commerce.currency') }}</span></p>
+                        <p class="ui-subtle">{{ locale.t('commerce.returnStatuses.' + r.status) }}<span v-if="r.refund_amount"> · <Money :value="r.refund_amount" tone="muted" /></span></p>
                     </div>
                     <div class="flex gap-2">
                         <Input v-model="returnReason" :placeholder="locale.t('commerce.returnReason')" />
@@ -251,7 +259,7 @@ async function requestReturn(): Promise<void> {
                 <section v-if="order.status_history.length" class="grid gap-1">
                     <p class="text-xs font-medium ui-subtle">{{ locale.t('commerce.history') }}</p>
                     <p v-for="h in order.status_history" :key="h.id" class="text-xs ui-subtle">
-                        {{ locale.t('commerce.statuses.' + h.new_status) }}<span v-if="h.comment"> — {{ h.comment }}</span>
+                        <span class="font-medium tabular-nums ui-text">{{ formatDateTime(h.created_at) }}</span> · {{ locale.t('commerce.statuses.' + h.new_status) }}<span v-if="h.comment"> — {{ h.comment }}</span>
                     </p>
                 </section>
             </div>

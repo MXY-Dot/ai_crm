@@ -6,7 +6,8 @@ import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
-import { Input } from '../../ui/input';
+import { Input, InputGroup } from '../../ui/input';
+import { Money } from '../../ui/money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 
 type Product = { id: number; name: string; price: number };
@@ -135,10 +136,14 @@ async function submit(): Promise<void> {
 
                     <div class="grid grid-cols-2 gap-3">
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('commerce.deliveryFee') }}
-                            <Input v-model.number="deliveryFee" type="number" min="0" step="0.01" />
+                            <InputGroup v-model.number="deliveryFee" type="number" min="0" step="0.01">
+                                <template #suffix>{{ locale.t('commerce.currency') }}</template>
+                            </InputGroup>
                         </label>
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('commerce.discount') }}
-                            <Input v-model.number="discountAmount" type="number" min="0" step="0.01" />
+                            <InputGroup v-model.number="discountAmount" type="number" min="0" step="0.01">
+                                <template #suffix>{{ locale.t('commerce.currency') }}</template>
+                            </InputGroup>
                         </label>
                     </div>
 
@@ -165,7 +170,7 @@ async function submit(): Promise<void> {
 
                     <Input v-model="notes" :placeholder="locale.t('commerce.notes')" />
 
-                    <p class="text-xs ui-subtle">{{ locale.t('commerce.total') }}: {{ estimatedTotal.toFixed(2) }} {{ locale.t('commerce.currency') }}</p>
+                    <p class="text-xs ui-subtle">{{ locale.t('commerce.total') }}: <Money :value="estimatedTotal.toFixed(2)" tone="muted" /></p>
                 </div>
                 <DialogFooter>
                     <Button type="submit" :disabled="saving || ! canSubmit">{{ locale.t('commerce.newOrder') }}</Button>

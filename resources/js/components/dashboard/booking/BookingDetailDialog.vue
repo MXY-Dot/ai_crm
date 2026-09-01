@@ -6,7 +6,8 @@ import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { DatePicker } from '../../ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/dialog';
-import { Input } from '../../ui/input';
+import { Input, InputGroup } from '../../ui/input';
+import { Money } from '../../ui/money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Skeleton } from '../../ui/skeleton';
 import { Textarea } from '../../ui/textarea';
@@ -225,8 +226,8 @@ const refundInFlight = computed(() => booking.value && ['refund_pending', 'refun
                 <section class="grid gap-1">
                     <p class="font-medium ui-text">{{ booking.customer?.name }} <span class="ui-subtle">· {{ booking.customer?.phone }}</span></p>
                     <p class="ui-subtle">{{ booking.service?.name }} · {{ booking.employee?.name }}<span v-if="booking.resource"> · {{ booking.resource.name }}</span></p>
-                    <p class="ui-subtle">{{ new Date(booking.starts_at).toLocaleString() }} — {{ new Date(booking.ends_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }}</p>
-                    <p class="ui-subtle">{{ locale.t('booking.price') }}: {{ booking.price }}<span v-if="booking.prepayment_amount"> · {{ locale.t('booking.prepayment') }}: {{ booking.prepayment_amount }} ({{ locale.t('booking.prepaymentStatuses.' + booking.prepayment_status) }})</span></p>
+                    <p class="font-medium tabular-nums ui-text">{{ new Date(booking.starts_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }} — {{ new Date(booking.ends_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }}</p>
+                    <p class="ui-subtle">{{ locale.t('booking.price') }}: <Money :value="booking.price" tone="muted" /><span v-if="booking.prepayment_amount"> · {{ locale.t('booking.prepayment') }}: <Money :value="booking.prepayment_amount" tone="muted" /> ({{ locale.t('booking.prepaymentStatuses.' + booking.prepayment_status) }})</span></p>
                     <p v-if="booking.notes" class="ui-subtle">{{ booking.notes }}</p>
                     <p class="font-medium ui-text">{{ locale.t('booking.statuses.' + booking.status) }}</p>
                 </section>
@@ -247,7 +248,7 @@ const refundInFlight = computed(() => booking.value && ['refund_pending', 'refun
                 <section v-if="pendingProof" class="grid gap-2 rounded-lg border border-border p-3">
                     <p class="text-xs font-medium ui-subtle">{{ locale.t('booking.paymentReview') }}</p>
                     <a :href="pendingProof.file_url" target="_blank" class="text-xs text-primary underline">{{ pendingProof.file_url }}</a>
-                    <p v-if="pendingProof.amount" class="text-xs ui-subtle">{{ locale.t('booking.proofAmount') }}: {{ pendingProof.amount }}</p>
+                    <p v-if="pendingProof.amount" class="text-xs ui-subtle">{{ locale.t('booking.proofAmount') }}: <Money :value="pendingProof.amount" tone="muted" /></p>
                     <p v-if="pendingProof.operation_number" class="text-xs ui-subtle">{{ locale.t('booking.proofOperation') }}: {{ pendingProof.operation_number }}</p>
                     <div class="flex flex-wrap gap-2">
                         <Button size="sm" :disabled="busy" @click="reviewProof(pendingProof, 'confirmed')">{{ locale.t('booking.confirmPayment') }}</Button>
@@ -268,7 +269,9 @@ const refundInFlight = computed(() => booking.value && ['refund_pending', 'refun
                     <p class="mt-2 text-xs font-medium ui-subtle">{{ locale.t('booking.uploadProof') }}</p>
                     <input type="file" accept="image/*,.pdf" class="text-xs" @change="onFileChange">
                     <div class="flex gap-2">
-                        <Input v-model.number="proofAmount" type="number" :placeholder="locale.t('booking.proofAmount')" class="w-32" />
+                        <InputGroup v-model.number="proofAmount" type="number" :placeholder="locale.t('booking.proofAmount')" class="w-32">
+                            <template #suffix>{{ locale.t('commerce.currency') }}</template>
+                        </InputGroup>
                         <Input v-model="proofOperation" :placeholder="locale.t('booking.proofOperation')" />
                     </div>
                     <Button size="sm" class="w-fit" :disabled="busy || ! proofFile" @click="uploadProof">{{ locale.t('booking.uploadProof') }}</Button>

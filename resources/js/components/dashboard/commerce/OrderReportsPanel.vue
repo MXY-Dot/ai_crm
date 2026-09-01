@@ -6,6 +6,7 @@ import { useLocaleStore } from '../../../stores/locale';
 import { DatePicker } from '../../ui/date-picker';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
+import { Money } from '../../ui/money';
 import { Skeleton } from '../../ui/skeleton';
 
 type Report = {
@@ -75,7 +76,7 @@ onMounted(load);
                 </div>
                 <div class="rounded-lg border border-border p-3">
                     <p class="text-xs ui-subtle">{{ locale.t('commerce.reportsRevenue') }}</p>
-                    <p class="text-lg font-semibold ui-text">{{ report.money.revenue }} {{ locale.t('commerce.currency') }}</p>
+                    <Money :value="report.money.revenue" tone="lg" />
                 </div>
                 <div class="rounded-lg border border-border p-3">
                     <p class="text-xs ui-subtle">{{ locale.t('commerce.reportsReturns') }}</p>
@@ -83,7 +84,7 @@ onMounted(load);
                 </div>
                 <div class="rounded-lg border border-border p-3">
                     <p class="text-xs ui-subtle">{{ locale.t('commerce.reportsRefundedAmount') }}</p>
-                    <p class="text-lg font-semibold ui-text">{{ report.returns.refunded_amount }} {{ locale.t('commerce.currency') }}</p>
+                    <Money :value="report.returns.refunded_amount" tone="lg" />
                 </div>
             </div>
 
@@ -93,7 +94,7 @@ onMounted(load);
                 <div v-else class="divide-y divide-border">
                     <div v-for="p in report.popular_products" :key="p.product_id" class="flex items-center justify-between py-2 text-sm">
                         <span class="ui-text">{{ p.name }}</span>
-                        <span class="ui-subtle">{{ p.quantity }} · {{ p.revenue }} {{ locale.t('commerce.currency') }}</span>
+                        <span class="ui-subtle">{{ p.quantity }} · <Money :value="p.revenue" tone="muted" /></span>
                     </div>
                 </div>
             </div>

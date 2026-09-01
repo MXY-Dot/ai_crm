@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Money } from '@/components/ui/money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import NewOrderDialog from '../components/dashboard/commerce/NewOrderDialog.vue';
@@ -132,8 +133,8 @@ const STATUS_TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red' | 'blue'
                         <p class="truncate text-xs ui-subtle">{{ order.items.map((i) => `${i.product_name} × ${i.quantity}`).join(', ') }}</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-3">
-                        <span class="text-xs ui-subtle">{{ formatDate(order.created_at) }}</span>
-                        <span class="text-sm font-medium ui-text">{{ order.total }} {{ locale.t('commerce.currency') }}</span>
+                        <span class="text-xs font-medium tabular-nums ui-text">{{ formatDate(order.created_at) }}</span>
+                        <Money :value="order.total" tone="lg" />
                         <Badge :tone="STATUS_TONE[order.status] ?? 'neutral'">{{ locale.t('commerce.statuses.' + order.status) }}</Badge>
                     </div>
                 </button>
