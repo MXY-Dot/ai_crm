@@ -7,16 +7,19 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'name', 'type', 'is_active'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'name', 'type', 'capacity', 'is_active'])]
 class Resource extends Model
 {
     use BelongsToTenant;
 
-    public const TYPES = ['chair', 'cabinet', 'room', 'equipment', 'other'];
+    // 'table' -- restaurant module (ТЗ раздел 9), a table Resource with a real
+    // `capacity` (seats), used by TableAvailabilityCalculator to only offer tables
+    // that actually fit the requested party size.
+    public const TYPES = ['chair', 'cabinet', 'room', 'table', 'equipment', 'other'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'capacity' => 'integer'];
     }
 
     public function branch(): BelongsTo

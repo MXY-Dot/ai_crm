@@ -90,6 +90,8 @@ class OrderController extends Controller
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'customer_name' => ['required_without:customer_id', 'nullable', 'string', 'max:180'],
             'customer_phone' => ['required_without:customer_id', 'nullable', 'string', 'max:40'],
+            'order_type' => ['nullable', Rule::in(Order::ORDER_TYPES)],
+            'table_reservation_id' => ['nullable', 'integer', 'exists:table_reservations,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],

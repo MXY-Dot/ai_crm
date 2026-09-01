@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\MetaOAuthController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationSettingsController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\TableReservationController;
 use App\Http\Controllers\Api\OrderReportsController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -309,6 +310,17 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('orders/{order}/mark-cash-paid', [OrderController::class, 'markCashPaid']);
         Route::post('orders/{order}/payment-refund', [OrderController::class, 'refundPayment']);
         Route::get('order-reports', [OrderReportsController::class, 'index']);
+
+        // Ресторан и кафе (module_key: table_reservations) — tables themselves reuse the
+        // Resource model/`resources` endpoint above (type=table); this is just the
+        // reservation lifecycle. Меню/предзаказ/навынос/доставка reuse products/orders as-is.
+        Route::get('table-reservations', [TableReservationController::class, 'index']);
+        Route::get('table-availability', [TableReservationController::class, 'availability']);
+        Route::post('table-reservations', [TableReservationController::class, 'store']);
+        Route::get('table-reservations/{tableReservation}', [TableReservationController::class, 'show']);
+        Route::patch('table-reservations/{tableReservation}/reschedule', [TableReservationController::class, 'reschedule']);
+        Route::post('table-reservations/{tableReservation}/cancel', [TableReservationController::class, 'cancel']);
+        Route::patch('table-reservations/{tableReservation}/status', [TableReservationController::class, 'updateStatus']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

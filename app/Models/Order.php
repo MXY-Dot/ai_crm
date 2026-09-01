@@ -9,10 +9,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via', 'order_type', 'table_reservation_id'])]
 class Order extends Model
 {
     use BelongsToTenant;
+
+    // ТЗ раздел 9 (Ресторан и кафе) -- 'dine_in' is a предзаказ tied to a
+    // TableReservation (table_reservation_id set); 'delivery' stays the
+    // default so existing e-commerce orders are unaffected.
+    public const ORDER_TYPES = ['delivery', 'takeout', 'dine_in'];
 
     public const STATUS_PENDING = 'pending';
     public const STATUS_CONFIRMED = 'confirmed';
@@ -98,5 +103,10 @@ class Order extends Model
     public function gatewayPayments(): HasMany
     {
         return $this->hasMany(OrderGatewayPayment::class)->latest('id');
+    }
+
+    public function tableReservation(): BelongsTo
+    {
+        return $this->belongsTo(TableReservation::class);
     }
 }

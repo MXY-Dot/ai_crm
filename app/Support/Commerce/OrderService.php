@@ -93,6 +93,8 @@ class OrderService
                 'notes' => $data['notes'] ?? null,
                 'created_by_user_id' => $actor?->id,
                 'placed_via' => $data['placed_via'] ?? 'manual',
+                'order_type' => $data['order_type'] ?? 'delivery',
+                'table_reservation_id' => $data['table_reservation_id'] ?? null,
             ]);
 
             foreach ($lineItems as $item) {
