@@ -55,6 +55,36 @@ class AiChatBookingAssistant
             return $decision;
         }
 
+        // ТЗ раздел 16 -- "клиент отправляет скриншот": a photo/document with no
+        // caption arrives here as an already-unambiguous signal (the customer just
+        // sent an image, full stop -- there's no free text for the LLM intent
+        // extractor below to even classify), so this is handled deterministically,
+        // BEFORE the extractor runs, not as one more intent it could get wrong.
+        $attachment = $this->paymentScreenshotAttachment($message);
+
+        if ($attachment !== null) {
+            $awaitingPayment = $this->awaitingPaymentBookingFor($tenant, $conversation);
+
+            if ($awaitingPayment !== null) {
+                try {
+                    $this->bookings->storePaymentProof($awaitingPayment, $attachment['path'], null, null, null);
+
+                    return $this->withReply(
+                        $decision,
+                        'payment_screenshot_received',
+                        'Спасибо! Скриншот оплаты получен и отправлен сотруднику на проверку — как только оплата подтвердится, мы вам напишем.',
+                    );
+                } catch (Throwable $error) {
+                    Log::warning('AiChatBookingAssistant: failed to attach chat payment screenshot', [
+                        'tenant_id' => $tenant->id,
+                        'conversation_id' => $conversation->id,
+                        'booking_id' => $awaitingPayment->id,
+                        'error' => $error->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         // This sits in the hot path of every AI reply for booking-enabled tenants and
         // is new, more involved code (LLM extraction + real availability + a real DB
         // write) than the rest of this pipeline -- an unexpected exception here must
@@ -644,6 +674,38 @@ class AiChatBookingAssistant
         $weekday = $weekdays[$date->format('D')] ?? $date->format('D');
 
         return $weekday.', '.$date->format('d.m в H:i');
+    }
+
+    /**
+     * @return array{path: string, type: string}|null
+     */
+    private function paymentScreenshotAttachment(Message $message): ?array
+    {
+        $attachment = $message->meta['attachment'] ?? null;
+
+        if (! is_array($attachment) || ! in_array($attachment['type'] ?? null, ['photo', 'document'], true) || empty($attachment['path'])) {
+            return null;
+        }
+
+        return $attachment;
+    }
+
+    /**
+     * The single booking a bare screenshot most plausibly belongs to. Deliberately
+     * simple (most-recently-created match, no disambiguation flow) -- a customer
+     * with more than one booking genuinely awaiting payment at once is rare, and
+     * BookingDetailDialog.vue already lets staff move a wrongly-attached proof to
+     * the right booking if this heuristic ever guesses wrong.
+     */
+    private function awaitingPaymentBookingFor(Tenant $tenant, Conversation $conversation): ?Booking
+    {
+        return Booking::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('customer_id', $conversation->customer_id)
+            ->where('prepayment_amount', '>', 0)
+            ->whereIn('status', [Booking::STATUS_TEMP_HOLD, Booking::STATUS_AWAITING_PAYMENT, Booking::STATUS_PAYMENT_REVIEW])
+            ->orderByDesc('id')
+            ->first();
     }
 
     /** @return Collection<int, Booking> */

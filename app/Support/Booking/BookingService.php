@@ -209,7 +209,11 @@ class BookingService
         return $booking;
     }
 
-    public function storePaymentProof(Booking $booking, string $filePath, ?float $amount, ?string $operationNumber, User $actor): BookingPaymentProof
+    // $actor is nullable so a customer-initiated proof (e.g. a payment screenshot
+    // sent directly in chat, auto-attached by AiChatBookingAssistant with no staff
+    // user involved) can still go through this same single write path -- see
+    // logStatus()'s own nullable $actor for the same reason.
+    public function storePaymentProof(Booking $booking, string $filePath, ?float $amount, ?string $operationNumber, ?User $actor): BookingPaymentProof
     {
         return DB::transaction(function () use ($booking, $filePath, $amount, $operationNumber, $actor) {
             $proof = BookingPaymentProof::create([
