@@ -182,16 +182,23 @@ function toggleGroup(id: string): void {
                                 <span class="min-w-0 flex-1 truncate text-left">{{ entry.label }}</span>
                                 <ChevronDown class="h-3.5 w-3.5 shrink-0 transition-transform" :class="openGroups.has(entry.id) ? 'rotate-180' : ''" />
                             </button>
-                            <div v-if="openGroups.has(entry.id)" class="mt-1 ml-3 space-y-1 border-l border-sidebar-border pl-3">
-                                <Link
-                                    v-for="child in entry.children" :key="child.href"
-                                    :href="child.href"
-                                    class="flex h-9 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
-                                    :class="itemClass(activeHref, child.href)"
-                                >
-                                    <component :is="child.icon" class="h-3.5 w-3.5 shrink-0" />
-                                    <span class="min-w-0 flex-1 truncate">{{ child.label }}</span>
-                                </Link>
+                            <div
+                                class="grid transition-[grid-template-rows] duration-200 ease-in-out"
+                                :style="{ gridTemplateRows: openGroups.has(entry.id) ? '1fr' : '0fr' }"
+                            >
+                                <div class="overflow-hidden">
+                                    <div class="mt-1 ml-3 space-y-1 border-l border-sidebar-border pl-3 pt-1">
+                                        <Link
+                                            v-for="child in entry.children" :key="child.href"
+                                            :href="child.href"
+                                            class="flex h-9 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
+                                            :class="itemClass(activeHref, child.href)"
+                                        >
+                                            <component :is="child.icon" class="h-3.5 w-3.5 shrink-0" />
+                                            <span class="min-w-0 flex-1 truncate">{{ child.label }}</span>
+                                        </Link>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </template>

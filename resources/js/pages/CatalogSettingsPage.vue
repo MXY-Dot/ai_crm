@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia';
 import { BarChart3, Package, Undo2 } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import OrderReportsPanel from '../components/dashboard/commerce/OrderReportsPanel.vue';
 import OrderReturnsPanel from '../components/dashboard/commerce/OrderReturnsPanel.vue';
 import ProductsPanel from '../components/dashboard/commerce/ProductsPanel.vue';
@@ -33,11 +34,23 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
         </div>
 
         <Tabs v-if="ready" v-model="activeTab">
-            <TabsList class="flex-wrap">
-                <TabsTrigger value="products"><Package class="h-4 w-4" />{{ locale.t('commerce.tabProducts') }}</TabsTrigger>
-                <TabsTrigger value="returns"><Undo2 class="h-4 w-4" />{{ locale.t('commerce.tabReturns') }}</TabsTrigger>
-                <TabsTrigger value="reports"><BarChart3 class="h-4 w-4" />{{ locale.t('commerce.tabReports') }}</TabsTrigger>
-            </TabsList>
+            <TooltipProvider :delay-duration="200">
+                <TabsList class="flex-wrap">
+                    <Tooltip v-for="t in [
+                        { value: 'products', icon: Package, label: locale.t('commerce.tabProducts') },
+                        { value: 'returns', icon: Undo2, label: locale.t('commerce.tabReturns') },
+                        { value: 'reports', icon: BarChart3, label: locale.t('commerce.tabReports') },
+                    ]" :key="t.value"
+                    >
+                        <TooltipTrigger as-child>
+                            <TabsTrigger :value="t.value" :aria-label="t.label">
+                                <component :is="t.icon" class="h-4 w-4" />
+                            </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>{{ t.label }}</TooltipContent>
+                    </Tooltip>
+                </TabsList>
+            </TooltipProvider>
 
             <TabsContent value="products" class="mt-4">
                 <ProductsPanel :company-id="companyId as number" :tenant-slug="tenantSlug" />

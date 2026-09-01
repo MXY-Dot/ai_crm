@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 defineOptions({ layout: SuperAdminLayout });
 
@@ -107,10 +108,22 @@ function formatDate(value: string): string {
     </div>
 
     <Tabs v-else v-model="activeTab" class="mt-6">
-        <TabsList>
-            <TabsTrigger value="types"><Building2 class="h-4 w-4" />Сферы и модули</TabsTrigger>
-            <TabsTrigger value="requests"><Plug class="h-4 w-4" />Заявки на интеграцию ({{ requests.length }})</TabsTrigger>
-        </TabsList>
+        <TooltipProvider :delay-duration="200">
+            <TabsList>
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <TabsTrigger value="types" aria-label="Сферы и модули"><Building2 class="h-4 w-4" /></TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Сферы и модули</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <TabsTrigger value="requests" aria-label="Заявки на интеграцию"><Plug class="h-4 w-4" /></TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Заявки на интеграцию ({{ requests.length }})</TooltipContent>
+                </Tooltip>
+            </TabsList>
+        </TooltipProvider>
 
         <TabsContent value="types" class="mt-4 space-y-3">
             <div v-for="type in businessTypes" :key="type.id" class="rounded-xl border border-border bg-card p-4">

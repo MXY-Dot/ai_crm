@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia';
 import { BarChart3, Building2, CalendarClock, CreditCard, Scissors, Settings2, Users2 } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import BranchesPanel from '../components/dashboard/booking/BranchesPanel.vue';
 import CancellationPolicyPanel from '../components/dashboard/booking/CancellationPolicyPanel.vue';
 import EmployeesPanel from '../components/dashboard/booking/EmployeesPanel.vue';
@@ -36,15 +37,27 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
         </div>
 
         <Tabs v-if="ready" v-model="activeTab">
-            <TabsList class="flex-wrap">
-                <TabsTrigger value="services"><Scissors class="h-4 w-4" />{{ locale.t('booking.tabServices') }}</TabsTrigger>
-                <TabsTrigger value="branches"><Building2 class="h-4 w-4" />{{ locale.t('booking.tabBranches') }}</TabsTrigger>
-                <TabsTrigger value="employees"><Users2 class="h-4 w-4" />{{ locale.t('booking.tabEmployees') }}</TabsTrigger>
-                <TabsTrigger value="resources"><CalendarClock class="h-4 w-4" />{{ locale.t('booking.tabResources') }}</TabsTrigger>
-                <TabsTrigger value="policy"><Settings2 class="h-4 w-4" />{{ locale.t('booking.tabPolicy') }}</TabsTrigger>
-                <TabsTrigger value="payment"><CreditCard class="h-4 w-4" />Оплата</TabsTrigger>
-                <TabsTrigger value="reports"><BarChart3 class="h-4 w-4" />{{ locale.t('booking.tabReports') }}</TabsTrigger>
-            </TabsList>
+            <TooltipProvider :delay-duration="200">
+                <TabsList class="flex-wrap">
+                    <Tooltip v-for="t in [
+                        { value: 'services', icon: Scissors, label: locale.t('booking.tabServices') },
+                        { value: 'branches', icon: Building2, label: locale.t('booking.tabBranches') },
+                        { value: 'employees', icon: Users2, label: locale.t('booking.tabEmployees') },
+                        { value: 'resources', icon: CalendarClock, label: locale.t('booking.tabResources') },
+                        { value: 'policy', icon: Settings2, label: locale.t('booking.tabPolicy') },
+                        { value: 'payment', icon: CreditCard, label: 'Оплата' },
+                        { value: 'reports', icon: BarChart3, label: locale.t('booking.tabReports') },
+                    ]" :key="t.value"
+                    >
+                        <TooltipTrigger as-child>
+                            <TabsTrigger :value="t.value" :aria-label="t.label">
+                                <component :is="t.icon" class="h-4 w-4" />
+                            </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>{{ t.label }}</TooltipContent>
+                    </Tooltip>
+                </TabsList>
+            </TooltipProvider>
 
             <TabsContent value="services" class="mt-4">
                 <ServicesPanel :company-id="companyId as number" :tenant-slug="tenantSlug" />

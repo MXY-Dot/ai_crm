@@ -42,21 +42,19 @@ defineOptions({ layout: AppLayout });
                         <TabsList class="h-10 p-1 md:h-11">
                             <Tooltip>
                                 <TooltipTrigger as-child>
-                                    <TabsTrigger value="kanban" class="h-8 gap-1.5 px-3 md:h-9 md:px-4" :aria-label="locale.t('leads.kanbanView')">
+                                    <TabsTrigger value="kanban" class="h-8 px-3 md:h-9" :aria-label="locale.t('leads.kanbanView')">
                                         <Kanban class="h-4 w-4 md:h-[1.1rem] md:w-[1.1rem]" />
-                                        <span class="hidden sm:inline">{{ locale.t('leads.kanbanView') }}</span>
                                     </TabsTrigger>
                                 </TooltipTrigger>
-                                <TooltipContent class="sm:hidden">{{ locale.t('leads.kanbanView') }}</TooltipContent>
+                                <TooltipContent>{{ locale.t('leads.kanbanView') }}</TooltipContent>
                             </Tooltip>
                             <Tooltip>
                                 <TooltipTrigger as-child>
-                                    <TabsTrigger value="list" class="h-8 gap-1.5 px-3 md:h-9 md:px-4" :aria-label="locale.t('leads.listView')">
+                                    <TabsTrigger value="list" class="h-8 px-3 md:h-9" :aria-label="locale.t('leads.listView')">
                                         <List class="h-4 w-4 md:h-[1.1rem] md:w-[1.1rem]" />
-                                        <span class="hidden sm:inline">{{ locale.t('leads.listView') }}</span>
                                     </TabsTrigger>
                                 </TooltipTrigger>
-                                <TooltipContent class="sm:hidden">{{ locale.t('leads.listView') }}</TooltipContent>
+                                <TooltipContent>{{ locale.t('leads.listView') }}</TooltipContent>
                             </Tooltip>
                         </TabsList>
                     </Tabs>

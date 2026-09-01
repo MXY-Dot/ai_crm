@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { Bell, Blocks, Building2, Globe2 } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import CompanyProfilePanel from '../components/dashboard/CompanyProfilePanel.vue';
 import NotificationPreferencesPanel from '../components/dashboard/NotificationPreferencesPanel.vue';
 import WidgetTokensPanel from '../components/dashboard/WidgetTokensPanel.vue';
@@ -42,12 +43,24 @@ onBeforeUnmount(() => headerObserver?.disconnect());
 
         <Tabs v-model="activeTab">
             <div class="sticky z-[5] -mt-2 border-b border-border bg-background pt-2 pb-3" :style="{ top: `${stickyTop}px` }">
-                <TabsList class="flex-wrap">
-                    <TabsTrigger value="company"><Building2 class="h-4 w-4" />Компания</TabsTrigger>
-                    <TabsTrigger value="notifications"><Bell class="h-4 w-4" />Уведомления</TabsTrigger>
-                    <TabsTrigger value="widget"><Globe2 class="h-4 w-4" />Токены виджета</TabsTrigger>
-                    <TabsTrigger value="modules"><Blocks class="h-4 w-4" />Модули</TabsTrigger>
-                </TabsList>
+                <TooltipProvider :delay-duration="200">
+                    <TabsList class="flex-wrap">
+                        <Tooltip v-for="t in [
+                            { value: 'company', icon: Building2, label: 'Компания' },
+                            { value: 'notifications', icon: Bell, label: 'Уведомления' },
+                            { value: 'widget', icon: Globe2, label: 'Токены виджета' },
+                            { value: 'modules', icon: Blocks, label: 'Модули' },
+                        ]" :key="t.value"
+                        >
+                            <TooltipTrigger as-child>
+                                <TabsTrigger :value="t.value" :aria-label="t.label">
+                                    <component :is="t.icon" class="h-4 w-4" />
+                                </TabsTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>{{ t.label }}</TooltipContent>
+                        </Tooltip>
+                    </TabsList>
+                </TooltipProvider>
             </div>
 
             <TabsContent value="company" class="mt-4">
