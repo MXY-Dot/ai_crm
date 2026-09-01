@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Pencil, Plus, Trash2 } from '@lucide/vue';
+import { Armchair, Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
+import { EmptyState } from '../../ui/empty-state';
 import { Skeleton } from '../../ui/skeleton';
 import ResourceFormDialog, { type ResourceRow } from './ResourceFormDialog.vue';
 
@@ -66,7 +67,7 @@ async function remove(resource: ResourceRow): Promise<void> {
         <div v-if="loading" class="space-y-2 pb-4">
             <Skeleton v-for="i in 3" :key="i" class="h-12 rounded-lg" />
         </div>
-        <p v-else-if="! resources.length" class="pb-4 text-sm ui-subtle">{{ locale.t('booking.noResources') }}</p>
+        <EmptyState v-else-if="! resources.length" :icon="Armchair" :title="locale.t('booking.noResources')" />
         <div v-else class="divide-y divide-border pb-2">
             <div v-for="resource in resources" :key="resource.id" class="flex items-center justify-between gap-3 py-3">
                 <div>

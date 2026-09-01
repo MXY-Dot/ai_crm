@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Pencil, Plus, Trash2 } from '@lucide/vue';
+import { Pencil, Plus, Scissors, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
+import { EmptyState } from '../../ui/empty-state';
 import { Skeleton } from '../../ui/skeleton';
 import { Switch } from '../../ui/switch';
 import ServiceFormDialog, { type ServiceRow } from './ServiceFormDialog.vue';
@@ -85,7 +86,7 @@ function prepaymentLabel(service: ServiceRow): string {
         <div v-if="loading" class="space-y-2 pb-4">
             <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
         </div>
-        <p v-else-if="! services.length" class="pb-4 text-sm ui-subtle">{{ locale.t('booking.noServices') }}</p>
+        <EmptyState v-else-if="! services.length" :icon="Scissors" :title="locale.t('booking.noServices')" />
         <div v-else class="divide-y divide-border pb-2">
             <div v-for="service in services" :key="service.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div class="min-w-0">

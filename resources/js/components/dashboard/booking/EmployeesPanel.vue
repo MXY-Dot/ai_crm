@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { CalendarClock, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { CalendarClock, Pencil, Plus, Trash2, Users2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
+import { EmptyState } from '../../ui/empty-state';
 import { Skeleton } from '../../ui/skeleton';
 import EmployeeFormDialog, { type EmployeeRow } from './EmployeeFormDialog.vue';
 import EmployeeScheduleDialog from './EmployeeScheduleDialog.vue';
@@ -82,7 +83,7 @@ function onSaved(row: EmployeeRow): void {
         <div v-if="loading" class="space-y-2 pb-4">
             <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
         </div>
-        <p v-else-if="! employees.length" class="pb-4 text-sm ui-subtle">{{ locale.t('booking.noEmployees') }}</p>
+        <EmptyState v-else-if="! employees.length" :icon="Users2" :title="locale.t('booking.noEmployees')" />
         <div v-else class="divide-y divide-border pb-2">
             <div v-for="employee in employees" :key="employee.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div class="min-w-0">

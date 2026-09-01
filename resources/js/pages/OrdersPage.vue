@@ -2,11 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
-import { Plus } from '@lucide/vue';
+import { Package, Plus, ShoppingCart } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import NewOrderDialog from '../components/dashboard/commerce/NewOrderDialog.vue';
@@ -111,9 +113,13 @@ const STATUS_TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red' | 'blue'
             </Select>
         </div>
 
-        <p v-if="! products.length" class="text-sm ui-subtle">{{ locale.t('commerce.noProducts') }}</p>
+        <Card v-if="! products.length" class="p-0">
+            <EmptyState :icon="Package" :title="locale.t('commerce.noProducts')" :description="locale.t('commerce.noProductsHint')" />
+        </Card>
         <Skeleton v-else-if="loading" class="h-96 rounded-xl" />
-        <p v-else-if="! orders.length" class="text-sm ui-subtle">{{ locale.t('commerce.noOrders') }}</p>
+        <Card v-else-if="! orders.length" class="p-0">
+            <EmptyState :icon="ShoppingCart" :title="locale.t('commerce.noOrders')" />
+        </Card>
         <div v-else class="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
             <div class="divide-y divide-border">
                 <button

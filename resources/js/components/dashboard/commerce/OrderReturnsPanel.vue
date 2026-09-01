@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Check, X } from '@lucide/vue';
+import { Check, Undo2, X } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
+import { EmptyState } from '../../ui/empty-state';
 import { Skeleton } from '../../ui/skeleton';
 
 type ReturnRow = {
@@ -65,7 +66,7 @@ async function decide(row: ReturnRow, decision: 'approved' | 'rejected'): Promis
         <div v-if="loading" class="space-y-2 pb-4">
             <Skeleton v-for="i in 3" :key="i" class="h-16 rounded-lg" />
         </div>
-        <p v-else-if="! returns.length" class="pb-4 text-sm ui-subtle">{{ locale.t('commerce.noReturns') }}</p>
+        <EmptyState v-else-if="! returns.length" :icon="Undo2" :title="locale.t('commerce.noReturns')" />
         <div v-else class="divide-y divide-border pb-2">
             <div v-for="row in returns" :key="row.id" class="flex flex-wrap items-start justify-between gap-3 py-3">
                 <div class="min-w-0">

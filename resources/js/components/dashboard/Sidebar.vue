@@ -1,19 +1,25 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Check, ChevronLeft, ChevronRight, ChevronsUpDown, LayoutGrid, LogOut, ShieldCheck } from '@lucide/vue';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, LayoutGrid, LogOut, ShieldCheck } from '@lucide/vue';
 import { useThemeStore } from '../../stores/theme';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 export type SidebarNavItem = { href: string; label: string; icon: unknown; badge?: number };
+export type SidebarNavGroup = { id: string; label: string; icon: unknown; children: SidebarNavItem[] };
+export type SidebarEntry = SidebarNavItem | SidebarNavGroup;
 export type SidebarUser = { name: string; email: string; avatar_url?: string | null; role?: string } | null;
+
+function isGroup(entry: SidebarEntry): entry is SidebarNavGroup {
+    return 'children' in entry;
+}
 
 const props = defineProps<{
     collapsed: boolean;
-    navItems: SidebarNavItem[];
+    navItems: SidebarEntry[];
     activeHref: string;
     user: SidebarUser;
     logoutProcessing: boolean;
@@ -33,6 +39,37 @@ function itemClass(activeHref: string, href: string): string {
     return activeHref === href
         ? 'border-primary bg-card text-primary shadow-sm font-semibold'
         : 'border-transparent ui-subtle hover:bg-muted hover:text-foreground';
+}
+
+// No room for a nested disclosure UI once the sidebar itself is icon-only --
+// every group's children just join the flat icon list instead, same as an
+// ungrouped item always has.
+const flatItems = computed<SidebarNavItem[]>(() => props.navItems.flatMap((entry) => (isGroup(entry) ? entry.children : [entry])));
+
+// A group containing the current page starts open, so navigating deep into a
+// module never hides where you are; other groups start closed to keep the
+// list short. Re-derived on every navigation rather than persisted, which
+// already keeps "where am I" correct without needing localStorage.
+const openGroups = ref<Set<string>>(new Set());
+
+function groupContainsActive(group: SidebarNavGroup): boolean {
+    return group.children.some((child) => child.href === props.activeHref);
+}
+
+function syncOpenGroups(): void {
+    const next = new Set(openGroups.value);
+    for (const entry of props.navItems) {
+        if (isGroup(entry) && groupContainsActive(entry)) next.add(entry.id);
+    }
+    openGroups.value = next;
+}
+
+watch(() => props.activeHref, syncOpenGroups, { immediate: true });
+
+function toggleGroup(id: string): void {
+    const next = new Set(openGroups.value);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    openGroups.value = next;
 }
 </script>
 
@@ -97,30 +134,67 @@ function itemClass(activeHref: string, href: string): string {
 
         <TooltipProvider :delay-duration="200">
             <div class="mt-6 min-h-0 flex-1 overflow-y-auto">
-                <nav class="space-y-1" data-tour="nav">
-                    <Tooltip v-for="item in navItems" :key="item.href" :disabled="!collapsed">
+                <nav v-if="collapsed" class="space-y-1" data-tour="nav">
+                    <Tooltip v-for="item in flatItems" :key="item.href" :disabled="false">
                         <TooltipTrigger as-child>
                             <Link
                                 :href="item.href"
-                                class="flex h-10 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
-                                :class="[itemClass(activeHref, item.href), collapsed ? 'justify-center px-0' : '']"
+                                class="flex h-10 w-full items-center justify-center gap-3 rounded-lg border-l-4 px-0 text-sm font-medium transition"
+                                :class="itemClass(activeHref, item.href)"
                             >
                                 <span class="relative shrink-0">
                                     <component :is="item.icon" class="h-4 w-4" />
                                     <span
-                                        v-if="collapsed && item.badge"
+                                        v-if="item.badge"
                                         class="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full px-0.5 text-[9px] font-bold bg-primary text-primary-foreground"
                                     >{{ item.badge > 9 ? '9+' : item.badge }}</span>
                                 </span>
-                                <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ item.label }}</span>
-                                <span
-                                    v-if="!collapsed && item.badge"
-                                    class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-bold bg-primary text-primary-foreground"
-                                >{{ item.badge > 99 ? '99+' : item.badge }}</span>
                             </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">{{ item.label }}</TooltipContent>
                     </Tooltip>
+                </nav>
+
+                <nav v-else class="space-y-1" data-tour="nav">
+                    <template v-for="entry in navItems" :key="isGroup(entry) ? entry.id : entry.href">
+                        <Link
+                            v-if="! isGroup(entry)"
+                            :href="entry.href"
+                            class="flex h-10 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
+                            :class="itemClass(activeHref, entry.href)"
+                        >
+                            <component :is="entry.icon" class="h-4 w-4 shrink-0" />
+                            <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
+                            <span
+                                v-if="entry.badge"
+                                class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-bold bg-primary text-primary-foreground"
+                            >{{ entry.badge > 99 ? '99+' : entry.badge }}</span>
+                        </Link>
+
+                        <div v-else>
+                            <button
+                                type="button"
+                                class="flex h-10 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
+                                :class="groupContainsActive(entry) && ! openGroups.has(entry.id) ? itemClass(activeHref, entry.id) : 'border-transparent ui-subtle hover:bg-muted hover:text-foreground'"
+                                @click="toggleGroup(entry.id)"
+                            >
+                                <component :is="entry.icon" class="h-4 w-4 shrink-0" />
+                                <span class="min-w-0 flex-1 truncate text-left">{{ entry.label }}</span>
+                                <ChevronDown class="h-3.5 w-3.5 shrink-0 transition-transform" :class="openGroups.has(entry.id) ? 'rotate-180' : ''" />
+                            </button>
+                            <div v-if="openGroups.has(entry.id)" class="mt-1 ml-3 space-y-1 border-l border-sidebar-border pl-3">
+                                <Link
+                                    v-for="child in entry.children" :key="child.href"
+                                    :href="child.href"
+                                    class="flex h-9 w-full items-center gap-3 rounded-lg border-l-4 px-3 text-sm font-medium transition"
+                                    :class="itemClass(activeHref, child.href)"
+                                >
+                                    <component :is="child.icon" class="h-3.5 w-3.5 shrink-0" />
+                                    <span class="min-w-0 flex-1 truncate">{{ child.label }}</span>
+                                </Link>
+                            </div>
+                        </div>
+                    </template>
                 </nav>
             </div>
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Pencil, Plus, Trash2 } from '@lucide/vue';
+import { Building2, Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
+import { EmptyState } from '../../ui/empty-state';
 import { Skeleton } from '../../ui/skeleton';
 import BranchFormDialog, { type BranchRow } from './BranchFormDialog.vue';
 
@@ -61,7 +62,7 @@ async function remove(branch: BranchRow): Promise<void> {
         <div v-if="loading" class="space-y-2 pb-4">
             <Skeleton v-for="i in 3" :key="i" class="h-12 rounded-lg" />
         </div>
-        <p v-else-if="! branches.length" class="pb-4 text-sm ui-subtle">{{ locale.t('booking.noBranches') }}</p>
+        <EmptyState v-else-if="! branches.length" :icon="Building2" :title="locale.t('booking.noBranches')" />
         <div v-else class="divide-y divide-border pb-2">
             <div v-for="branch in branches" :key="branch.id" class="flex items-center justify-between gap-3 py-3">
                 <div>
