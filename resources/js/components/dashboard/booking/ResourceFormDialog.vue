@@ -8,20 +8,20 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input, InputGroup } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 
-export type ResourceRow = { id: number; name: string; type: string; capacity: number | null; is_active: boolean; branch_id: number | null };
+export type ResourceRow = { id: number; name: string; type: string; capacity: number | null; price_per_night: number | null; is_active: boolean; branch_id: number | null };
 
 const props = defineProps<{ open: boolean; resource: ResourceRow | null; companyId: number; tenantSlug: string; branches: Array<{ id: number; name: string }>; defaultType?: string }>();
 const emit = defineEmits<{ 'update:open': [boolean]; saved: [] }>();
 const locale = useLocaleStore();
 
-const form = ref({ name: '', type: 'other', capacity: null as number | null, branch_id: null as number | null });
+const form = ref({ name: '', type: 'other', capacity: null as number | null, price_per_night: null as number | null, branch_id: null as number | null });
 const saving = ref(false);
 
 watch(() => props.open, (open) => {
     if (! open) return;
     form.value = props.resource
-        ? { name: props.resource.name, type: props.resource.type, capacity: props.resource.capacity, branch_id: props.resource.branch_id }
-        : { name: '', type: props.defaultType ?? 'other', capacity: null, branch_id: null };
+        ? { name: props.resource.name, type: props.resource.type, capacity: props.resource.capacity, price_per_night: props.resource.price_per_night, branch_id: props.resource.branch_id }
+        : { name: '', type: props.defaultType ?? 'other', capacity: null, price_per_night: null, branch_id: null };
 });
 
 const branchValue = computed({
@@ -74,6 +74,18 @@ async function submit(): Promise<void> {
                             <template #suffix>{{ locale.t('restaurant.seatsUnit') }}</template>
                         </InputGroup>
                     </label>
+                    <template v-if="form.type === 'room'">
+                        <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('hotel.roomCapacity') }}
+                            <InputGroup v-model.number="form.capacity" type="number" min="1" required>
+                                <template #suffix>{{ locale.t('hotel.guestsUnit') }}</template>
+                            </InputGroup>
+                        </label>
+                        <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('hotel.pricePerNight') }}
+                            <InputGroup v-model.number="form.price_per_night" type="number" min="0" step="0.01">
+                                <template #suffix>{{ locale.t('commerce.currency') }}</template>
+                            </InputGroup>
+                        </label>
+                    </template>
                     <Select v-model="branchValue">
                         <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
                         <SelectContent>

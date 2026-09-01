@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BookingGatewayPayment;
 use App\Models\OrderGatewayPayment;
+use App\Models\RoomReservationGatewayPayment;
 use App\Support\Booking\BookingService;
 use App\Support\Commerce\OrderService;
+use App\Support\Hotel\RoomReservationService;
 use App\Support\Payments\AlifPayClient;
 use App\Support\Payments\PaymentGatewayClient;
 use Illuminate\Http\JsonResponse;
@@ -16,25 +18,26 @@ use Illuminate\Http\Request;
  * One shared URL per gateway (registered once with the gateway, like the Meta
  * webhooks), but unlike Meta there's no need to resolve "which tenant" from
  * the payload — BookingService::initiateGatewayPayment()/
- * OrderService::initiateGatewayPayment() create the gateway-payment row FIRST
- * and bake its own id into the webhook_url handed to the gateway at
- * invoice-creation time, so the callback already carries exactly which
- * payment it's for.
+ * OrderService::initiateGatewayPayment()/RoomReservationService::
+ * initiateGatewayPayment() create the gateway-payment row FIRST and bake its
+ * own id into the webhook_url handed to the gateway at invoice-creation
+ * time, so the callback already carries exactly which payment it's for.
  *
  * The bare `{paymentId}` route (no type segment) is the original, Booking-only
  * URL — already baked into every in-flight Booking checkout link, so `$type`
- * defaults to 'booking' there and that behavior is unchanged. Order payments
- * use the newer `{type}/{paymentId}` route with `$type = 'order'`.
+ * defaults to 'booking' there and that behavior is unchanged. Order and room
+ * reservation payments use the newer `{type}/{paymentId}` route.
  */
 class PaymentGatewayWebhookController extends Controller
 {
-    public function __invoke(Request $request, string $gateway, string $paymentId, BookingService $bookings, OrderService $orders, ?string $type = null): JsonResponse
+    public function __invoke(Request $request, string $gateway, string $paymentId, BookingService $bookings, OrderService $orders, RoomReservationService $rooms, ?string $type = null): JsonResponse
     {
         $type ??= 'booking';
 
         [$payment, $tenant, $confirm] = match ($type) {
             'booking' => $this->resolveBooking((int) $paymentId, $bookings),
             'order' => $this->resolveOrder((int) $paymentId, $orders),
+            'room_reservation' => $this->resolveRoomReservation((int) $paymentId, $rooms),
             default => abort(404),
         };
 
@@ -76,6 +79,18 @@ class PaymentGatewayWebhookController extends Controller
         }
 
         return [$payment, $payment->order->tenant, fn ($payment, $parsed) => $orders->confirmGatewayPayment($payment, $parsed)];
+    }
+
+    /** @return array{0: RoomReservationGatewayPayment, 1: \App\Models\Tenant, 2: callable} */
+    private function resolveRoomReservation(int $paymentId, RoomReservationService $rooms): array
+    {
+        $payment = RoomReservationGatewayPayment::query()->with('roomReservation')->findOrFail($paymentId);
+
+        if (! $payment->roomReservation) {
+            abort(404);
+        }
+
+        return [$payment, $payment->roomReservation->tenant, fn ($payment, $parsed) => $rooms->confirmGatewayPayment($payment, $parsed)];
     }
 
     private function resolveClient(string $gateway): PaymentGatewayClient

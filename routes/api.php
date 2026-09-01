@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationSettingsController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\TableReservationController;
+use App\Http\Controllers\Api\RoomReservationController;
 use App\Http\Controllers\Api\OrderReportsController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -86,12 +87,13 @@ Route::match(['get', 'post'], 'facebook/webhook', FacebookWebhookController::cla
 // for how the {paymentId} in the URL (not a header) resolves the tenant.
 // The bare {paymentId} route (no type segment) is the original Booking-only
 // URL, already baked into every in-flight Booking checkout link -- left
-// untouched. Order payments use the new {type}/{paymentId} route below.
+// untouched. Order and room reservation payments use the new
+// {type}/{paymentId} route below.
 Route::post('payments/{gateway}/webhook/{paymentId}', PaymentGatewayWebhookController::class)
     ->where('paymentId', '[0-9]+')
     ->middleware('throttle:60,1');
 Route::post('payments/{gateway}/webhook/{type}/{paymentId}', PaymentGatewayWebhookController::class)
-    ->where(['type' => 'order', 'paymentId' => '[0-9]+'])
+    ->where(['type' => 'order|room_reservation', 'paymentId' => '[0-9]+'])
     ->middleware('throttle:60,1');
 
 // Public, unauthenticated — a website visitor's browser, not a logged-in User.
@@ -321,6 +323,24 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('table-reservations/{tableReservation}/reschedule', [TableReservationController::class, 'reschedule']);
         Route::post('table-reservations/{tableReservation}/cancel', [TableReservationController::class, 'cancel']);
         Route::patch('table-reservations/{tableReservation}/status', [TableReservationController::class, 'updateStatus']);
+
+        // Гостиница/хостел (module_key: room_reservations) — rooms themselves reuse the
+        // Resource model/`resources` endpoint above (type=room, with price_per_night);
+        // this is the reservation + full payment lifecycle, mirroring bookings' shape
+        // above since a room reservation carries real money directly (unlike table
+        // reservations, whose money flows through an order instead).
+        Route::get('room-reservations', [RoomReservationController::class, 'index']);
+        Route::get('room-availability', [RoomReservationController::class, 'availability']);
+        Route::post('room-reservations', [RoomReservationController::class, 'store']);
+        Route::get('room-reservations/{roomReservation}', [RoomReservationController::class, 'show']);
+        Route::patch('room-reservations/{roomReservation}/reschedule', [RoomReservationController::class, 'reschedule']);
+        Route::post('room-reservations/{roomReservation}/cancel', [RoomReservationController::class, 'cancel']);
+        Route::patch('room-reservations/{roomReservation}/status', [RoomReservationController::class, 'updateStatus']);
+        Route::post('room-reservations/{roomReservation}/payment-proof', [RoomReservationController::class, 'storePaymentProof'])->middleware('throttle:20,1');
+        Route::patch('room-reservations/{roomReservation}/payment-proof/{paymentProof}', [RoomReservationController::class, 'reviewPaymentProof']);
+        Route::post('room-reservations/{roomReservation}/gateway-payment', [RoomReservationController::class, 'initiateGatewayPayment'])->middleware('throttle:20,1');
+        Route::post('room-reservations/{roomReservation}/mark-cash-paid', [RoomReservationController::class, 'markCashPaid']);
+        Route::post('room-reservations/{roomReservation}/refund', [RoomReservationController::class, 'refund']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');
