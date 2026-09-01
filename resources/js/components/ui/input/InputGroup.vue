@@ -27,19 +27,19 @@ function onUpdate(value: string | number): void {
   <div class="relative flex items-center">
     <span
       v-if="$slots.prefix"
-      class="pointer-events-none absolute left-3 z-10 flex items-center text-sm font-medium ui-subtle"
+      class="pointer-events-none absolute left-0 top-0 z-10 flex h-full items-center border-r border-input px-2.5 text-xs font-semibold uppercase tracking-wide ui-subtle"
     >
       <slot name="prefix" />
     </span>
     <Input
       :model-value="modelValue"
       v-bind="$attrs"
-      :class="cn($slots.prefix ? 'pl-9' : '', $slots.suffix ? 'pr-14' : '', props.class)"
+      :class="cn($slots.prefix ? 'pl-14' : '', $slots.suffix ? 'pr-14' : '', props.class)"
       @update:model-value="onUpdate"
     />
     <span
       v-if="$slots.suffix"
-      class="pointer-events-none absolute right-3 z-10 flex items-center text-sm font-medium ui-subtle"
+      class="pointer-events-none absolute right-0 top-0 z-10 flex h-full items-center border-l border-input px-2.5 text-xs font-semibold uppercase tracking-wide ui-subtle"
     >
       <slot name="suffix" />
     </span>

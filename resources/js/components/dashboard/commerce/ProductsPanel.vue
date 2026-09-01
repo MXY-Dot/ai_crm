@@ -49,6 +49,7 @@ async function toggleActive(product: ProductRow): Promise<void> {
     product.is_active = next;
     try {
         await apiRequest(`/api/products/${product.id}`, { method: 'PATCH', body: { is_active: next }, tenant: props.tenantSlug });
+        toast.success(next ? 'Товар включён' : 'Товар выключен');
     } catch (error) {
         product.is_active = ! next;
         toast.error(error instanceof Error ? error.message : 'Error');

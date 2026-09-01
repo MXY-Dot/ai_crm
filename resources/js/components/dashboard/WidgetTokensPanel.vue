@@ -2,10 +2,11 @@
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
-import { Check, Copy, Globe2, Plus, Trash2 } from '@lucide/vue';
+import { Globe2, Plus, Trash2 } from '@lucide/vue';
 import { useCrmDashboardStore } from '@/stores/crmDashboard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { CodeBlock } from '@/components/ui/code-block';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -25,7 +26,6 @@ const { widgetTokens, busy } = storeToRefs(store);
 const loading = ref(true);
 const newLabel = ref('');
 const creating = ref(false);
-const copiedId = ref<number | null>(null);
 const deleteOpen = ref(false);
 const deleteTarget = ref<{ id: number; label: string } | null>(null);
 
@@ -54,12 +54,6 @@ async function createToken(): Promise<void> {
     } finally {
         creating.value = false;
     }
-}
-
-async function copySnippet(id: number, snippet: string): Promise<void> {
-    await navigator.clipboard.writeText(snippet);
-    copiedId.value = id;
-    setTimeout(() => (copiedId.value = null), 1500);
 }
 
 function askDelete(id: number, label: string): void {
@@ -111,15 +105,8 @@ function formatDate(value: string | null): string {
                             <Trash2 class="h-4 w-4 text-destructive" />
                         </Button>
                     </div>
-                    <p class="break-all rounded-md border border-border bg-muted p-2 font-mono text-xs ui-text">{{ token.embed_snippet }}</p>
-                    <div class="mt-2 flex items-center justify-between">
-                        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline" @click="copySnippet(token.id, token.embed_snippet)">
-                            <Check v-if="copiedId === token.id" class="h-3.5 w-3.5" />
-                            <Copy v-else class="h-3.5 w-3.5" />
-                            {{ copiedId === token.id ? 'Скопировано' : 'Скопировать код' }}
-                        </button>
-                        <span class="text-xs ui-subtle">Использован: {{ formatDate(token.last_used_at) }}</span>
-                    </div>
+                    <CodeBlock :code="token.embed_snippet" label="Код для вставки" wrap />
+                    <p class="mt-2 text-right text-xs ui-subtle">Использован: {{ formatDate(token.last_used_at) }}</p>
                 </article>
             </div>
         </div>

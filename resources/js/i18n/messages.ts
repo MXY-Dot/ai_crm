@@ -123,7 +123,7 @@ const en = {
         reportsTitle: 'Order reports', reportsFrom: 'From', reportsTo: 'To', reportsRefresh: 'Refresh',
         reportsTotal: 'Orders', reportsPending: 'Pending', reportsCompleted: 'Completed', reportsCancelled: 'Cancelled', reportsRevenue: 'Revenue', reportsPaid: 'Paid',
         reportsReturns: 'Returns', reportsRefundedAmount: 'Refunded amount', reportsPopularProducts: 'Popular products', reportsNoData: 'No data for this period.',
-        active: 'Active', save: 'Save', saved: 'Saved', currency: 'смн', allStatuses: 'All statuses',
+        active: 'Active', save: 'Save', saved: 'Saved', currency: 'TJS', allStatuses: 'All statuses',
     },
 };
 
@@ -253,7 +253,7 @@ const ru = {
         reportsTitle: '\u041e\u0442\u0447\u0451\u0442\u044b \u043f\u043e \u0437\u0430\u043a\u0430\u0437\u0430\u043c', reportsFrom: '\u0421', reportsTo: '\u041f\u043e', reportsRefresh: '\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c',
         reportsTotal: '\u0417\u0430\u043a\u0430\u0437\u043e\u0432', reportsPending: '\u041e\u0436\u0438\u0434\u0430\u044e\u0442', reportsCompleted: '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e', reportsCancelled: '\u041e\u0442\u043c\u0435\u043d\u0435\u043d\u043e', reportsRevenue: '\u0412\u044b\u0440\u0443\u0447\u043a\u0430', reportsPaid: '\u041e\u043f\u043b\u0430\u0447\u0435\u043d\u043e',
         reportsReturns: '\u0412\u043e\u0437\u0432\u0440\u0430\u0442\u044b', reportsRefundedAmount: '\u0421\u0443\u043c\u043c\u0430 \u0432\u043e\u0437\u0432\u0440\u0430\u0442\u043e\u0432', reportsPopularProducts: '\u041f\u043e\u043f\u0443\u043b\u044f\u0440\u043d\u044b\u0435 \u0442\u043e\u0432\u0430\u0440\u044b', reportsNoData: '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u044d\u0442\u043e\u0442 \u043f\u0435\u0440\u0438\u043e\u0434.',
-        active: '\u0410\u043a\u0442\u0438\u0432\u0435\u043d', save: '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c', saved: '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e', currency: '\u0441\u043c\u043d', allStatuses: '\u0412\u0441\u0435 \u0441\u0442\u0430\u0442\u0443\u0441\u044b',
+        active: '\u0410\u043a\u0442\u0438\u0432\u0435\u043d', save: '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c', saved: '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e', currency: 'TJS', allStatuses: '\u0412\u0441\u0435 \u0441\u0442\u0430\u0442\u0443\u0441\u044b',
     },
 };
 

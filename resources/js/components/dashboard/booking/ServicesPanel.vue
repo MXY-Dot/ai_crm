@@ -54,6 +54,7 @@ async function toggleActive(service: ServiceRow): Promise<void> {
     service.is_active = next;
     try {
         await apiRequest(`/api/services/${service.id}`, { method: 'PATCH', body: { is_active: next }, tenant: props.tenantSlug });
+        toast.success(next ? 'Услуга включена' : 'Услуга выключена');
     } catch (error) {
         service.is_active = ! next;
         toast.error(error instanceof Error ? error.message : 'Error');

@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
 import { Button } from '../../ui/button';
+import { CodeBlock } from '../../ui/code-block';
 import { DatePicker } from '../../ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input, InputGroup } from '../../ui/input';
@@ -150,16 +151,6 @@ async function createGatewayPayment(): Promise<void> {
     }
 }
 
-async function copyCheckoutUrl(): Promise<void> {
-    if (! gatewayPayment.value?.checkout_url) return;
-    try {
-        await navigator.clipboard.writeText(gatewayPayment.value.checkout_url);
-        toast.success('Ссылка скопирована');
-    } catch {
-        toast.error('Не удалось скопировать');
-    }
-}
-
 async function reviewProof(proof: PaymentProof, decision: 'confirmed' | 'rejected' | 'resubmission_requested'): Promise<void> {
     if (! booking.value) return;
     busy.value = true;
@@ -261,10 +252,7 @@ const refundInFlight = computed(() => booking.value && ['refund_pending', 'refun
                     <p class="text-xs font-medium ui-subtle">Оплата онлайн (Alif Pay)</p>
                     <p v-if="! gatewayPayment" class="text-xs ui-subtle">Создать счёт и получить ссылку на оплату для клиента.</p>
                     <Button v-if="! gatewayPayment?.checkout_url" size="sm" variant="outline" class="w-fit" :disabled="busy" @click="createGatewayPayment">Создать ссылку на оплату</Button>
-                    <template v-else>
-                        <p class="break-all font-mono text-xs ui-text">{{ gatewayPayment.checkout_url }}</p>
-                        <Button size="sm" variant="outline" class="w-fit" @click="copyCheckoutUrl">Скопировать ссылку</Button>
-                    </template>
+                    <CodeBlock v-else :code="gatewayPayment.checkout_url" label="Ссылка на оплату" wrap />
 
                     <p class="mt-2 text-xs font-medium ui-subtle">{{ locale.t('booking.uploadProof') }}</p>
                     <input type="file" accept="image/*,.pdf" class="text-xs" @change="onFileChange">

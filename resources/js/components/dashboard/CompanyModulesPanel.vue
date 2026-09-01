@@ -39,6 +39,7 @@ async function toggle(row: ModuleRow): Promise<void> {
     row.enabled = next;
     try {
         await apiRequest('/api/company-modules/toggle', { method: 'POST', body: { module_key: row.key, enabled: next }, tenant: tenantSlug.value });
+        toast.success(next ? `Модуль «${row.label}» включён` : `Модуль «${row.label}» выключен`);
     } catch (error) {
         row.enabled = ! next;
         toast.error(error instanceof Error ? error.message : 'Не удалось изменить модуль');

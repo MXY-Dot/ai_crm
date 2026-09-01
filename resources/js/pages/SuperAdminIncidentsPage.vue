@@ -137,6 +137,7 @@ async function toggleEmergencyOverride(enabled: boolean): Promise<void> {
             method: 'PATCH',
             body: { enabled },
         });
+        toast.success(enabled ? 'Ручной режим включён' : 'Ручной режим выключен');
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Не удалось переключить ручной режим');
     } finally {
