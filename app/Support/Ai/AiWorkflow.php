@@ -19,6 +19,7 @@ use App\Support\AutoService\RepairOrderChatAssistant;
 use App\Support\Booking\AiChatBookingAssistant;
 use App\Support\Education\EducationChatAssistant;
 use App\Support\Hotel\RoomReservationChatAssistant;
+use App\Support\Logistics\LogisticsChatAssistant;
 use App\Support\Restaurant\TableReservationChatAssistant;
 use App\Support\Travel\TravelChatAssistant;
 use App\Support\Chatwoot\ChatwootClient;
@@ -67,6 +68,7 @@ class AiWorkflow
         private readonly RepairOrderChatAssistant $chatRepairOrder,
         private readonly EducationChatAssistant $chatEducation,
         private readonly TravelChatAssistant $chatTravel,
+        private readonly LogisticsChatAssistant $chatLogistics,
     ) {
     }
 
@@ -131,10 +133,13 @@ class AiWorkflow
         $decision = $this->chatRepairOrder->maybeHandle($tenant, $company, $conversation, $message, $decision);
         // ТЗ раздел 9/12 — "запись на курс через AI-чат".
         $decision = $this->chatEducation->maybeHandle($tenant, $company, $conversation, $message, $decision);
-        // ТЗ раздел 9/12 — "заявка на тур через AI-чат". Runs LAST in the
-        // chain -- see TravelChatAssistant's own docblock for why that
-        // matters (nothing after it can clobber a genuine tour-booking reply).
+        // ТЗ раздел 9/12 — "заявка на тур через AI-чат".
         $decision = $this->chatTravel->maybeHandle($tenant, $company, $conversation, $message, $decision);
+        // ТЗ раздел 9/12 — "отслеживание отправления через AI-чат". Runs
+        // LAST in the chain -- see LogisticsChatAssistant's own docblock for
+        // why it doesn't actually need the guard every other assistant here
+        // needs (no unconditional fallback path exists to clobber anything).
+        $decision = $this->chatLogistics->maybeHandle($tenant, $company, $conversation, $message, $decision);
         $run = $this->run($tenant, $agent, $conversation, $lead, $message, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);

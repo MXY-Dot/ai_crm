@@ -21,12 +21,25 @@ class TrackShipmentController extends Controller
     {
         $shipment = Shipment::withoutGlobalScopes()
             ->where('tracking_number', $trackingNumber)
-            ->with(['trackingEvents' => fn ($q) => $q->oldest('id')])
+            ->with('trackingEvents')
             ->first();
 
         if (! $shipment) {
             return response()->json(['message' => 'Отправление с таким трек-номером не найдено.'], 404);
         }
+
+        // Real bug found live testing LogisticsChatAssistant (2026-09-03): an
+        // eager-load constraint closure (`fn ($q) => $q->oldest('id')`, used
+        // here previously) does NOT override a relation's own baked-in
+        // ordering -- Shipment::trackingEvents() is defined with
+        // ->latest('id') (matching every other status-history relation's
+        // convention this session), and Eloquent ADDS the closure's ORDER BY
+        // rather than replacing it, so the relation's own DESC silently won
+        // and `events` below has been returning newest-first instead of the
+        // intended oldest-first timeline since this endpoint shipped in
+        // v1.165.0. Fixed by re-sorting the already-loaded collection in PHP
+        // instead of fighting SQL ordering precedence.
+        $shipment->setRelation('trackingEvents', $shipment->trackingEvents->sortBy('id')->values());
 
         return response()->json([
             'tracking_number' => $shipment->tracking_number,

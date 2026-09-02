@@ -13,6 +13,7 @@ use App\Support\AutoService\RepairOrderChatContext;
 use App\Support\Booking\BookingChatContext;
 use App\Support\Education\EducationChatContext;
 use App\Support\Hotel\RoomReservationChatContext;
+use App\Support\Logistics\LogisticsChatContext;
 use App\Support\Restaurant\TableReservationChatContext;
 use App\Support\Travel\TravelChatContext;
 use App\Support\Emergency\HealthMonitor;
@@ -37,6 +38,7 @@ class DifyClient
         private readonly RepairOrderChatContext $repairOrderContext,
         private readonly EducationChatContext $educationContext,
         private readonly TravelChatContext $travelContext,
+        private readonly LogisticsChatContext $logisticsContext,
     ) {
     }
 
@@ -447,8 +449,11 @@ class DifyClient
         // ТЗ раздел 9/12 — same reasoning, for the real tour catalog instead of
         // a service list.
         $travelSection = $this->travelContext->promptSection($company);
+        // ТЗ раздел 9/12 — same reasoning, for tracking-by-number instead of
+        // a catalog list.
+        $logisticsSection = $this->logisticsContext->promptSection($company);
 
-        $sections = array_filter([$profile, $bookingSection, $tableSection, $roomSection, $repairSection, $educationSection, $travelSection], fn (string $s): bool => $s !== '');
+        $sections = array_filter([$profile, $bookingSection, $tableSection, $roomSection, $repairSection, $educationSection, $travelSection, $logisticsSection], fn (string $s): bool => $s !== '');
 
         return implode("\n\n", $sections);
     }
