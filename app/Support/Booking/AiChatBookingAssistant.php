@@ -120,7 +120,15 @@ class AiChatBookingAssistant
         // the customer still got a reply -- but from the wrong assistant's attempt).
         // Only trust offered_slots when the last turn's flow is actually one of
         // OUR OWN, exactly like continueFlow()/reofferForPendingFlow() already do.
-        $ownFlow = in_array($lastMeta['flow'] ?? null, ['new_booking', 'reschedule'], true);
+        // Found again while building the hotel module's own chat assistant
+        // (v1.168.0): this ownFlow gate itself had a gap -- the bare 'reschedule'
+        // flow VALUE was shared verbatim with TableReservationChatAssistant (both
+        // classes used the identical string), so a stale table-reschedule offer
+        // would still pass this check and get treated as a booking reschedule.
+        // Renamed to 'booking_reschedule' below (and 'table_reschedule' on the
+        // Table side) so the flow value itself, not just the meta keys riding on
+        // it, is unique per assistant.
+        $ownFlow = in_array($lastMeta['flow'] ?? null, ['new_booking', 'booking_reschedule'], true);
         $offeredSlots = $ownFlow && is_array($lastMeta['offered_slots'] ?? null) ? $lastMeta['offered_slots'] : [];
 
         $intent = $this->extractor->extract($tenant, $conversation, $message, $services, $offeredSlots, $activeBookings, $recentlyCancelled);
@@ -170,14 +178,14 @@ class AiChatBookingAssistant
     {
         $flow = $lastMeta['flow'] ?? null;
 
-        if (in_array($flow, ['new_booking', 'reschedule'], true)) {
+        if (in_array($flow, ['new_booking', 'booking_reschedule'], true)) {
             $offeredSlots = is_array($lastMeta['offered_slots'] ?? null) ? $lastMeta['offered_slots'] : [];
 
             if ($offeredSlots === []) {
                 return null;
             }
 
-            $intro = $flow === 'reschedule'
+            $intro = $flow === 'booking_reschedule'
                 ? 'Уточните, пожалуйста, какой из предложенных вариантов переноса вам подходит:'
                 : 'Уточните, пожалуйста, какой из предложенных вариантов вам подходит:';
 
@@ -211,7 +219,7 @@ class AiChatBookingAssistant
             return $this->attemptCreate($tenant, $company, $conversation, $offeredSlots[$intent['selected_offer_index']], $decision);
         }
 
-        if ($flow === 'reschedule' && $intent['selected_offer_index'] !== null && isset($offeredSlots[$intent['selected_offer_index']])) {
+        if ($flow === 'booking_reschedule' && $intent['selected_offer_index'] !== null && isset($offeredSlots[$intent['selected_offer_index']])) {
             $booking = Booking::withoutGlobalScopes()->find($lastMeta['reschedule_booking_id'] ?? null);
 
             return $booking ? $this->attemptReschedule($booking, $offeredSlots[$intent['selected_offer_index']], $decision) : null;
@@ -416,7 +424,7 @@ class AiChatBookingAssistant
             ."\nНапишите номер подходящего варианта.";
 
         return $this->withReply($decision, 'booking_reschedule_offer', $text, meta: [
-            'flow' => 'reschedule',
+            'flow' => 'booking_reschedule',
             'reschedule_booking_id' => $booking->id,
             'offered_slots' => $slots,
         ]);

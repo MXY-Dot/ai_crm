@@ -10,6 +10,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Booking\BookingChatContext;
+use App\Support\Hotel\RoomReservationChatContext;
 use App\Support\Restaurant\TableReservationChatContext;
 use App\Support\Emergency\HealthMonitor;
 use App\Support\Integrations\TenantIntegrationSettings;
@@ -29,6 +30,7 @@ class DifyClient
         private readonly LlmClient $llm,
         private readonly BookingChatContext $bookingContext,
         private readonly TableReservationChatContext $tableReservationContext,
+        private readonly RoomReservationChatContext $roomReservationContext,
     ) {
     }
 
@@ -426,8 +428,11 @@ class DifyClient
         // ТЗ раздел 9/12 — same reasoning, for a table reservation's smaller
         // "biggest table's capacity" context instead of a service list.
         $tableSection = $this->tableReservationContext->promptSection($company);
+        // ТЗ раздел 9/12 — same reasoning, for a room reservation's "biggest
+        // room's capacity" context instead of a service/table list.
+        $roomSection = $this->roomReservationContext->promptSection($company);
 
-        $sections = array_filter([$profile, $bookingSection, $tableSection], fn (string $s): bool => $s !== '');
+        $sections = array_filter([$profile, $bookingSection, $tableSection, $roomSection], fn (string $s): bool => $s !== '');
 
         return implode("\n\n", $sections);
     }

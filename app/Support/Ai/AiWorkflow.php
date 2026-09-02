@@ -16,6 +16,7 @@ use App\Models\LanguageExample;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Booking\AiChatBookingAssistant;
+use App\Support\Hotel\RoomReservationChatAssistant;
 use App\Support\Restaurant\TableReservationChatAssistant;
 use App\Support\Chatwoot\ChatwootClient;
 use App\Support\Emergency\AutoAssignmentService;
@@ -59,6 +60,7 @@ class AiWorkflow
         private readonly TajikTextNormalizer $tajikNormalizer,
         private readonly AiChatBookingAssistant $chatBooking,
         private readonly TableReservationChatAssistant $chatTableReservation,
+        private readonly RoomReservationChatAssistant $chatRoomReservation,
     ) {
     }
 
@@ -114,6 +116,11 @@ class AiWorkflow
         // the only one whose isAvailableFor() returns true in practice, and each
         // one no-ops instantly for every tenant it doesn't apply to.
         $decision = $this->chatTableReservation->maybeHandle($tenant, $company, $conversation, $message, $decision);
+        // ТЗ раздел 9/12 — "бронь номера через AI-чат". Chains after the other
+        // two for the same reason -- a business is a salon OR a restaurant OR
+        // a hotel, not several at once in practice, and each no-ops instantly
+        // for every tenant it doesn't apply to.
+        $decision = $this->chatRoomReservation->maybeHandle($tenant, $company, $conversation, $message, $decision);
         $run = $this->run($tenant, $agent, $conversation, $lead, $message, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);
