@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { BarChart3, Blocks, Bot, BookOpen, Building2, CalendarCheck, CalendarClock, CreditCard, Database, GraduationCap, Hotel, Inbox, Layers, LayoutDashboard, LifeBuoy, Package, Plane, Plug, Scissors, Settings, ShoppingCart, Target, Truck, Users, Users2, Utensils, Wrench } from '@lucide/vue';
+import { BarChart3, Blocks, Bot, BookOpen, Building2, Calendar, CalendarCheck, CalendarClock, CreditCard, Database, GraduationCap, Hotel, Inbox, Layers, LayoutDashboard, LifeBuoy, Package, Plane, Plug, Scissors, Settings, ShoppingCart, Target, Truck, Users, Users2, Utensils, Wrench } from '@lucide/vue';
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { canAccessPage } from '../../lib/permissions';
 import { useLocaleStore } from '../../stores/locale';
@@ -28,6 +28,7 @@ function isRawGroup(entry: RawEntry): entry is RawGroup {
 const allEntries: RawEntry[] = [
     { id: 'overview', label: 'nav.overview', icon: LayoutDashboard },
     { id: 'inbox', label: 'nav.inbox', icon: Inbox },
+    { id: 'calendar', label: 'nav.calendar', icon: Calendar },
     { id: 'leads', label: 'nav.leads', icon: Target },
     { id: 'contacts', label: 'nav.contacts', icon: Users },
     {

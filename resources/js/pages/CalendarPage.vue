@@ -1,0 +1,244 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
+import { toast } from 'vue-sonner';
+import { ChevronLeft, ChevronRight } from '@lucide/vue';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { apiRequest } from '@/lib/apiClient';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import BookingDetailDialog from '../components/dashboard/booking/BookingDetailDialog.vue';
+import RoomReservationDetailDialog from '../components/dashboard/booking/RoomReservationDetailDialog.vue';
+import TableReservationDetailDialog from '../components/dashboard/booking/TableReservationDetailDialog.vue';
+import CalendarDayAgenda from '../components/dashboard/calendar/CalendarDayAgenda.vue';
+import CalendarDayGrid from '../components/dashboard/calendar/CalendarDayGrid.vue';
+import CalendarMonthView from '../components/dashboard/calendar/CalendarMonthView.vue';
+import CalendarWeekView from '../components/dashboard/calendar/CalendarWeekView.vue';
+import CourseGroupDetailDialog from '../components/dashboard/education/CourseGroupDetailDialog.vue';
+import RepairOrderDetailDialog from '../components/dashboard/autoservice/RepairOrderDetailDialog.vue';
+import ShipmentDetailDialog from '../components/dashboard/logistics/ShipmentDetailDialog.vue';
+import TourDepartureDetailDialog from '../components/dashboard/travel/TourDepartureDetailDialog.vue';
+import { HOUR_GRID_MODULES, MODULE_ACCENTS, MODULE_ICONS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../lib/calendar';
+import { useCrmDashboardStore } from '../stores/crmDashboard';
+import { useLocaleStore } from '../stores/locale';
+
+defineOptions({ layout: AppLayout });
+
+const locale = useLocaleStore();
+const store = useCrmDashboardStore();
+const { company, tenant } = storeToRefs(store);
+// crmDashboard's own `companyId` computed is a private local (never in its
+// return object, so `store.companyId` is always undefined) -- derive it here,
+// same as BookingCalendarPage.vue does.
+const companyId = computed(() => company.value?.id ?? null);
+const tenantSlug = computed(() => tenant.value?.slug ?? '');
+
+type ModuleOption = { key: string; label: string };
+type Branch = { id: number; name: string };
+
+const date = ref(toLocalDateString(new Date()));
+const viewMode = ref<'day' | 'week' | 'month'>('day');
+const branchFilter = ref('all');
+const branches = ref<Branch[]>([]);
+const modules = ref<ModuleOption[]>([]);
+const activeModule = ref<string | null>(null);
+const resources = ref<CalendarResource[]>([]);
+const events = ref<CalendarEvent[]>([]);
+const modulesLoading = ref(true);
+const eventsLoading = ref(true);
+
+const weekStart = computed(() => {
+    const d = new Date(date.value + 'T00:00:00');
+    const weekday = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - weekday);
+    return toLocalDateString(d);
+});
+const monthKey = computed(() => date.value.slice(0, 7));
+const accentClass = computed(() => (activeModule.value && MODULE_ACCENTS[activeModule.value]) || 'bg-primary');
+const useDayGrid = computed(() => activeModule.value !== null && HOUR_GRID_MODULES.has(activeModule.value) && resources.value.length > 0);
+
+function fetchRange(): { from: string; to: string } {
+    if (viewMode.value === 'week') {
+        const end = new Date(weekStart.value + 'T00:00:00');
+        end.setDate(end.getDate() + 7);
+        return { from: weekStart.value + 'T00:00:00', to: toLocalDateString(end) + 'T00:00:00' };
+    }
+    if (viewMode.value === 'month') {
+        const start = new Date(monthKey.value + '-01T00:00:00');
+        start.setDate(start.getDate() - 7);
+        const end = new Date(monthKey.value + '-01T00:00:00');
+        end.setMonth(end.getMonth() + 1);
+        end.setDate(end.getDate() + 7);
+        return { from: toLocalDateString(start) + 'T00:00:00', to: toLocalDateString(end) + 'T00:00:00' };
+    }
+    // Day view alone can still show a multi-night/multi-day event that only
+    // OVERLAPS today (e.g. a hotel stay that started yesterday) -- widen the
+    // fetch window a bit either side so CalendarDayAgenda's own eventOnDate()
+    // overlap check has the data to find it, same reasoning as BookingCalendarPage's own +/-7-day month padding.
+    const start = new Date(date.value + 'T00:00:00');
+    start.setDate(start.getDate() - 14);
+    const end = new Date(date.value + 'T00:00:00');
+    end.setDate(end.getDate() + 15);
+    return { from: toLocalDateString(start) + 'T00:00:00', to: toLocalDateString(end) + 'T00:00:00' };
+}
+
+async function loadModules(): Promise<void> {
+    modulesLoading.value = true;
+    try {
+        const [modulesRes, branchesRes] = await Promise.all([
+            apiRequest<{ modules: ModuleOption[] }>('/api/calendar/modules', { tenant: tenantSlug.value }),
+            apiRequest<{ data: Branch[] }>('/api/branches', { tenant: tenantSlug.value }),
+        ]);
+        modules.value = modulesRes.modules;
+        branches.value = branchesRes.data;
+        if (! activeModule.value && modules.value.length) {
+            activeModule.value = modules.value[0].key;
+        }
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        modulesLoading.value = false;
+    }
+}
+
+async function loadEvents(): Promise<void> {
+    if (! activeModule.value) return;
+
+    eventsLoading.value = true;
+    try {
+        const { from, to } = fetchRange();
+        const params = new URLSearchParams({ module: activeModule.value, date_from: from, date_to: to });
+        if (branchFilter.value !== 'all') params.set('branch_id', branchFilter.value);
+        const data = await apiRequest<{ resources: CalendarResource[]; events: CalendarEvent[] }>('/api/calendar/events?' + params, { tenant: tenantSlug.value });
+        resources.value = data.resources;
+        events.value = data.events;
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Error');
+    } finally {
+        eventsLoading.value = false;
+    }
+}
+
+onMounted(async () => {
+    await loadModules();
+    await loadEvents();
+});
+
+watch([activeModule, date, viewMode, branchFilter], loadEvents);
+
+function selectDay(iso: string): void {
+    date.value = iso;
+    viewMode.value = 'day';
+}
+
+function shiftDate(direction: number): void {
+    const d = new Date(date.value + 'T00:00:00');
+    if (viewMode.value === 'week') {
+        d.setDate(d.getDate() + direction * 7);
+    } else if (viewMode.value === 'month') {
+        d.setMonth(d.getMonth() + direction);
+    } else {
+        d.setDate(d.getDate() + direction);
+    }
+    date.value = toLocalDateString(d);
+}
+
+// One open/id pair per module's own already-shipped detail dialog -- see
+// this file's own imports. A single generic "detail dialog" component
+// spanning 7 completely different entity shapes would need to reimplement
+// every one of those dialogs' module-specific actions (reschedule/cancel/
+// status/payment/etc.) as a big switch anyway, so reusing each module's
+// real, already-tested dialog as-is is both less code and safer than a new
+// abstraction.
+const detailOpen = ref<Record<string, boolean>>({});
+const detailId = ref<number | null>(null);
+
+function openDetail(event: CalendarEvent): void {
+    detailId.value = event.entity_id;
+    // Replacing the whole object (not just setting one key) closes whichever
+    // dialog might already be open before opening the new one.
+    detailOpen.value = { [event.module]: true };
+}
+</script>
+
+<template>
+    <section class="space-y-6">
+        <div>
+            <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('calendar.title') }}</h2>
+            <p class="mt-1 text-sm ui-subtle">{{ locale.t('calendar.subtitle') }}</p>
+        </div>
+
+        <Skeleton v-if="modulesLoading" class="h-10 w-full rounded-xl" />
+        <p v-else-if="! modules.length" class="text-sm ui-subtle">{{ locale.t('calendar.noModules') }}</p>
+
+        <template v-else>
+            <div class="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-card p-1.5">
+                <Button
+                    v-for="m in modules"
+                    :key="m.key"
+                    type="button"
+                    :variant="activeModule === m.key ? 'secondary' : 'ghost'"
+                    size="sm"
+                    @click="activeModule = m.key"
+                >
+                    <component :is="MODULE_ICONS[m.key]" class="h-4 w-4" />
+                    {{ m.label }}
+                </Button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1">
+                    <Button variant="outline" size="icon" @click="shiftDate(-1)"><ChevronLeft class="h-4 w-4" /></Button>
+                    <DatePicker v-model="date" class="w-40" />
+                    <Button variant="outline" size="icon" @click="shiftDate(1)"><ChevronRight class="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" @click="date = toLocalDateString(new Date())">{{ locale.t('booking.today') }}</Button>
+                </div>
+                <Select v-if="branches.length" v-model="branchFilter">
+                    <SelectTrigger class="w-48"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">{{ locale.t('booking.allBranches') }}</SelectItem>
+                        <SelectItem v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <div class="ml-auto flex items-center gap-1 rounded-lg border border-border p-0.5">
+                    <Button :variant="viewMode === 'day' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'day'">{{ locale.t('booking.viewDay') }}</Button>
+                    <Button :variant="viewMode === 'week' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'week'">{{ locale.t('booking.viewWeek') }}</Button>
+                    <Button :variant="viewMode === 'month' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'month'">{{ locale.t('booking.viewMonth') }}</Button>
+                </div>
+            </div>
+
+            <Skeleton v-if="eventsLoading" class="h-96 rounded-xl" />
+            <template v-else-if="viewMode === 'day'">
+                <CalendarDayGrid
+                    v-if="useDayGrid"
+                    :date="date"
+                    :resources="resources"
+                    :events="events"
+                    :accent-class="accentClass"
+                    @open="openDetail"
+                />
+                <CalendarDayAgenda v-else :date="date" :events="events" :resources="resources" :accent-class="accentClass" @open="openDetail" />
+            </template>
+            <CalendarWeekView
+                v-else-if="viewMode === 'week'"
+                :week-start="weekStart"
+                :events="events"
+                :resources="resources"
+                :accent-class="accentClass"
+                @select-day="selectDay"
+                @open="openDetail"
+            />
+            <CalendarMonthView v-else :month="monthKey" :events="events" :accent-class="accentClass" @select-day="selectDay" />
+        </template>
+
+        <BookingDetailDialog v-model:open="detailOpen.booking_calendar" :booking-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
+        <TableReservationDetailDialog v-model:open="detailOpen.table_reservations" :reservation-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
+        <RoomReservationDetailDialog v-model:open="detailOpen.room_booking" :reservation-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
+        <CourseGroupDetailDialog v-model:open="detailOpen.course_scheduling" :group-id="detailId" :company-id="companyId as number" :tenant-slug="tenantSlug" @changed="loadEvents" />
+        <TourDepartureDetailDialog v-model:open="detailOpen.tour_bookings" :departure-id="detailId" :company-id="companyId as number" :tenant-slug="tenantSlug" @changed="loadEvents" />
+        <RepairOrderDetailDialog v-model:open="detailOpen.vehicle_service" :repair-order-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
+        <ShipmentDetailDialog v-model:open="detailOpen.shipment_tracking" :shipment-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
+    </section>
+</template>

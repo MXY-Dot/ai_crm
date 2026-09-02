@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingReportsController;
 use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\CancellationPolicyController;
 use App\Http\Controllers\Api\ChatwootSyncController;
 use App\Http\Controllers\Api\ConversationAiDraftController;
@@ -324,6 +325,11 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('bookings/{booking}/mark-cash-paid', [BookingController::class, 'markCashPaid']);
         Route::post('bookings/{booking}/refund', [BookingController::class, 'refund']);
         Route::get('booking-reports', [BookingReportsController::class, 'index']);
+
+        // Unified calendar (ТЗ раздел 9) — one feed across every reservation-shaped
+        // module, see CalendarController's own docblock for the normalization contract.
+        Route::get('calendar/modules', [CalendarController::class, 'modules']);
+        Route::get('calendar/events', [CalendarController::class, 'events']);
 
         // Каталог + заказы + возвраты + доставка (module_key: catalog_products/orders/returns/delivery_tracking).
         Route::apiResource('products', ProductController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
