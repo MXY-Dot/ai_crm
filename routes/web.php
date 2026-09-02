@@ -133,6 +133,8 @@ Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])-
         $dashboardPage($request, $dashboard, 'TravelSettingsPage'))->name('travel-settings');
     Route::get('/logistics-settings', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'LogisticsSettingsPage'))->name('logistics-settings');
+    Route::get('/erp-settings', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'ErpIntegrationSettingsPage'))->name('erp-settings');
     Route::get('/analytics', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'AnalyticsPage'))->name('analytics');
     Route::get('/notifications', fn (Request $request, DashboardData $dashboard) =>

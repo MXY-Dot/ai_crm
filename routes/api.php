@@ -47,6 +47,9 @@ use App\Http\Controllers\Api\TourDepartureController;
 use App\Http\Controllers\Api\TourBookingController;
 use App\Http\Controllers\Api\ShipmentController;
 use App\Http\Controllers\Api\TrackShipmentController;
+use App\Http\Controllers\Api\IntegrationApiKeyController;
+use App\Http\Controllers\Api\ErpProductController;
+use App\Http\Controllers\Api\ErpOrderController;
 use App\Http\Controllers\Api\OrderReportsController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -76,6 +79,7 @@ use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\WidgetController;
 use App\Http\Controllers\Api\WidgetSettingsController;
 use App\Http\Controllers\Api\WidgetTokenController;
+use App\Http\Middleware\AuthenticateErpApiKey;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Support\Facades\Route;
@@ -111,6 +115,18 @@ Route::post('payments/{gateway}/webhook/{type}/{paymentId}', PaymentGatewayWebho
 // docblock for the trust model (tracking number = globally unique credential,
 // no tenant context needed).
 Route::get('track/{trackingNumber}', TrackShipmentController::class)->middleware('throttle:30,1');
+
+// ТЗ раздел 9 — "Интеграция с CRM / 1С / складом". Authenticated by a
+// Bearer token (AuthenticateErpApiKey), NOT the dashboard's session/
+// X-Tenant-Id flow -- an external system (1C, a warehouse manager) proves
+// which tenant it belongs to purely by which key it holds. See
+// AuthenticateErpApiKey/IntegrationApiKey's own docblocks.
+Route::prefix('erp')->middleware(['throttle:120,1', AuthenticateErpApiKey::class])->group(function (): void {
+    Route::get('products', [ErpProductController::class, 'index']);
+    Route::patch('products/{sku}/stock', [ErpProductController::class, 'updateStock']);
+    Route::get('orders', [ErpOrderController::class, 'index']);
+    Route::patch('orders/{order}/sync-status', [ErpOrderController::class, 'updateSyncStatus']);
+});
 
 // Public, unauthenticated — a website visitor's browser, not a logged-in User.
 // See WidgetController's docblock for the trust model (site key = public app id).
@@ -410,6 +426,14 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('shipments', [ShipmentController::class, 'store']);
         Route::get('shipments/{shipment}', [ShipmentController::class, 'show']);
         Route::patch('shipments/{shipment}/status', [ShipmentController::class, 'updateStatus']);
+
+        // ТЗ раздел 9 -- dashboard-side key management for the `/api/erp/*`
+        // surface above (session-authenticated, unlike the ERP routes
+        // themselves). No update() -- a key's name never changes, only its
+        // active state, via destroy() (soft-revoke).
+        Route::get('integration-api-keys', [IntegrationApiKeyController::class, 'index']);
+        Route::post('integration-api-keys', [IntegrationApiKeyController::class, 'store']);
+        Route::delete('integration-api-keys/{integrationApiKey}', [IntegrationApiKeyController::class, 'destroy']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

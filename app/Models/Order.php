@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via', 'order_type', 'table_reservation_id', 'repair_order_id', 'enrollment_id', 'tour_booking_id'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via', 'order_type', 'table_reservation_id', 'repair_order_id', 'enrollment_id', 'tour_booking_id', 'external_synced_at', 'external_reference'])]
 class Order extends Model
 {
     use BelongsToTenant;
@@ -52,6 +52,7 @@ class Order extends Model
             'delivery_fee' => 'float',
             'discount_amount' => 'float',
             'total' => 'float',
+            'external_synced_at' => 'datetime',
         ];
     }
 
