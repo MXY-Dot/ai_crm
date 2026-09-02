@@ -93,6 +93,7 @@ class OrderController extends Controller
             'order_type' => ['nullable', Rule::in(Order::ORDER_TYPES)],
             'table_reservation_id' => ['nullable', 'integer', 'exists:table_reservations,id'],
             'repair_order_id' => ['nullable', 'integer', 'exists:repair_orders,id'],
+            'enrollment_id' => ['nullable', 'integer', 'exists:enrollments,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],

@@ -39,6 +39,9 @@ use App\Http\Controllers\Api\TableReservationController;
 use App\Http\Controllers\Api\RoomReservationController;
 use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Api\RepairOrderController;
+use App\Http\Controllers\Api\CourseController;
+use App\Http\Controllers\Api\CourseGroupController;
+use App\Http\Controllers\Api\EnrollmentController;
 use App\Http\Controllers\Api\OrderReportsController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -356,6 +359,21 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('repair-orders/{repairOrder}/status', [RepairOrderController::class, 'updateStatus']);
         Route::patch('repair-orders/{repairOrder}/details', [RepairOrderController::class, 'updateDetails']);
         Route::post('repair-orders/{repairOrder}/cancel', [RepairOrderController::class, 'cancel']);
+
+        // Учебный центр (module_key: course_scheduling) -- courses are simple CRUD
+        // (a catalog offering, like Product); groups carry the real weekly schedule
+        // and a real teacher/room double-booking guard; tuition billing reuses Order
+        // as-is via Order::enrollment_id, same reuse pattern as repair_order_id.
+        Route::apiResource('courses', CourseController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::get('course-groups', [CourseGroupController::class, 'index']);
+        Route::post('course-groups', [CourseGroupController::class, 'store']);
+        Route::get('course-groups/{courseGroup}', [CourseGroupController::class, 'show']);
+        Route::patch('course-groups/{courseGroup}', [CourseGroupController::class, 'update']);
+        Route::get('enrollments', [EnrollmentController::class, 'index']);
+        Route::post('enrollments', [EnrollmentController::class, 'store']);
+        Route::get('enrollments/{enrollment}', [EnrollmentController::class, 'show']);
+        Route::post('enrollments/{enrollment}/complete', [EnrollmentController::class, 'complete']);
+        Route::post('enrollments/{enrollment}/cancel', [EnrollmentController::class, 'cancel']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');
