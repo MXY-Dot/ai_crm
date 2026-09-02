@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
-import { ChevronLeft, ChevronRight } from '@lucide/vue';
+import { ChevronLeft, ChevronRight, Plus } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,9 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import BookingDetailDialog from '../components/dashboard/booking/BookingDetailDialog.vue';
+import NewBookingDialog from '../components/dashboard/booking/NewBookingDialog.vue';
+import NewRoomReservationDialog from '../components/dashboard/booking/NewRoomReservationDialog.vue';
+import NewTableReservationDialog from '../components/dashboard/booking/NewTableReservationDialog.vue';
 import RoomReservationDetailDialog from '../components/dashboard/booking/RoomReservationDetailDialog.vue';
 import TableReservationDetailDialog from '../components/dashboard/booking/TableReservationDetailDialog.vue';
 import CalendarDayAgenda from '../components/dashboard/calendar/CalendarDayAgenda.vue';
@@ -17,9 +20,13 @@ import CalendarDayGrid from '../components/dashboard/calendar/CalendarDayGrid.vu
 import CalendarMonthView from '../components/dashboard/calendar/CalendarMonthView.vue';
 import CalendarWeekView from '../components/dashboard/calendar/CalendarWeekView.vue';
 import CourseGroupDetailDialog from '../components/dashboard/education/CourseGroupDetailDialog.vue';
+import CourseGroupFormDialog from '../components/dashboard/education/CourseGroupFormDialog.vue';
+import NewRepairOrderDialog from '../components/dashboard/autoservice/NewRepairOrderDialog.vue';
 import RepairOrderDetailDialog from '../components/dashboard/autoservice/RepairOrderDetailDialog.vue';
+import NewShipmentDialog from '../components/dashboard/logistics/NewShipmentDialog.vue';
 import ShipmentDetailDialog from '../components/dashboard/logistics/ShipmentDetailDialog.vue';
 import TourDepartureDetailDialog from '../components/dashboard/travel/TourDepartureDetailDialog.vue';
+import TourDepartureFormDialog from '../components/dashboard/travel/TourDepartureFormDialog.vue';
 import { HOUR_GRID_MODULES, MODULE_ACCENTS, MODULE_ICONS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../lib/calendar';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
@@ -48,6 +55,12 @@ const resources = ref<CalendarResource[]>([]);
 const events = ref<CalendarEvent[]>([]);
 const modulesLoading = ref(true);
 const eventsLoading = ref(true);
+// Only the very first load blanks the view with a skeleton -- every later
+// reload (switching module/date/view/branch) keeps the current grid mounted
+// and just dims it a touch while fresh data comes in, so filtering never
+// makes the whole calendar flash away and reappear.
+const initialLoad = ref(true);
+const createOpen = ref(false);
 
 const weekStart = computed(() => {
     const d = new Date(date.value + 'T00:00:00');
@@ -117,6 +130,7 @@ async function loadEvents(): Promise<void> {
         toast.error(error instanceof Error ? error.message : 'Error');
     } finally {
         eventsLoading.value = false;
+        initialLoad.value = false;
     }
 }
 
@@ -205,6 +219,9 @@ function openDetail(event: CalendarEvent): void {
                         <SelectItem v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
                     </SelectContent>
                 </Select>
+                <Button size="sm" :disabled="! activeModule" @click="createOpen = true">
+                    <Plus class="h-4 w-4" />{{ locale.t('calendar.newRecord') }}
+                </Button>
                 <div class="ml-auto flex items-center gap-1 rounded-lg border border-border p-0.5">
                     <Button :variant="viewMode === 'day' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'day'">{{ locale.t('booking.viewDay') }}</Button>
                     <Button :variant="viewMode === 'week' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'week'">{{ locale.t('booking.viewWeek') }}</Button>
@@ -212,26 +229,30 @@ function openDetail(event: CalendarEvent): void {
                 </div>
             </div>
 
-            <Skeleton v-if="eventsLoading" class="h-96 rounded-xl" />
-            <template v-else-if="viewMode === 'day'">
-                <CalendarDayGrid
-                    v-if="useDayGrid"
-                    :date="date"
-                    :resources="resources"
-                    :events="events"
-                    @open="openDetail"
-                />
-                <CalendarDayAgenda v-else :date="date" :events="events" :resources="resources" @open="openDetail" />
-            </template>
-            <CalendarWeekView
-                v-else-if="viewMode === 'week'"
-                :week-start="weekStart"
-                :events="events"
-                :resources="resources"
-                @select-day="selectDay"
-                @open="openDetail"
-            />
-            <CalendarMonthView v-else :month="monthKey" :events="events" @select-day="selectDay" />
+            <Skeleton v-if="eventsLoading && initialLoad" class="h-96 rounded-xl" />
+            <Transition v-else name="calendar-fade" mode="out-in">
+                <div :key="viewMode" class="transition-opacity duration-200" :class="{ 'opacity-50': eventsLoading }">
+                    <template v-if="viewMode === 'day'">
+                        <CalendarDayGrid
+                            v-if="useDayGrid"
+                            :date="date"
+                            :resources="resources"
+                            :events="events"
+                            @open="openDetail"
+                        />
+                        <CalendarDayAgenda v-else :date="date" :events="events" :resources="resources" @open="openDetail" />
+                    </template>
+                    <CalendarWeekView
+                        v-else-if="viewMode === 'week'"
+                        :week-start="weekStart"
+                        :events="events"
+                        :resources="resources"
+                        @select-day="selectDay"
+                        @open="openDetail"
+                    />
+                    <CalendarMonthView v-else :month="monthKey" :events="events" @select-day="selectDay" />
+                </div>
+            </Transition>
         </template>
 
         <BookingDetailDialog v-model:open="detailOpen.booking_calendar" :booking-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
@@ -241,5 +262,24 @@ function openDetail(event: CalendarEvent): void {
         <TourDepartureDetailDialog v-model:open="detailOpen.tour_bookings" :departure-id="detailId" :company-id="companyId as number" :tenant-slug="tenantSlug" @changed="loadEvents" />
         <RepairOrderDetailDialog v-model:open="detailOpen.vehicle_service" :repair-order-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
         <ShipmentDetailDialog v-model:open="detailOpen.shipment_tracking" :shipment-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
+
+        <NewBookingDialog v-if="activeModule === 'booking_calendar'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
+        <NewTableReservationDialog v-else-if="activeModule === 'table_reservations'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
+        <NewRoomReservationDialog v-else-if="activeModule === 'room_booking'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
+        <CourseGroupFormDialog v-else-if="activeModule === 'course_scheduling'" v-model:open="createOpen" :group="null" :company-id="companyId as number" :tenant-slug="tenantSlug" @saved="loadEvents" />
+        <TourDepartureFormDialog v-else-if="activeModule === 'tour_bookings'" v-model:open="createOpen" :departure="null" :company-id="companyId as number" :tenant-slug="tenantSlug" @saved="loadEvents" />
+        <NewRepairOrderDialog v-else-if="activeModule === 'vehicle_service'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
+        <NewShipmentDialog v-else-if="activeModule === 'shipment_tracking'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
     </section>
 </template>
+
+<style scoped>
+.calendar-fade-enter-active,
+.calendar-fade-leave-active {
+    transition: opacity 0.18s ease;
+}
+.calendar-fade-enter-from,
+.calendar-fade-leave-to {
+    opacity: 0;
+}
+</style>

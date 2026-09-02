@@ -66,7 +66,7 @@ const en = {
     calendar: {
         title: 'Calendar', subtitle: 'Every module’s bookings in one place — switch modules to see that module’s own schedule.',
         noModules: 'No booking-based modules are enabled yet. Turn one on in Settings → Modules to see it here.',
-        noEvents: 'Nothing scheduled', loading: 'Loading…',
+        noEvents: 'Nothing scheduled', loading: 'Loading…', newRecord: 'New record',
     },
     booking: {
         minutesUnit: 'min',
@@ -285,7 +285,7 @@ const ru = {
     calendar: {
         title: 'Календарь', subtitle: 'Все записи и брони каждого модуля в одном месте — переключайте модуль сверху.',
         noModules: 'Пока нет ни одного модуля с бронированием. Включите его в Настройки → Модули, чтобы он появился здесь.',
-        noEvents: 'На эту дату ничего нет', loading: 'Загрузка…',
+        noEvents: 'На эту дату ничего нет', loading: 'Загрузка…', newRecord: 'Новая запись',
     },
     booking: {
         minutesUnit: 'мин',
