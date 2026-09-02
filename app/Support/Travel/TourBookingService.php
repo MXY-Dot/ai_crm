@@ -77,7 +77,10 @@ class TourBookingService
         });
     }
 
-    public function cancel(TourBooking $booking, User $actor, string $reason): TourBooking
+    // $actor nullable for the same reason as RepairOrderService's/
+    // EnrollmentService's own cancel() fix -- a customer-initiated cancel from
+    // AI-chat has no staff user behind it (see TravelChatAssistant).
+    public function cancel(TourBooking $booking, ?User $actor, string $reason): TourBooking
     {
         return DB::transaction(function () use ($booking, $actor, $reason) {
             if (! in_array($booking->status, TourBooking::ACTIVE_STATUSES, true)) {

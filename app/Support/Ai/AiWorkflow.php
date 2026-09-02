@@ -20,6 +20,7 @@ use App\Support\Booking\AiChatBookingAssistant;
 use App\Support\Education\EducationChatAssistant;
 use App\Support\Hotel\RoomReservationChatAssistant;
 use App\Support\Restaurant\TableReservationChatAssistant;
+use App\Support\Travel\TravelChatAssistant;
 use App\Support\Chatwoot\ChatwootClient;
 use App\Support\Emergency\AutoAssignmentService;
 use App\Support\Emergency\EmergencyStateManager;
@@ -65,6 +66,7 @@ class AiWorkflow
         private readonly RoomReservationChatAssistant $chatRoomReservation,
         private readonly RepairOrderChatAssistant $chatRepairOrder,
         private readonly EducationChatAssistant $chatEducation,
+        private readonly TravelChatAssistant $chatTravel,
     ) {
     }
 
@@ -127,10 +129,12 @@ class AiWorkflow
         $decision = $this->chatRoomReservation->maybeHandle($tenant, $company, $conversation, $message, $decision);
         // ТЗ раздел 9/12 — "запись на ремонт через AI-чат".
         $decision = $this->chatRepairOrder->maybeHandle($tenant, $company, $conversation, $message, $decision);
-        // ТЗ раздел 9/12 — "запись на курс через AI-чат". Runs LAST in the
-        // chain -- see EducationChatAssistant's own docblock for why that
-        // matters (nothing after it can clobber a genuine enrollment reply).
+        // ТЗ раздел 9/12 — "запись на курс через AI-чат".
         $decision = $this->chatEducation->maybeHandle($tenant, $company, $conversation, $message, $decision);
+        // ТЗ раздел 9/12 — "заявка на тур через AI-чат". Runs LAST in the
+        // chain -- see TravelChatAssistant's own docblock for why that
+        // matters (nothing after it can clobber a genuine tour-booking reply).
+        $decision = $this->chatTravel->maybeHandle($tenant, $company, $conversation, $message, $decision);
         $run = $this->run($tenant, $agent, $conversation, $lead, $message, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);
