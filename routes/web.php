@@ -113,8 +113,6 @@ Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])-
     })->name('ai.agent');
     Route::get('/knowledge', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'KnowledgePage'))->name('knowledge');
-    Route::get('/booking', fn (Request $request, DashboardData $dashboard) =>
-        $dashboardPage($request, $dashboard, 'BookingCalendarPage'))->name('booking');
     Route::get('/calendar', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'CalendarPage'))->name('calendar');
     Route::get('/booking-settings', fn (Request $request, DashboardData $dashboard) =>

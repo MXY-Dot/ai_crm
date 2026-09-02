@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { BarChart3, Blocks, Bot, BookOpen, Building2, Calendar, CalendarCheck, CalendarClock, CreditCard, Database, GraduationCap, Hotel, Inbox, Layers, LayoutDashboard, LifeBuoy, Package, Plane, Plug, Scissors, Settings, ShoppingCart, Target, Truck, Users, Users2, Utensils, Wrench } from '@lucide/vue';
+import { BarChart3, Blocks, Bot, BookOpen, Building2, Calendar, CalendarCheck, CreditCard, GraduationCap, Hotel, Inbox, Layers, LayoutDashboard, LifeBuoy, Package, Plane, Plug, Scissors, Settings, ShoppingCart, Target, Truck, Users, Users2, Utensils, Wrench } from '@lucide/vue';
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { canAccessPage } from '../../lib/permissions';
 import { useLocaleStore } from '../../stores/locale';
@@ -34,7 +34,6 @@ const allEntries: RawEntry[] = [
     {
         groupId: 'modules', label: 'nav.groupModules', icon: Layers,
         children: [
-            { id: 'booking', label: 'nav.booking', icon: CalendarClock },
             { id: 'booking-settings', label: 'nav.bookingSettings', icon: Scissors },
             { id: 'orders', label: 'nav.orders', icon: ShoppingCart },
             { id: 'catalog-settings', label: 'nav.catalogSettings', icon: Package },
@@ -44,7 +43,6 @@ const allEntries: RawEntry[] = [
             { id: 'education-settings', label: 'nav.educationSettings', icon: GraduationCap },
             { id: 'travel-settings', label: 'nav.travelSettings', icon: Plane },
             { id: 'logistics-settings', label: 'nav.logisticsSettings', icon: Truck },
-            { id: 'erp-settings', label: 'nav.erpSettings', icon: Database },
         ],
     },
     {

@@ -1,4 +1,4 @@
-export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'contacts' | 'vip' | 'campaigns' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'marketplace' | 'team' | 'support' | 'billing' | 'settings' | 'profile' | 'calendar' | 'booking' | 'booking-settings' | 'orders' | 'catalog-settings' | 'restaurant-settings' | 'hotel-settings' | 'auto-service-settings' | 'education-settings' | 'travel-settings' | 'logistics-settings' | 'erp-settings' | 'notifications';
+export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'contacts' | 'vip' | 'campaigns' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'marketplace' | 'team' | 'support' | 'billing' | 'settings' | 'profile' | 'calendar' | 'booking-settings' | 'orders' | 'catalog-settings' | 'restaurant-settings' | 'hotel-settings' | 'auto-service-settings' | 'education-settings' | 'travel-settings' | 'logistics-settings' | 'erp-settings' | 'notifications';
 
 export const pagePaths: Record<DashboardPage, string> = {
     overview: '/app',
@@ -19,7 +19,6 @@ export const pagePaths: Record<DashboardPage, string> = {
     settings: '/settings',
     profile: '/profile',
     calendar: '/calendar',
-    booking: '/booking',
     'booking-settings': '/booking-settings',
     orders: '/orders',
     'catalog-settings': '/catalog-settings',

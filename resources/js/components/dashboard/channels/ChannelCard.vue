@@ -10,9 +10,17 @@ const props = defineProps<{
     name: string;
     status?: string;
     lastSyncedAt?: string | null;
-    brand?: 'telegram' | 'whatsapp' | 'instagram' | 'facebook' | 'blue';
+    brand?: 'telegram' | 'whatsapp' | 'instagram' | 'facebook' | 'blue' | 'erp';
     /** Optional external link (e.g. the provider's own dashboard) shown as a small button next to "Настроить". */
     externalUrl?: string | null;
+    /**
+     * When set, "Настроить" navigates here (a real settings page, e.g.
+     * /erp-settings) instead of opening the inline dialog + default slot --
+     * for integrations whose real configuration UI (a full CRUD panel, not
+     * a couple of form fields) is too big to comfortably fit in this card's
+     * dialog. Omit for the normal inline-dialog channels.
+     */
+    settingsHref?: string | null;
     /**
      * ЭТАП 2.6 — real, actively-monitored status (see ActiveHealthProbe::probeTelegramChannels()),
      * distinct from `status` (which is only ever written once, at connect-time).
@@ -29,6 +37,7 @@ const brandClass = computed(() => {
         instagram: 'bg-gradient-to-br from-brand-instagram-from via-brand-instagram-via to-brand-instagram-to text-white',
         facebook: 'bg-[#1877F2] text-white',
         blue: 'bg-brand-website text-white',
+        erp: 'bg-slate-600 text-white',
     };
 
     return (props.brand ? map[props.brand] : null) ?? 'bg-muted text-primary';
@@ -73,7 +82,8 @@ const lastSyncedLabel = computed(() => (props.lastSyncedAt
         <div v-else class="flex-1" />
 
         <div class="flex gap-2">
-            <Dialog>
+            <Button v-if="settingsHref" variant="outline" class="flex-1" as="a" :href="settingsHref" type="button"><Settings2 class="h-4 w-4" />Настроить</Button>
+            <Dialog v-else>
                 <DialogTrigger as-child>
                     <Button variant="outline" class="flex-1" type="button"><Settings2 class="h-4 w-4" />Настроить</Button>
                 </DialogTrigger>
