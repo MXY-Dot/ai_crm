@@ -170,7 +170,38 @@ class AiChatBookingAssistant
         // that reads exactly like "Готово, вы записаны" without any booking actually
         // existing. Once real options are on the table, every reply must either act on
         // a real pick or explicitly re-ask, never fall through unconstrained.
+        //
+        // Real bug found live testing (2026-09-02): this safety net used to fire
+        // unconditionally whenever OUR OWN $intent came back with every wants_*
+        // false -- including when the customer's message was plainly about a
+        // DIFFERENT module entirely (e.g. "хочу записаться на окрашивание" hit
+        // this exact branch because a stale TableReservationChatAssistant flow
+        // was sitting in Message.meta from an abandoned table-reschedule turn
+        // days earlier), silently clobbering whatever real, correct reply this
+        // class itself -- or a later assistant in AiWorkflow's chain -- had
+        // already produced for $decision this turn. The extractor schema has no
+        // way to tell "ambiguous continuation of my own flow" apart from
+        // "unrelated message" (both come back all-false with no selected index),
+        // so the fix is at the chain level instead: only reoffer when $decision
+        // is still the untouched value this method received -- i.e. no earlier
+        // assistant in the chain already claimed this turn with its own reply.
+        if ($this->alreadyClaimedByAnotherModule($decision)) {
+            return $decision;
+        }
+
         return $this->reofferForPendingFlow($lastMeta, $decision) ?? $decision;
+    }
+
+    /**
+     * @see handle()'s own docblock on why this guard exists. 'handoff_operator'
+     * is included even though this class runs first in AiWorkflow's chain (so
+     * nothing could have set it yet in practice) -- future-proofing against a
+     * chain-order change, since a handoff from ANY module already means
+     * "operator will follow up," nothing left for us to add.
+     */
+    private function alreadyClaimedByAnotherModule(AiDecision $decision): bool
+    {
+        return in_array($decision->nextAction, ['table_reservation_flow', 'room_reservation_flow', 'handoff_operator'], true);
     }
 
     /** @see handle()'s own docblock comment for why this exists. */

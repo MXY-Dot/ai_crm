@@ -119,8 +119,24 @@ class RoomReservationChatAssistant
         // Safety net -- same reasoning as AiChatBookingAssistant::handle()'s own
         // comment: never let the underlying reply engine's own free text stand
         // in once real options (or a pending question) are already on the
-        // table from the previous turn.
+        // table from the previous turn. Real bug found live testing
+        // (2026-09-02) and fixed identically in AiChatBookingAssistant/
+        // TableReservationChatAssistant -- see AiChatBookingAssistant::handle()'s
+        // own docblock for the full story: this used to fire even when the
+        // customer's message was plainly about a different module, clobbering
+        // a correct reply an EARLIER assistant in AiWorkflow's chain had
+        // already produced.
+        if ($this->alreadyClaimedByAnotherModule($decision)) {
+            return $decision;
+        }
+
         return $this->reofferForPendingFlow($lastMeta, $decision) ?? $decision;
+    }
+
+    /** @see AiChatBookingAssistant::handle()'s own docblock on why this guard exists. */
+    private function alreadyClaimedByAnotherModule(AiDecision $decision): bool
+    {
+        return in_array($decision->nextAction, ['booking_flow', 'table_reservation_flow', 'handoff_operator'], true);
     }
 
     private function reofferForPendingFlow(array $lastMeta, AiDecision $decision): ?AiDecision
