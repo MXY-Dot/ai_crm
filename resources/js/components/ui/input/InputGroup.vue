@@ -24,22 +24,24 @@ function onUpdate(value: string | number): void {
 </script>
 
 <template>
-  <div class="relative flex items-center">
+  <div
+    class="dark:bg-input/30 border-input focus-within:border-ring focus-within:ring-ring/50 flex h-8 items-stretch overflow-hidden rounded-lg border bg-transparent transition-colors focus-within:ring-3 lg:h-10"
+  >
     <span
       v-if="$slots.prefix"
-      class="pointer-events-none absolute left-0 top-0 z-10 flex h-full items-center border-r border-input px-2.5 text-xs font-semibold uppercase tracking-wide ui-subtle"
+      class="border-input flex shrink-0 items-center border-r px-2.5 text-xs font-semibold uppercase tracking-wide ui-subtle"
     >
       <slot name="prefix" />
     </span>
     <Input
       :model-value="modelValue"
       v-bind="$attrs"
-      :class="cn($slots.prefix ? 'pl-14' : '', $slots.suffix ? 'pr-14' : '', props.class)"
+      :class="cn('h-full flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:border-transparent focus-visible:ring-0', props.class)"
       @update:model-value="onUpdate"
     />
     <span
       v-if="$slots.suffix"
-      class="pointer-events-none absolute right-0 top-0 z-10 flex h-full items-center border-l border-input px-2.5 text-xs font-semibold uppercase tracking-wide ui-subtle"
+      class="border-input flex shrink-0 items-center border-l px-2.5 text-xs font-semibold uppercase tracking-wide ui-subtle"
     >
       <slot name="suffix" />
     </span>
