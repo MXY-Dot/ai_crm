@@ -184,4 +184,8 @@ Route::middleware(['auth', EnsureSuperAdmin::class])->prefix('super-admin')->gro
         'currentUser' => $request->user()?->only(['id', 'name', 'email', 'role', 'avatar_url']),
         'ticketId' => $ticket->id,
     ]))->name('super-admin.support.show');
+    Route::get('/business-modules/{businessType}', fn (Request $request, BusinessType $businessType) => Inertia::render('SuperAdminBusinessTypeDetailPage', [
+        'currentUser' => $request->user()?->only(['id', 'name', 'email', 'role', 'avatar_url']),
+        'businessTypeId' => $businessType->id,
+    ]))->name('super-admin.business-modules.show');
 });

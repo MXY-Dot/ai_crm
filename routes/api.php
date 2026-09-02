@@ -188,6 +188,7 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::patch('language-quality/base-knowledge-document', [SuperAdminLanguageQualityController::class, 'updateBaseKnowledgeDocument']);
 
         Route::get('business-types', [SuperAdminBusinessModulesController::class, 'businessTypes']);
+        Route::get('business-types/{businessType}', [SuperAdminBusinessModulesController::class, 'showBusinessType']);
         Route::patch('business-types/{businessType}', [SuperAdminBusinessModulesController::class, 'updateBusinessType']);
         Route::get('integration-requests', [SuperAdminBusinessModulesController::class, 'integrationRequests']);
         Route::get('integration-requests/{integrationRequest}', [SuperAdminBusinessModulesController::class, 'showIntegrationRequest']);

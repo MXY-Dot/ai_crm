@@ -24,6 +24,14 @@ class SuperAdminBusinessModulesController extends Controller
         ]);
     }
 
+    public function showBusinessType(BusinessType $businessType): JsonResponse
+    {
+        return response()->json([
+            'business_type' => $businessType,
+            'modules' => ModuleRegistry::labels(),
+        ]);
+    }
+
     public function updateBusinessType(Request $request, BusinessType $businessType, AuditLogger $audit): JsonResponse
     {
         $data = $request->validate([

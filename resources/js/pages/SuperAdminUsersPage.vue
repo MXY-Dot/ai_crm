@@ -2,9 +2,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { toast } from 'vue-sonner';
-import { Check, ChevronLeft, ChevronRight, Copy, Download, Key, MoreVertical, Shield, UserPlus } from '@lucide/vue';
+import { Check, Copy, Download, Key, MoreVertical, Shield, UserPlus } from '@lucide/vue';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
+import DataTable from '@/components/dashboard/DataTable.vue';
 import SearchInput from '@/components/dashboard/SearchInput.vue';
 import TableFiltersButton from '@/components/dashboard/TableFiltersButton.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,7 +15,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 defineOptions({ layout: SuperAdminLayout });
@@ -224,8 +224,17 @@ async function createUser(): Promise<void> {
         </div>
     </div>
 
-    <div class="overflow-hidden rounded-xl border border-border bg-card">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4 border-border">
+    <DataTable
+        :loading="loading"
+        :row-count="rows.length"
+        :column-count="7"
+        empty-message="Пользователи не найдены"
+        :meta="meta"
+        item-label="пользователей"
+        min-width="min-w-[72rem]"
+        @update:page="page = $event"
+    >
+        <template #toolbar>
             <div class="flex flex-wrap items-center gap-3">
                 <SearchInput v-model="search" placeholder="Поиск по имени или email..." />
                 <TableFiltersButton :active-count="activeFilterCount" @reset="resetFilters">
@@ -250,92 +259,68 @@ async function createUser(): Promise<void> {
                     <TabsTrigger value="super_admin">Персонал WERO</TabsTrigger>
                 </TabsList>
             </Tabs>
-        </div>
+        </template>
 
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[72rem] text-left text-sm">
-                <thead class="border-b border-border">
-                    <tr class="text-xs font-semibold uppercase ui-subtle">
-                        <th class="p-4">Пользователь</th>
-                        <th class="p-4">Роль</th>
-                        <th class="p-4">Компания</th>
-                        <th class="p-4">Последний вход</th>
-                        <th class="p-4">IP адрес</th>
-                        <th class="p-4">Статус</th>
-                        <th class="p-4 text-right">Действия</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-border">
-                    <template v-if="loading">
-                        <tr v-for="i in 6" :key="`skeleton-${i}`">
-                            <td class="p-4" colspan="7"><Skeleton class="h-10 w-full" /></td>
-                        </tr>
-                    </template>
-                    <tr v-else-if="! rows.length">
-                        <td class="p-8 text-center text-sm ui-subtle" colspan="7">Пользователи не найдены</td>
-                    </tr>
-                    <tr v-else v-for="row in rows" :key="row.id" class="group cursor-pointer transition hover:bg-muted" @click="openUser(row.id)">
-                        <td class="p-4">
-                            <div class="flex items-center gap-3">
-                                <Avatar class="size-9">
-                                    <AvatarImage v-if="row.avatar_url" :src="row.avatar_url" alt="" />
-                                    <AvatarFallback class="text-xs font-semibold bg-accent text-accent-foreground">{{ row.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
-                                </Avatar>
-                                <div class="min-w-0">
-                                    <div class="truncate text-sm font-semibold ui-text group-hover:text-primary">{{ row.name }}</div>
-                                    <div class="truncate text-xs ui-subtle">{{ row.email }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            <Badge :tone="roleTone[row.role]">
-                                <Shield v-if="row.role === 'super_admin'" class="h-3 w-3" />{{ roleLabels[row.role] }}
-                            </Badge>
-                        </td>
-                        <td class="p-4" @click.stop>
-                            <button
-                                v-if="row.tenant"
-                                type="button"
-                                class="text-sm text-primary hover:underline"
-                                @click="openCompany(row.tenant.id)"
-                            >{{ row.tenant.name }}</button>
-                            <span v-else class="text-sm ui-subtle">— (платформа)</span>
-                        </td>
-                        <td class="p-4 font-mono text-xs ui-subtle">{{ row.last_login_at ? formatDate(row.last_login_at) : 'не входил(а)' }}</td>
-                        <td class="p-4 font-mono text-xs ui-subtle">{{ row.last_ip ?? '—' }}</td>
-                        <td class="p-4">
-                            <Badge :tone="statusTone[row.status]">{{ statusLabels[row.status] }}</Badge>
-                        </td>
-                        <td class="p-4 text-right" @click.stop>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger as-child>
-                                    <button type="button" class="rounded-lg p-1.5 opacity-0 transition hover:bg-muted group-hover:opacity-100 ui-subtle">
-                                        <MoreVertical class="h-4 w-4" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem @select="openUser(row.id)">Открыть карточку</DropdownMenuItem>
-                                    <DropdownMenuItem @select="resetPassword(row)"><Key class="h-4 w-4" />Сбросить пароль</DropdownMenuItem>
-                                    <DropdownMenuItem v-if="row.status !== 'active'" @select="updateStatus(row, 'active')">Активировать</DropdownMenuItem>
-                                    <DropdownMenuItem v-if="row.status !== 'disabled'" variant="destructive" @select="updateStatus(row, 'disabled')">Отключить</DropdownMenuItem>
-                                    <DropdownMenuItem v-if="row.tenant" @select="openCompany(row.tenant.id)">Открыть компанию</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <template #thead>
+            <th class="p-4">Пользователь</th>
+            <th class="p-4">Роль</th>
+            <th class="p-4">Компания</th>
+            <th class="p-4">Последний вход</th>
+            <th class="p-4">IP адрес</th>
+            <th class="p-4">Статус</th>
+            <th class="p-4 text-right">Действия</th>
+        </template>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t p-4 border-border">
-            <span class="text-sm ui-subtle">Показано {{ rows.length ? (meta.current_page - 1) * meta.per_page + 1 : 0 }}–{{ (meta.current_page - 1) * meta.per_page + rows.length }} из {{ meta.total }} пользователей</span>
-            <div class="flex items-center gap-1">
-                <Button size="icon-sm" variant="outline" :disabled="meta.current_page <= 1" @click="page = meta.current_page - 1"><ChevronLeft class="h-4 w-4" /></Button>
-                <span class="px-2 font-mono text-sm ui-text">{{ meta.current_page }} / {{ meta.last_page }}</span>
-                <Button size="icon-sm" variant="outline" :disabled="meta.current_page >= meta.last_page" @click="page = meta.current_page + 1"><ChevronRight class="h-4 w-4" /></Button>
-            </div>
-        </div>
-    </div>
+        <tr v-for="row in rows" :key="row.id" class="group cursor-pointer transition hover:bg-muted" @click="openUser(row.id)">
+            <td class="p-4">
+                <div class="flex items-center gap-3">
+                    <Avatar class="size-9">
+                        <AvatarImage v-if="row.avatar_url" :src="row.avatar_url" alt="" />
+                        <AvatarFallback class="text-xs font-semibold bg-accent text-accent-foreground">{{ row.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
+                    </Avatar>
+                    <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold ui-text group-hover:text-primary">{{ row.name }}</div>
+                        <div class="truncate text-xs ui-subtle">{{ row.email }}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="p-4">
+                <Badge :tone="roleTone[row.role]">
+                    <Shield v-if="row.role === 'super_admin'" class="h-3 w-3" />{{ roleLabels[row.role] }}
+                </Badge>
+            </td>
+            <td class="p-4" @click.stop>
+                <button
+                    v-if="row.tenant"
+                    type="button"
+                    class="text-sm text-primary hover:underline"
+                    @click="openCompany(row.tenant.id)"
+                >{{ row.tenant.name }}</button>
+                <span v-else class="text-sm ui-subtle">— (платформа)</span>
+            </td>
+            <td class="p-4 font-mono text-xs ui-subtle">{{ row.last_login_at ? formatDate(row.last_login_at) : 'не входил(а)' }}</td>
+            <td class="p-4 font-mono text-xs ui-subtle">{{ row.last_ip ?? '—' }}</td>
+            <td class="p-4">
+                <Badge :tone="statusTone[row.status]">{{ statusLabels[row.status] }}</Badge>
+            </td>
+            <td class="p-4 text-right" @click.stop>
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <button type="button" class="rounded-lg p-1.5 opacity-0 transition hover:bg-muted group-hover:opacity-100 ui-subtle">
+                            <MoreVertical class="h-4 w-4" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem @select="openUser(row.id)">Открыть карточку</DropdownMenuItem>
+                        <DropdownMenuItem @select="resetPassword(row)"><Key class="h-4 w-4" />Сбросить пароль</DropdownMenuItem>
+                        <DropdownMenuItem v-if="row.status !== 'active'" @select="updateStatus(row, 'active')">Активировать</DropdownMenuItem>
+                        <DropdownMenuItem v-if="row.status !== 'disabled'" variant="destructive" @select="updateStatus(row, 'disabled')">Отключить</DropdownMenuItem>
+                        <DropdownMenuItem v-if="row.tenant" @select="openCompany(row.tenant.id)">Открыть компанию</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </td>
+        </tr>
+    </DataTable>
 
     <Dialog v-model:open="addOpen">
         <DialogContent class="sm:max-w-md">
