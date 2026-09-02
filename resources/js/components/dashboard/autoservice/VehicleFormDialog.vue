@@ -91,7 +91,7 @@ async function submit(): Promise<void> {
 
 <template>
     <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
-        <DialogContent class="sm:max-w-md">
+        <DialogContent class="sm:max-w-[32.2rem]">
             <form @submit.prevent="submit">
                 <DialogHeader>
                     <DialogTitle>{{ vehicle ? locale.t('autoService.editVehicle') : locale.t('autoService.addVehicle') }}</DialogTitle>

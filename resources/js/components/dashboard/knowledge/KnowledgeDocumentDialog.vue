@@ -92,7 +92,7 @@ async function save(): Promise<void> {
 
 <template>
     <Dialog v-model:open="open">
-        <DialogContent class="flex max-h-[88vh] flex-col sm:max-w-3xl">
+        <DialogContent class="flex max-h-[88vh] flex-col sm:max-w-[55.2rem]">
             <DialogHeader>
                 <DialogTitle class="flex items-center justify-between gap-3 pr-6">
                     <span class="flex min-w-0 items-center gap-2">

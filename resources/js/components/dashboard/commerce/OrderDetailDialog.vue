@@ -261,7 +261,7 @@ async function requestReturn(): Promise<void> {
 
 <template>
     <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
-        <DialogContent class="sm:max-w-xl">
+        <DialogContent class="sm:max-w-[41.4rem]">
             <DialogHeader>
                 <DialogTitle>{{ locale.t('commerce.orderDetails') }} #{{ orderId }}</DialogTitle>
             </DialogHeader>

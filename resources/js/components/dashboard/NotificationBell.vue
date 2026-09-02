@@ -215,7 +215,7 @@ async function sendAnnouncement(): Promise<void> {
     </DropdownMenu>
 
     <Dialog v-model:open="announceOpen">
-        <DialogContent class="sm:max-w-md">
+        <DialogContent class="sm:max-w-[32.2rem]">
             <form @submit.prevent="sendAnnouncement">
                 <DialogHeader>
                     <DialogTitle class="flex items-center gap-2"><Megaphone class="h-4 w-4 text-primary" />Объявление платформы</DialogTitle>

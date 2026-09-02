@@ -99,7 +99,7 @@ const title = computed(() => props.employee?.name ?? '');
 
 <template>
     <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
-        <DialogContent class="sm:max-w-2xl">
+        <DialogContent class="sm:max-w-[48.3rem]">
             <DialogHeader>
                 <DialogTitle>{{ title }}</DialogTitle>
             </DialogHeader>

@@ -66,7 +66,7 @@ async function submit(): Promise<void> {
                 <Plus class="h-4 w-4" />
             </Button>
         </DialogTrigger>
-        <DialogContent class="sm:max-w-md">
+        <DialogContent class="sm:max-w-[32.2rem]">
             <form @submit.prevent="submit">
                 <DialogHeader>
                     <DialogTitle class="flex items-center gap-2"><Bot class="h-4 w-4 text-primary" />Новый AI-ассистент</DialogTitle>

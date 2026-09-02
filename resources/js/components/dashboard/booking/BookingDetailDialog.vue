@@ -205,7 +205,7 @@ const refundInFlight = computed(() => booking.value && ['refund_pending', 'refun
 
 <template>
     <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="sm:max-w-[36.8rem]">
             <DialogHeader>
                 <DialogTitle>{{ locale.t('booking.bookingDetails') }}</DialogTitle>
             </DialogHeader>

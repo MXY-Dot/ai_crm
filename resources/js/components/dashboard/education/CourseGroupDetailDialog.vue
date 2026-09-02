@@ -120,7 +120,7 @@ function formatDate(iso: string): string {
 
 <template>
     <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="sm:max-w-[36.8rem]">
             <DialogHeader>
                 <DialogTitle>{{ group?.name ?? locale.t('education.groupDetails') }}</DialogTitle>
             </DialogHeader>
