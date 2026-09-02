@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { isMutedStatus, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { hasStrikethrough, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 
-const props = defineProps<{ date: string; resources: CalendarResource[]; events: CalendarEvent[]; accentClass: string }>();
+const props = defineProps<{ date: string; resources: CalendarResource[]; events: CalendarEvent[] }>();
 const emit = defineEmits<{ open: [event: CalendarEvent] }>();
 
 const START_HOUR = 8;
@@ -74,7 +74,7 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     class="sticky top-0 z-10 flex items-center gap-2 truncate border-b border-l border-border bg-background px-3 text-sm font-semibold ui-text"
                     :style="{ gridRow: 1, gridColumn: ri + 2 }"
                 >
-                    <span class="h-2 w-2 shrink-0 rounded-full" :class="accentClass" />
+                    <span class="h-2 w-2 shrink-0 rounded-full" :class="resourceAccent(ri)" />
                     <span class="truncate">{{ r.name }}</span>
                 </div>
 
@@ -99,13 +99,13 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     type="button"
                     :title="`${event.title} · ${event.subtitle}`"
                     class="relative z-[6] m-0.5 flex flex-col justify-center gap-px overflow-hidden rounded-lg border px-2 py-1 text-left leading-tight shadow-sm transition-all hover:z-[7] hover:shadow-md hover:brightness-105"
-                    :class="isMutedStatus(event.status) ? 'bg-muted text-muted-foreground opacity-70' : 'bg-card ring-1 ring-inset'"
+                    :class="STATUS_COLORS[event.status] ?? 'bg-muted'"
                     :style="{ gridRow: `${rowForIso(event.starts_at)} / ${rowForIso(event.ends_at)}`, gridColumn: resourceColumn(event.resource_id) }"
                     @click.stop="emit('open', event)"
                 >
                     <span class="flex items-center gap-1.5">
-                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="accentClass" />
-                        <span class="truncate text-[11px] font-semibold" :class="isMutedStatus(event.status) ? 'line-through' : ''">{{ event.title }}</span>
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
+                        <span class="truncate text-[11px] font-semibold" :class="hasStrikethrough(event.status) ? 'line-through' : ''">{{ event.title }}</span>
                     </span>
                     <span class="truncate pl-3 text-[10.5px] opacity-80">{{ event.subtitle }}</span>
                     <span class="truncate pl-3 text-[10px] font-medium tabular-nums opacity-70">{{ formatRange(event.starts_at, event.ends_at) }}</span>

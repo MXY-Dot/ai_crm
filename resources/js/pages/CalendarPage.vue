@@ -56,7 +56,6 @@ const weekStart = computed(() => {
     return toLocalDateString(d);
 });
 const monthKey = computed(() => date.value.slice(0, 7));
-const accentClass = computed(() => (activeModule.value && MODULE_ACCENTS[activeModule.value]) || 'bg-primary');
 const useDayGrid = computed(() => activeModule.value !== null && HOUR_GRID_MODULES.has(activeModule.value) && resources.value.length > 0);
 
 function fetchRange(): { from: string; to: string } {
@@ -174,21 +173,25 @@ function openDetail(event: CalendarEvent): void {
         <p v-else-if="! modules.length" class="text-sm ui-subtle">{{ locale.t('calendar.noModules') }}</p>
 
         <template v-else>
-            <div class="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-card p-1.5">
-                <Button
-                    v-for="m in modules"
-                    :key="m.key"
-                    type="button"
-                    :variant="activeModule === m.key ? 'secondary' : 'ghost'"
-                    size="sm"
-                    @click="activeModule = m.key"
-                >
-                    <component :is="MODULE_ICONS[m.key]" class="h-4 w-4" />
-                    {{ m.label }}
-                </Button>
-            </div>
-
             <div class="flex flex-wrap items-center gap-3">
+                <Select v-model="activeModule">
+                    <SelectTrigger class="w-64">
+                        <span class="flex items-center gap-2 truncate">
+                            <span class="h-2 w-2 shrink-0 rounded-full" :class="activeModule ? MODULE_ACCENTS[activeModule] : ''" />
+                            <component :is="activeModule ? MODULE_ICONS[activeModule] : undefined" class="h-4 w-4 shrink-0 ui-subtle" />
+                            <SelectValue />
+                        </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="m in modules" :key="m.key" :value="m.key">
+                            <span class="flex items-center gap-2">
+                                <span class="h-2 w-2 shrink-0 rounded-full" :class="MODULE_ACCENTS[m.key]" />
+                                <component :is="MODULE_ICONS[m.key]" class="h-4 w-4 shrink-0" />
+                                {{ m.label }}
+                            </span>
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
                 <div class="flex items-center gap-1">
                     <Button variant="outline" size="icon" @click="shiftDate(-1)"><ChevronLeft class="h-4 w-4" /></Button>
                     <DatePicker v-model="date" class="w-40" />
@@ -216,21 +219,19 @@ function openDetail(event: CalendarEvent): void {
                     :date="date"
                     :resources="resources"
                     :events="events"
-                    :accent-class="accentClass"
                     @open="openDetail"
                 />
-                <CalendarDayAgenda v-else :date="date" :events="events" :resources="resources" :accent-class="accentClass" @open="openDetail" />
+                <CalendarDayAgenda v-else :date="date" :events="events" :resources="resources" @open="openDetail" />
             </template>
             <CalendarWeekView
                 v-else-if="viewMode === 'week'"
                 :week-start="weekStart"
                 :events="events"
                 :resources="resources"
-                :accent-class="accentClass"
                 @select-day="selectDay"
                 @open="openDetail"
             />
-            <CalendarMonthView v-else :month="monthKey" :events="events" :accent-class="accentClass" @select-day="selectDay" />
+            <CalendarMonthView v-else :month="monthKey" :events="events" @select-day="selectDay" />
         </template>
 
         <BookingDetailDialog v-model:open="detailOpen.booking_calendar" :booking-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { eventOnDate, toLocalDateString, type CalendarEvent } from '../../../lib/calendar';
+import { eventOnDate, STATUS_DOTS, toLocalDateString, type CalendarEvent } from '../../../lib/calendar';
 
-const props = defineProps<{ month: string; events: CalendarEvent[]; accentClass: string }>();
+const props = defineProps<{ month: string; events: CalendarEvent[] }>();
 const emit = defineEmits<{ 'select-day': [date: string] }>();
 
 // Monday-first grid, padded with the trailing days of the previous/next month
@@ -73,7 +73,7 @@ function dayNumber(date: string): number {
                             :class="isToday(cell.date) ? 'bg-primary text-primary-foreground' : 'ui-text'"
                         >{{ dayNumber(cell.date) }}</span>
                         <span class="flex flex-wrap gap-0.5">
-                            <span v-for="e in dayEvents(cell.date).slice(0, 8)" :key="e.id" class="size-1.5 rounded-full" :class="accentClass" />
+                            <span v-for="e in dayEvents(cell.date).slice(0, 8)" :key="e.id" class="size-1.5 rounded-full" :class="STATUS_DOTS[e.status] ?? 'bg-muted-foreground'" />
                         </span>
                         <span v-if="dayEvents(cell.date).length" class="mt-auto text-[10px] font-medium ui-subtle">{{ dayEvents(cell.date).length }}</span>
                     </button>

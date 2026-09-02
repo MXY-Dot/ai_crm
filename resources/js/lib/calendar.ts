@@ -38,17 +38,94 @@ export const MODULE_ACCENTS: Record<string, string> = {
     shipment_tracking: 'bg-indigo-500',
 };
 
-// Cancelled/no-show/completed-style statuses read the same across every
-// module's own status enum (see each model's own STATUSES const) — muted
-// treatment everywhere a status implies "no longer live", full accent
-// otherwise. Deliberately coarse (2 buckets, not a per-status palette like
-// BookingCalendarGrid's own STATUS_COLORS) since this shared view spans 7
-// different status vocabularies with no single shared meaning per status
-// name beyond "still active" vs "not".
-const MUTED_STATUSES = new Set(['cancelled', 'no_show', 'rejected', 'returned', 'closed']);
+// Real per-status colors, same idea (and same palette) as
+// BookingCalendarGrid's own STATUS_COLORS/bookingStatus.ts's STATUS_DOTS,
+// extended to cover every status string across all 7 modules' own STATUSES
+// consts (a handful of names collide across modules -- 'confirmed',
+// 'completed', 'cancelled' -- and mean the same thing everywhere they
+// appear, so one flat map is enough; no per-module override needed).
+export const STATUS_COLORS: Record<string, string> = {
+    // "not yet confirmed / waiting on something"
+    temp_hold: 'bg-muted text-muted-foreground',
+    pending: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+    awaiting_payment: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+    diagnosing: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+    awaiting_approval: 'bg-orange-500/15 text-orange-700 dark:text-orange-400',
+    awaiting_parts: 'bg-orange-500/15 text-orange-700 dark:text-orange-400',
+    payment_review: 'bg-orange-500/15 text-orange-700 dark:text-orange-400',
+    // "confirmed / open / booked"
+    confirmed: 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
+    active: 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
+    recruiting: 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
+    open: 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
+    received: 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
+    // "customer/order physically present or on its way"
+    client_arrived: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400',
+    checked_in: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400',
+    seated: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400',
+    out_for_delivery: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400',
+    // "actively being worked / underway"
+    in_progress: 'bg-purple-500/15 text-purple-700 dark:text-purple-400',
+    in_transit: 'bg-purple-500/15 text-purple-700 dark:text-purple-400',
+    departed: 'bg-purple-500/15 text-purple-700 dark:text-purple-400',
+    ready_for_pickup: 'bg-teal-500/15 text-teal-700 dark:text-teal-400',
+    // "done, successfully"
+    completed: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+    checked_out: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+    delivered: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+    // "no longer live"
+    rescheduled: 'bg-muted text-muted-foreground',
+    closed: 'bg-muted text-muted-foreground',
+    cancelled: 'bg-muted text-muted-foreground line-through opacity-70',
+    // "went wrong"
+    no_show: 'bg-destructive/10 text-destructive',
+    returned: 'bg-destructive/10 text-destructive',
+};
 
-export function isMutedStatus(status: string): boolean {
-    return MUTED_STATUSES.has(status);
+export const STATUS_DOTS: Record<string, string> = {
+    temp_hold: 'bg-muted-foreground',
+    pending: 'bg-amber-500',
+    awaiting_payment: 'bg-amber-500',
+    diagnosing: 'bg-amber-500',
+    awaiting_approval: 'bg-orange-500',
+    awaiting_parts: 'bg-orange-500',
+    payment_review: 'bg-orange-500',
+    confirmed: 'bg-blue-500',
+    active: 'bg-blue-500',
+    recruiting: 'bg-sky-500',
+    open: 'bg-sky-500',
+    received: 'bg-sky-500',
+    client_arrived: 'bg-indigo-500',
+    checked_in: 'bg-indigo-500',
+    seated: 'bg-indigo-500',
+    out_for_delivery: 'bg-indigo-500',
+    in_progress: 'bg-purple-500',
+    in_transit: 'bg-purple-500',
+    departed: 'bg-purple-500',
+    ready_for_pickup: 'bg-teal-500',
+    completed: 'bg-emerald-500',
+    checked_out: 'bg-emerald-500',
+    delivered: 'bg-emerald-500',
+    rescheduled: 'bg-muted-foreground',
+    closed: 'bg-muted-foreground',
+    cancelled: 'bg-muted-foreground',
+    no_show: 'bg-destructive',
+    returned: 'bg-destructive',
+};
+
+const STRIKETHROUGH_STATUSES = new Set(['cancelled', 'no_show', 'returned']);
+
+export function hasStrikethrough(status: string): boolean {
+    return STRIKETHROUGH_STATUSES.has(status);
+}
+
+// Rotating per-COLUMN accent for CalendarDayGrid's resource headers (one
+// employee/table/room/group per column) -- same rotating-palette idea as
+// BookingCalendarGrid's own EMPLOYEE_ACCENTS, generalized past employees.
+export const RESOURCE_ACCENTS = ['bg-sky-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500', 'bg-indigo-500'];
+
+export function resourceAccent(index: number): string {
+    return RESOURCE_ACCENTS[index % RESOURCE_ACCENTS.length];
 }
 
 // Modules whose events have a real same-day time-of-day component and

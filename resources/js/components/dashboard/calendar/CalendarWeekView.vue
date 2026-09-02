@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { eventOnDate, isMutedStatus, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { eventOnDate, hasStrikethrough, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 import { useLocaleStore } from '../../../stores/locale';
 
-const props = defineProps<{ weekStart: string; events: CalendarEvent[]; resources: CalendarResource[]; accentClass: string }>();
+const props = defineProps<{ weekStart: string; events: CalendarEvent[]; resources: CalendarResource[] }>();
 const emit = defineEmits<{ 'select-day': [date: string]; open: [event: CalendarEvent] }>();
 const locale = useLocaleStore();
 
@@ -66,12 +66,12 @@ function isToday(date: string): boolean {
                     :key="event.id"
                     type="button"
                     class="flex items-start gap-1.5 rounded-lg border border-border/60 bg-background/60 px-1.5 py-1 text-left text-[11px] leading-tight transition-colors hover:border-border hover:bg-accent/50"
-                    :class="isMutedStatus(event.status) ? 'opacity-60' : ''"
+                    :class="hasStrikethrough(event.status) ? 'opacity-60' : ''"
                     @click="emit('open', event)"
                 >
-                    <span class="mt-1 size-1.5 shrink-0 rounded-full" :class="accentClass" />
+                    <span class="mt-1 size-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
                     <span class="min-w-0">
-                        <span class="block truncate font-medium ui-text" :class="isMutedStatus(event.status) ? 'line-through' : ''">{{ time(event.starts_at) }} · {{ event.title }}</span>
+                        <span class="block truncate font-medium ui-text" :class="hasStrikethrough(event.status) ? 'line-through' : ''">{{ time(event.starts_at) }} · {{ event.title }}</span>
                         <span class="block truncate ui-subtle">{{ event.subtitle }}<template v-if="resourceName(event.resource_id)"> · {{ resourceName(event.resource_id) }}</template></span>
                     </span>
                 </button>
