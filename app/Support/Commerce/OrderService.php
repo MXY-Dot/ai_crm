@@ -95,6 +95,7 @@ class OrderService
                 'placed_via' => $data['placed_via'] ?? 'manual',
                 'order_type' => $data['order_type'] ?? 'delivery',
                 'table_reservation_id' => $data['table_reservation_id'] ?? null,
+                'repair_order_id' => $data['repair_order_id'] ?? null,
             ]);
 
             foreach ($lineItems as $item) {

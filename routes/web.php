@@ -125,6 +125,8 @@ Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])-
         $dashboardPage($request, $dashboard, 'RestaurantSettingsPage'))->name('restaurant-settings');
     Route::get('/hotel-settings', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'HotelSettingsPage'))->name('hotel-settings');
+    Route::get('/auto-service-settings', fn (Request $request, DashboardData $dashboard) =>
+        $dashboardPage($request, $dashboard, 'AutoServiceSettingsPage'))->name('auto-service-settings');
     Route::get('/analytics', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'AnalyticsPage'))->name('analytics');
     Route::get('/notifications', fn (Request $request, DashboardData $dashboard) =>

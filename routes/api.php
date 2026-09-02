@@ -37,6 +37,8 @@ use App\Http\Controllers\Api\NotificationSettingsController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\TableReservationController;
 use App\Http\Controllers\Api\RoomReservationController;
+use App\Http\Controllers\Api\VehicleController;
+use App\Http\Controllers\Api\RepairOrderController;
 use App\Http\Controllers\Api\OrderReportsController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -341,6 +343,19 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('room-reservations/{roomReservation}/gateway-payment', [RoomReservationController::class, 'initiateGatewayPayment'])->middleware('throttle:20,1');
         Route::post('room-reservations/{roomReservation}/mark-cash-paid', [RoomReservationController::class, 'markCashPaid']);
         Route::post('room-reservations/{roomReservation}/refund', [RoomReservationController::class, 'refund']);
+
+        // Автосервис/автомойка (module_key: vehicle_service) -- vehicles are their own
+        // simple CRUD (a customer's car, not a company-owned Resource); repair-order
+        // billing (parts + labor, both just Products) reuses the existing Order/
+        // OrderItem + payment module as-is via Order::repair_order_id, so no payment
+        // endpoints live here at all.
+        Route::apiResource('vehicles', VehicleController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::get('repair-orders', [RepairOrderController::class, 'index']);
+        Route::post('repair-orders', [RepairOrderController::class, 'store']);
+        Route::get('repair-orders/{repairOrder}', [RepairOrderController::class, 'show']);
+        Route::patch('repair-orders/{repairOrder}/status', [RepairOrderController::class, 'updateStatus']);
+        Route::patch('repair-orders/{repairOrder}/details', [RepairOrderController::class, 'updateDetails']);
+        Route::post('repair-orders/{repairOrder}/cancel', [RepairOrderController::class, 'cancel']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

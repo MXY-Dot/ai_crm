@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via', 'order_type', 'table_reservation_id'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via', 'order_type', 'table_reservation_id', 'repair_order_id'])]
 class Order extends Model
 {
     use BelongsToTenant;
@@ -108,5 +108,11 @@ class Order extends Model
     public function tableReservation(): BelongsTo
     {
         return $this->belongsTo(TableReservation::class);
+    }
+
+    /** ТЗ раздел 9 (Автосервис/автомойка) -- an invoice for a repair job (parts + labor, both just Products) is just an Order with this set. */
+    public function repairOrder(): BelongsTo
+    {
+        return $this->belongsTo(RepairOrder::class);
     }
 }
