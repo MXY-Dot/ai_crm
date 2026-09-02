@@ -9,6 +9,7 @@ use App\Models\KnowledgeChunk;
 use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\AutoService\RepairOrderChatContext;
 use App\Support\Booking\BookingChatContext;
 use App\Support\Hotel\RoomReservationChatContext;
 use App\Support\Restaurant\TableReservationChatContext;
@@ -31,6 +32,7 @@ class DifyClient
         private readonly BookingChatContext $bookingContext,
         private readonly TableReservationChatContext $tableReservationContext,
         private readonly RoomReservationChatContext $roomReservationContext,
+        private readonly RepairOrderChatContext $repairOrderContext,
     ) {
     }
 
@@ -431,8 +433,12 @@ class DifyClient
         // ТЗ раздел 9/12 — same reasoning, for a room reservation's "biggest
         // room's capacity" context instead of a service/table list.
         $roomSection = $this->roomReservationContext->promptSection($company);
+        // ТЗ раздел 9/12 — same reasoning, for repair intake's own "ask for
+        // vehicle + problem, never invent a price/date" instruction instead of
+        // a capacity/service list.
+        $repairSection = $this->repairOrderContext->promptSection($company);
 
-        $sections = array_filter([$profile, $bookingSection, $tableSection, $roomSection], fn (string $s): bool => $s !== '');
+        $sections = array_filter([$profile, $bookingSection, $tableSection, $roomSection, $repairSection], fn (string $s): bool => $s !== '');
 
         return implode("\n\n", $sections);
     }

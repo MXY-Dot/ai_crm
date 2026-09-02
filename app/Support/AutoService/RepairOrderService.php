@@ -111,7 +111,10 @@ class RepairOrderService
         });
     }
 
-    public function cancel(RepairOrder $repairOrder, User $actor, string $reason): RepairOrder
+    // $actor nullable for the same reason as BookingService::storePaymentProof()
+    // and every other module's own cancel() -- a customer-initiated cancel from
+    // AI-chat has no staff user behind it (see RepairOrderChatAssistant).
+    public function cancel(RepairOrder $repairOrder, ?User $actor, string $reason): RepairOrder
     {
         return DB::transaction(function () use ($repairOrder, $actor, $reason) {
             if (! in_array($repairOrder->status, RepairOrder::ACTIVE_STATUSES, true)) {

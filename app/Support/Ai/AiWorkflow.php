@@ -15,6 +15,7 @@ use App\Models\KnowledgeGap;
 use App\Models\LanguageExample;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\AutoService\RepairOrderChatAssistant;
 use App\Support\Booking\AiChatBookingAssistant;
 use App\Support\Hotel\RoomReservationChatAssistant;
 use App\Support\Restaurant\TableReservationChatAssistant;
@@ -61,6 +62,7 @@ class AiWorkflow
         private readonly AiChatBookingAssistant $chatBooking,
         private readonly TableReservationChatAssistant $chatTableReservation,
         private readonly RoomReservationChatAssistant $chatRoomReservation,
+        private readonly RepairOrderChatAssistant $chatRepairOrder,
     ) {
     }
 
@@ -121,6 +123,10 @@ class AiWorkflow
         // a hotel, not several at once in practice, and each no-ops instantly
         // for every tenant it doesn't apply to.
         $decision = $this->chatRoomReservation->maybeHandle($tenant, $company, $conversation, $message, $decision);
+        // ТЗ раздел 9/12 — "запись на ремонт через AI-чат". Runs LAST in the
+        // chain -- see RepairOrderChatAssistant's own docblock for why that
+        // matters (nothing after it can clobber a genuine repair-intake reply).
+        $decision = $this->chatRepairOrder->maybeHandle($tenant, $company, $conversation, $message, $decision);
         $run = $this->run($tenant, $agent, $conversation, $lead, $message, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);
