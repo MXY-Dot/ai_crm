@@ -11,6 +11,7 @@ use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\AutoService\RepairOrderChatContext;
 use App\Support\Booking\BookingChatContext;
+use App\Support\Education\EducationChatContext;
 use App\Support\Hotel\RoomReservationChatContext;
 use App\Support\Restaurant\TableReservationChatContext;
 use App\Support\Emergency\HealthMonitor;
@@ -33,6 +34,7 @@ class DifyClient
         private readonly TableReservationChatContext $tableReservationContext,
         private readonly RoomReservationChatContext $roomReservationContext,
         private readonly RepairOrderChatContext $repairOrderContext,
+        private readonly EducationChatContext $educationContext,
     ) {
     }
 
@@ -437,8 +439,11 @@ class DifyClient
         // vehicle + problem, never invent a price/date" instruction instead of
         // a capacity/service list.
         $repairSection = $this->repairOrderContext->promptSection($company);
+        // ТЗ раздел 9/12 — same reasoning, for the real course catalog instead
+        // of a service list.
+        $educationSection = $this->educationContext->promptSection($company);
 
-        $sections = array_filter([$profile, $bookingSection, $tableSection, $roomSection, $repairSection], fn (string $s): bool => $s !== '');
+        $sections = array_filter([$profile, $bookingSection, $tableSection, $roomSection, $repairSection, $educationSection], fn (string $s): bool => $s !== '');
 
         return implode("\n\n", $sections);
     }

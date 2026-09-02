@@ -79,7 +79,10 @@ class EnrollmentService
         });
     }
 
-    public function cancel(Enrollment $enrollment, User $actor, string $reason): Enrollment
+    // $actor nullable for the same reason as RepairOrderService::cancel()'s own
+    // fix -- a customer-initiated cancel from AI-chat has no staff user behind
+    // it (see EducationChatAssistant).
+    public function cancel(Enrollment $enrollment, ?User $actor, string $reason): Enrollment
     {
         return DB::transaction(function () use ($enrollment, $actor, $reason) {
             if (! in_array($enrollment->status, Enrollment::ACTIVE_STATUSES, true)) {
