@@ -16,6 +16,7 @@ use App\Models\LanguageExample;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Booking\AiChatBookingAssistant;
+use App\Support\Restaurant\TableReservationChatAssistant;
 use App\Support\Chatwoot\ChatwootClient;
 use App\Support\Emergency\AutoAssignmentService;
 use App\Support\Emergency\EmergencyStateManager;
@@ -57,6 +58,7 @@ class AiWorkflow
         private readonly PromptInjectionDetector $injectionDetector,
         private readonly TajikTextNormalizer $tajikNormalizer,
         private readonly AiChatBookingAssistant $chatBooking,
+        private readonly TableReservationChatAssistant $chatTableReservation,
     ) {
     }
 
@@ -107,6 +109,11 @@ class AiWorkflow
         // own docblock) with a real, availability-checked booking offer/confirmation.
         // No-ops instantly for the vast majority of tenants without booking configured.
         $decision = $this->chatBooking->maybeHandle($tenant, $company, $conversation, $message, $decision);
+        // ТЗ раздел 9/12 — "бронь столика через AI-чат". Chains safely after the
+        // salon assistant above: whichever module a tenant actually has enabled is
+        // the only one whose isAvailableFor() returns true in practice, and each
+        // one no-ops instantly for every tenant it doesn't apply to.
+        $decision = $this->chatTableReservation->maybeHandle($tenant, $company, $conversation, $message, $decision);
         $run = $this->run($tenant, $agent, $conversation, $lead, $message, $decision, $engine, $usage);
         $draft = $this->draftMessage($tenant, $conversation, $run, $decision, $engine);
         $this->autoReply($tenant, $conversation, $draft);

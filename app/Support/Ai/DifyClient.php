@@ -10,6 +10,7 @@ use App\Models\Lead;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Booking\BookingChatContext;
+use App\Support\Restaurant\TableReservationChatContext;
 use App\Support\Emergency\HealthMonitor;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Support\Arr;
@@ -27,6 +28,7 @@ class DifyClient
         private readonly HealthMonitor $health,
         private readonly LlmClient $llm,
         private readonly BookingChatContext $bookingContext,
+        private readonly TableReservationChatContext $tableReservationContext,
     ) {
     }
 
@@ -421,8 +423,13 @@ class DifyClient
         // pricing stop being guesses. Empty string for any tenant without the
         // booking module actually configured, so this changes nothing for them.
         $bookingSection = $this->bookingContext->promptSection($company);
+        // ТЗ раздел 9/12 — same reasoning, for a table reservation's smaller
+        // "biggest table's capacity" context instead of a service list.
+        $tableSection = $this->tableReservationContext->promptSection($company);
 
-        return $bookingSection !== '' ? $profile."\n\n".$bookingSection : $profile;
+        $sections = array_filter([$profile, $bookingSection, $tableSection], fn (string $s): bool => $s !== '');
+
+        return implode("\n\n", $sections);
     }
     private function fallbackSummary(Conversation $conversation, Message $message): string
     {

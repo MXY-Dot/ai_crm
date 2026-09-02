@@ -110,7 +110,18 @@ class AiChatBookingAssistant
         $activeBookings = $this->activeBookingsFor($tenant, $conversation);
         $recentlyCancelled = $this->recentlyCancelledBookingsFor($tenant, $conversation);
         $lastMeta = $this->lastAiMeta($conversation);
-        $offeredSlots = is_array($lastMeta['offered_slots'] ?? null) ? $lastMeta['offered_slots'] : [];
+        // Found live testing TableReservationChatAssistant on a tenant with BOTH
+        // modules enabled: the two assistants share the generic `flow`/
+        // `offered_slots` meta keys on the same Message.meta payload, but with
+        // incompatible slot shapes (employee_name here vs. resource_name there).
+        // Reading offered_slots unconditionally fed a foreign-shaped slot straight
+        // into BookingIntentExtractor's prompt building, which crashed on the
+        // missing 'employee_name' key (caught by maybeHandle()'s own try/catch, so
+        // the customer still got a reply -- but from the wrong assistant's attempt).
+        // Only trust offered_slots when the last turn's flow is actually one of
+        // OUR OWN, exactly like continueFlow()/reofferForPendingFlow() already do.
+        $ownFlow = in_array($lastMeta['flow'] ?? null, ['new_booking', 'reschedule'], true);
+        $offeredSlots = $ownFlow && is_array($lastMeta['offered_slots'] ?? null) ? $lastMeta['offered_slots'] : [];
 
         $intent = $this->extractor->extract($tenant, $conversation, $message, $services, $offeredSlots, $activeBookings, $recentlyCancelled);
 
