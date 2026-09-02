@@ -45,6 +45,8 @@ use App\Http\Controllers\Api\EnrollmentController;
 use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\TourDepartureController;
 use App\Http\Controllers\Api\TourBookingController;
+use App\Http\Controllers\Api\ShipmentController;
+use App\Http\Controllers\Api\TrackShipmentController;
 use App\Http\Controllers\Api\OrderReportsController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -103,6 +105,12 @@ Route::post('payments/{gateway}/webhook/{paymentId}', PaymentGatewayWebhookContr
 Route::post('payments/{gateway}/webhook/{type}/{paymentId}', PaymentGatewayWebhookController::class)
     ->where(['type' => 'order|room_reservation', 'paymentId' => '[0-9]+'])
     ->middleware('throttle:60,1');
+
+// Public, unauthenticated — ТЗ раздел 9 (Логистическая компания), a customer
+// looking up their own package by tracking number. See TrackShipmentController's
+// docblock for the trust model (tracking number = globally unique credential,
+// no tenant context needed).
+Route::get('track/{trackingNumber}', TrackShipmentController::class)->middleware('throttle:30,1');
 
 // Public, unauthenticated — a website visitor's browser, not a logged-in User.
 // See WidgetController's docblock for the trust model (site key = public app id).
@@ -394,6 +402,14 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::post('tour-bookings/{tourBooking}/confirm', [TourBookingController::class, 'confirm']);
         Route::post('tour-bookings/{tourBooking}/complete', [TourBookingController::class, 'complete']);
         Route::post('tour-bookings/{tourBooking}/cancel', [TourBookingController::class, 'cancel']);
+
+        // Логистическая компания (module_key: shipment_tracking) -- staff-side CRUD
+        // + status/tracking-event log. The public customer-facing lookup is the
+        // unauthenticated `track/{trackingNumber}` route above, not here.
+        Route::get('shipments', [ShipmentController::class, 'index']);
+        Route::post('shipments', [ShipmentController::class, 'store']);
+        Route::get('shipments/{shipment}', [ShipmentController::class, 'show']);
+        Route::patch('shipments/{shipment}/status', [ShipmentController::class, 'updateStatus']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

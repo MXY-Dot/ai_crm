@@ -1,4 +1,4 @@
-export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'contacts' | 'vip' | 'campaigns' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'marketplace' | 'team' | 'support' | 'billing' | 'settings' | 'profile' | 'booking' | 'booking-settings' | 'orders' | 'catalog-settings' | 'restaurant-settings' | 'hotel-settings' | 'auto-service-settings' | 'education-settings' | 'travel-settings' | 'notifications';
+export type DashboardPage = 'overview' | 'inbox' | 'leads' | 'customers' | 'contacts' | 'vip' | 'campaigns' | 'ai' | 'knowledge' | 'analytics' | 'integrations' | 'marketplace' | 'team' | 'support' | 'billing' | 'settings' | 'profile' | 'booking' | 'booking-settings' | 'orders' | 'catalog-settings' | 'restaurant-settings' | 'hotel-settings' | 'auto-service-settings' | 'education-settings' | 'travel-settings' | 'logistics-settings' | 'notifications';
 
 export const pagePaths: Record<DashboardPage, string> = {
     overview: '/app',
@@ -27,6 +27,7 @@ export const pagePaths: Record<DashboardPage, string> = {
     'auto-service-settings': '/auto-service-settings',
     'education-settings': '/education-settings',
     'travel-settings': '/travel-settings',
+    'logistics-settings': '/logistics-settings',
     notifications: '/notifications',
 };
 
