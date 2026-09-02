@@ -405,6 +405,7 @@ export type Bootstrap = {
     knowledgeDocuments: KnowledgeDocument[];
     auditLogs: AuditLog[];
     tenantUsers: TenantUser[];
+    enabledModules: string[];
 };
 
 const fallback: Bootstrap = {
@@ -423,6 +424,7 @@ const fallback: Bootstrap = {
     knowledgeDocuments: [],
     auditLogs: [],
     tenantUsers: [],
+    enabledModules: [],
 };
 
 function selectedRecordId<T extends { id: number }>(currentId: number | null, records: T[]): number | null {
@@ -446,6 +448,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
     const knowledgeDocuments = ref(boot.knowledgeDocuments ?? []);
     const auditLogs = ref(boot.auditLogs ?? []);
     const tenantUsers = ref(boot.tenantUsers ?? []);
+    const enabledModules = ref(boot.enabledModules ?? []);
     const integrationSettings = ref<IntegrationSettings | null>(null);
     const widgetSettings = ref<WidgetSettings | null>(null);
     const widgetTokens = ref<WidgetToken[]>([]);
@@ -493,6 +496,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         knowledgeDocuments.value = data.knowledgeDocuments ?? [];
         auditLogs.value = data.auditLogs ?? [];
         tenantUsers.value = data.tenantUsers ?? [];
+        enabledModules.value = data.enabledModules ?? [];
         selectedConversationId.value = selectedRecordId(selectedConversationId.value, conversations.value);
         selectedCustomerId.value = selectedRecordId(selectedCustomerId.value, customers.value);
         selectedLeadId.value = selectedRecordId(selectedLeadId.value, leads.value);
@@ -533,6 +537,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         knowledgeDocuments.value = data.knowledgeDocuments ?? [];
         auditLogs.value = data.auditLogs ?? [];
         tenantUsers.value = data.tenantUsers ?? [];
+        enabledModules.value = data.enabledModules ?? [];
         selectedConversationId.value = selectedRecordId(selectedConversationId.value, conversations.value);
         selectedCustomerId.value = selectedRecordId(selectedCustomerId.value, customers.value);
         selectedLeadId.value = selectedRecordId(selectedLeadId.value, leads.value);
@@ -934,6 +939,7 @@ export const useCrmDashboardStore = defineStore('crmDashboard', () => {
         knowledgeDocuments,
         auditLogs,
         tenantUsers,
+        enabledModules,
         integrationSettings,
         widgetSettings,
         widgetTokens,

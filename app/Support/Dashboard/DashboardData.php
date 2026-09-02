@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\AiRun;
 use App\Models\Channel;
 use App\Models\Company;
+use App\Models\CompanyModule;
 use App\Models\Conversation;
 use App\Models\CrmTask;
 use App\Models\Customer;
@@ -40,6 +41,7 @@ class DashboardData
             'knowledgeDocuments' => [],
             'auditLogs' => [],
             'tenantUsers' => [],
+            'enabledModules' => [],
         ];
 
         if (! Schema::hasTable('tenants')) {
@@ -80,6 +82,7 @@ class DashboardData
             'knowledgeDocuments' => RolePages::allowed($role, 'knowledge') ? $this->knowledgeDocuments($tenant->id, $companyId) : [],
             'auditLogs' => RolePages::allowed($role, 'settings') ? $this->auditLogs($tenant->id) : [],
             'tenantUsers' => RolePages::allowed($role, 'team') ? $this->tenantUsers($tenant->id) : [],
+            'enabledModules' => $this->enabledModules($companyId),
         ];
     }
 
@@ -184,6 +187,17 @@ class DashboardData
             ->latest('created_at')
             ->limit(10)
             ->get(['id', 'user_id', 'action', 'entity_type', 'entity_id', 'new_values', 'created_at'])
+            ->all();
+    }
+
+    private function enabledModules(?int $companyId): array
+    {
+        if (! $companyId || ! Schema::hasTable('company_modules')) return [];
+
+        return CompanyModule::withoutGlobalScopes()
+            ->where('company_id', $companyId)
+            ->where('enabled', true)
+            ->pluck('module_key')
             ->all();
     }
 

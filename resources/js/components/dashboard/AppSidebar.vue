@@ -7,11 +7,27 @@ import { useLocaleStore } from '../../stores/locale';
 import { useUnreadStore } from '../../stores/unread';
 import Sidebar, { type SidebarEntry, type SidebarUser } from './Sidebar.vue';
 
-const props = defineProps<{ active: string; tenantName: string; collapsed: boolean; user: SidebarUser; logoutProcessing: boolean }>();
+const props = defineProps<{ active: string; tenantName: string; collapsed: boolean; user: SidebarUser; enabledModules: string[]; logoutProcessing: boolean }>();
 defineEmits<{ toggle: []; logout: [] }>();
 
 const locale = useLocaleStore();
 const unread = useUnreadStore();
+
+// Ties each "Модули" nav item to the ModuleRegistry key that gates its
+// settings page (see EnsurePageAccess::MODULE_ROUTES on the backend --
+// keep both lists in sync). Everyday items and other groups have no
+// module attached and are never hidden by this check.
+const MODULE_KEYS: Partial<Record<DashboardPage, string>> = {
+    'booking-settings': 'booking_calendar',
+    orders: 'orders',
+    'catalog-settings': 'catalog_products',
+    'restaurant-settings': 'table_reservations',
+    'hotel-settings': 'room_booking',
+    'auto-service-settings': 'vehicle_service',
+    'education-settings': 'course_scheduling',
+    'travel-settings': 'tour_bookings',
+    'logistics-settings': 'shipment_tracking',
+};
 
 type RawItem = { id: DashboardPage; label: string; icon: unknown };
 type RawGroup = { groupId: string; label: string; icon: unknown; children: RawItem[] };
@@ -19,6 +35,11 @@ type RawEntry = RawItem | RawGroup;
 
 function isRawGroup(entry: RawEntry): entry is RawGroup {
     return 'children' in entry;
+}
+
+function canSeeModule(id: DashboardPage): boolean {
+    const key = MODULE_KEYS[id];
+    return ! key || props.enabledModules.includes(key);
 }
 
 // Split into semantic groups so the list stays scannable as more modules ship
@@ -82,11 +103,11 @@ function toNavItem(item: RawItem) {
 
 const items = computed<SidebarEntry[]>(() => allEntries.reduce<SidebarEntry[]>((acc, entry) => {
     if (! isRawGroup(entry)) {
-        if (canAccessPage(props.user?.role, entry.id)) acc.push(toNavItem(entry));
+        if (canAccessPage(props.user?.role, entry.id) && canSeeModule(entry.id)) acc.push(toNavItem(entry));
         return acc;
     }
 
-    const children = entry.children.filter((child) => canAccessPage(props.user?.role, child.id)).map(toNavItem);
+    const children = entry.children.filter((child) => canAccessPage(props.user?.role, child.id) && canSeeModule(child.id)).map(toNavItem);
     if (children.length) acc.push({ id: entry.groupId, label: locale.t(entry.label), icon: entry.icon, children });
 
     return acc;

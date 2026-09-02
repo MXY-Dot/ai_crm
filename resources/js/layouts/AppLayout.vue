@@ -28,7 +28,7 @@ const locale = useLocaleStore();
 const unread = useUnreadStore();
 const emergency = useEmergencyStore();
 useThemeStore();
-const { tenant, company, hasData, user } = storeToRefs(store);
+const { tenant, company, hasData, user, enabledModules } = storeToRefs(store);
 const activePage = computed(() => pageFromPath(new URL(page.url, window.location.origin).pathname));
 
 watch(
@@ -115,6 +115,7 @@ function toggleSidebar(): void {
                 :tenant-name="tenant?.name ?? locale.t('common.noTenant')"
                 :collapsed="sidebarCollapsed"
                 :user="user"
+                :enabled-modules="enabledModules"
                 :logout-processing="logoutProcessing"
                 @toggle="toggleSidebar"
                 @logout="logout"
