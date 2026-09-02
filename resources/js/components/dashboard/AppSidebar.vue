@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { BarChart3, Blocks, Bot, BookOpen, Building2, CalendarCheck, CalendarClock, CreditCard, GraduationCap, Hotel, Inbox, Layers, LayoutDashboard, LifeBuoy, Package, Plug, Scissors, Settings, ShoppingCart, Target, Users, Users2, Utensils, Wrench } from '@lucide/vue';
+import { BarChart3, Blocks, Bot, BookOpen, Building2, CalendarCheck, CalendarClock, CreditCard, GraduationCap, Hotel, Inbox, Layers, LayoutDashboard, LifeBuoy, Package, Plane, Plug, Scissors, Settings, ShoppingCart, Target, Users, Users2, Utensils, Wrench } from '@lucide/vue';
 import { pagePaths, type DashboardPage } from '../../lib/pages';
 import { canAccessPage } from '../../lib/permissions';
 import { useLocaleStore } from '../../stores/locale';
@@ -41,6 +41,7 @@ const allEntries: RawEntry[] = [
             { id: 'hotel-settings', label: 'nav.hotelSettings', icon: Hotel },
             { id: 'auto-service-settings', label: 'nav.autoServiceSettings', icon: Wrench },
             { id: 'education-settings', label: 'nav.educationSettings', icon: GraduationCap },
+            { id: 'travel-settings', label: 'nav.travelSettings', icon: Plane },
         ],
     },
     {

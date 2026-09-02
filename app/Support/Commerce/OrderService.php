@@ -97,6 +97,7 @@ class OrderService
                 'table_reservation_id' => $data['table_reservation_id'] ?? null,
                 'repair_order_id' => $data['repair_order_id'] ?? null,
                 'enrollment_id' => $data['enrollment_id'] ?? null,
+                'tour_booking_id' => $data['tour_booking_id'] ?? null,
             ]);
 
             foreach ($lineItems as $item) {

@@ -42,6 +42,9 @@ use App\Http\Controllers\Api\RepairOrderController;
 use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\CourseGroupController;
 use App\Http\Controllers\Api\EnrollmentController;
+use App\Http\Controllers\Api\TourController;
+use App\Http\Controllers\Api\TourDepartureController;
+use App\Http\Controllers\Api\TourBookingController;
 use App\Http\Controllers\Api\OrderReportsController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -374,6 +377,23 @@ Route::middleware(['web', 'auth:web'])->group(function (): void {
         Route::get('enrollments/{enrollment}', [EnrollmentController::class, 'show']);
         Route::post('enrollments/{enrollment}/complete', [EnrollmentController::class, 'complete']);
         Route::post('enrollments/{enrollment}/cancel', [EnrollmentController::class, 'cancel']);
+
+        // Туристическая компания (module_key: tour_bookings) -- tours are simple CRUD
+        // (a catalog offering, like Course); departures carry seats/dates with no
+        // shared-resource conflict guard (unlike course groups, a departure doesn't
+        // compete for a teacher/room); tour billing reuses Order as-is via
+        // Order::tour_booking_id, same reuse pattern as enrollment_id.
+        Route::apiResource('tours', TourController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::get('tour-departures', [TourDepartureController::class, 'index']);
+        Route::post('tour-departures', [TourDepartureController::class, 'store']);
+        Route::get('tour-departures/{tourDeparture}', [TourDepartureController::class, 'show']);
+        Route::patch('tour-departures/{tourDeparture}', [TourDepartureController::class, 'update']);
+        Route::get('tour-bookings', [TourBookingController::class, 'index']);
+        Route::post('tour-bookings', [TourBookingController::class, 'store']);
+        Route::get('tour-bookings/{tourBooking}', [TourBookingController::class, 'show']);
+        Route::post('tour-bookings/{tourBooking}/confirm', [TourBookingController::class, 'confirm']);
+        Route::post('tour-bookings/{tourBooking}/complete', [TourBookingController::class, 'complete']);
+        Route::post('tour-bookings/{tourBooking}/cancel', [TourBookingController::class, 'cancel']);
 
         Route::get('oauth/facebook/start', [MetaOAuthController::class, 'facebookStart'])->middleware('throttle:10,1');
         Route::get('oauth/instagram/start', [MetaOAuthController::class, 'instagramStart'])->middleware('throttle:10,1');

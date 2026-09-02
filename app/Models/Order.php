@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via', 'order_type', 'table_reservation_id', 'repair_order_id', 'enrollment_id'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'status', 'subtotal', 'delivery_fee', 'discount_amount', 'total', 'payment_status', 'notes', 'cancelled_reason', 'created_by_user_id', 'placed_via', 'order_type', 'table_reservation_id', 'repair_order_id', 'enrollment_id', 'tour_booking_id'])]
 class Order extends Model
 {
     use BelongsToTenant;
@@ -120,5 +120,11 @@ class Order extends Model
     public function enrollment(): BelongsTo
     {
         return $this->belongsTo(Enrollment::class);
+    }
+
+    /** ТЗ раздел 9 (Туристическая компания) -- a tour package invoice is just an Order with this set (the tour itself is billed as a Product line item). */
+    public function tourBooking(): BelongsTo
+    {
+        return $this->belongsTo(TourBooking::class);
     }
 }

@@ -94,6 +94,7 @@ class OrderController extends Controller
             'table_reservation_id' => ['nullable', 'integer', 'exists:table_reservations,id'],
             'repair_order_id' => ['nullable', 'integer', 'exists:repair_orders,id'],
             'enrollment_id' => ['nullable', 'integer', 'exists:enrollments,id'],
+            'tour_booking_id' => ['nullable', 'integer', 'exists:tour_bookings,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
