@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { eventOnDate, hasStrikethrough, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { useLocaleStore } from '../../../stores/locale';
 
+const locale = useLocaleStore();
 const props = defineProps<{ date: string; resources: CalendarResource[]; events: CalendarEvent[] }>();
-const emit = defineEmits<{ open: [event: CalendarEvent] }>();
+const emit = defineEmits<{ open: [event: CalendarEvent]; create: [payload: { resourceId: number | string; iso: string }] }>();
 
 const START_HOUR = 8;
 const END_HOUR = 21;
@@ -47,6 +49,10 @@ function eventEndRow(event: CalendarEvent): number {
 
 function resourceColumn(resourceId: number | string | null): number {
     return props.resources.findIndex((r) => String(r.id) === String(resourceId)) + 2;
+}
+
+function slotIso(row: number): string {
+    return slotStart(row - 2).toISOString();
 }
 
 function formatRange(startsAt: string, endsAt: string): string {
@@ -104,9 +110,11 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     <div
                         v-for="r in resources"
                         :key="r.id + '-' + slot.row"
-                        class="border-l border-border"
+                        class="cursor-pointer border-l border-border transition-colors hover:bg-primary/10"
                         :class="slot.isHour ? 'border-b border-border' : 'border-b border-border/30'"
                         :style="{ gridRow: slot.row, gridColumn: resourceColumn(r.id) }"
+                        :title="locale.t('calendar.clickToCreate')"
+                        @click="emit('create', { resourceId: r.id, iso: slotIso(slot.row) })"
                     />
                 </template>
 

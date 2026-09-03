@@ -18,6 +18,7 @@ const props = defineProps<{
     tenantSlug: string;
     customers: Customer[];
     initialDate: string;
+    initialIso?: string | null;
 }>();
 const emit = defineEmits<{ 'update:open': [boolean]; created: [] }>();
 const locale = useLocaleStore();
@@ -60,6 +61,11 @@ async function loadSlots(): Promise<void> {
             date: date.value,
         }), { tenant: props.tenantSlug });
         slots.value = data.slots;
+
+        if (props.initialIso) {
+            const target = new Date(props.initialIso).getTime();
+            selectedSlot.value = slots.value.find((s) => Math.abs(new Date(s.starts_at).getTime() - target) < 60_000) ?? null;
+        }
     } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Error');
     } finally {

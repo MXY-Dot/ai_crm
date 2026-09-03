@@ -185,6 +185,26 @@ function openDetail(event: CalendarEvent): void {
     // dialog might already be open before opening the new one.
     detailOpen.value = { [event.module]: true };
 }
+
+// Clicking the toolbar button opens a blank create dialog; clicking an empty
+// cell in CalendarDayGrid (booking/table/course modules only -- see
+// HOUR_GRID_MODULES) carries which resource/time was clicked so the dialog
+// can pre-select it, same as NewBookingDialog already does for its own
+// employee-column click-to-book flow.
+const createResourceId = ref<number | string | null>(null);
+const createIso = ref<string | null>(null);
+
+function openCreate(): void {
+    createResourceId.value = null;
+    createIso.value = null;
+    createOpen.value = true;
+}
+
+function openCreateFromSlot(payload: { resourceId: number | string; iso: string }): void {
+    createResourceId.value = payload.resourceId;
+    createIso.value = payload.iso;
+    createOpen.value = true;
+}
 </script>
 
 <template>
@@ -230,7 +250,7 @@ function openDetail(event: CalendarEvent): void {
                         <SelectItem v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button size="sm" :disabled="! activeModule" @click="createOpen = true">
+                <Button size="sm" :disabled="! activeModule" @click="openCreate">
                     <Plus class="h-4 w-4" />{{ locale.t('calendar.newRecord') }}
                 </Button>
                 <div class="ml-auto flex items-center gap-1 rounded-lg border border-border p-0.5">
@@ -250,6 +270,7 @@ function openDetail(event: CalendarEvent): void {
                             :resources="resources"
                             :events="events"
                             @open="openDetail"
+                            @create="openCreateFromSlot"
                         />
                         <CalendarDayAgenda v-else :date="date" :events="events" :resources="resources" @open="openDetail" />
                     </template>
@@ -283,6 +304,8 @@ function openDetail(event: CalendarEvent): void {
             :employees="employees"
             :customers="(customers as unknown as Array<{ id: number; name: string; phone: string | null }>)"
             :initial-date="date"
+            :initial-employee-id="(createResourceId as number | null)"
+            :initial-iso="createIso"
             @created="loadEvents"
         />
         <NewTableReservationDialog
@@ -292,6 +315,7 @@ function openDetail(event: CalendarEvent): void {
             :tenant-slug="tenantSlug"
             :customers="(customers as unknown as Array<{ id: number; name: string; phone: string | null }>)"
             :initial-date="date"
+            :initial-iso="createIso"
             @created="loadEvents"
         />
         <NewRoomReservationDialog
