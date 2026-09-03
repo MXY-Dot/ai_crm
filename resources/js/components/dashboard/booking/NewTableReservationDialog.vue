@@ -8,6 +8,7 @@ import { DatePicker } from '../../ui/date-picker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Input, InputGroup } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { AnalogTimePicker } from '../calendar/analog-clock';
 
 type Slot = { resource_id: number; resource_name: string; capacity: number; starts_at: string; ends_at: string };
 type Customer = { id: number; name: string; phone: string | null };
@@ -132,20 +133,13 @@ const canSubmit = computed(() => !! selectedSlot.value && (customerMode.value ==
                     </div>
 
                     <div>
-                        <p class="mb-1 text-xs ui-subtle">{{ locale.t('booking.selectTime') }}</p>
-                        <p v-if="loadingSlots" class="text-xs ui-subtle">…</p>
-                        <p v-else-if="! slots.length" class="text-xs ui-subtle">{{ locale.t('booking.noSlots') }}</p>
-                        <div v-else class="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
-                            <button
-                                v-for="slot in slots" :key="slot.resource_id + slot.starts_at" type="button"
-                                class="rounded-md border px-2 py-1 text-xs font-medium tabular-nums"
-                                :class="selectedSlot === slot ? 'border-primary bg-primary/10 text-primary' : 'border-border ui-text'"
-                                @click="selectedSlot = slot"
-                            >
-                                {{ new Date(slot.starts_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }}
-                                <span class="font-normal ui-subtle"> · {{ slot.resource_name }}</span>
-                            </button>
-                        </div>
+                        <p class="mb-2 text-xs ui-subtle">{{ locale.t('booking.selectTime') }}</p>
+                        <AnalogTimePicker
+                            v-model="selectedSlot"
+                            :slots="slots"
+                            :loading="loadingSlots"
+                            :resource-label="(slot) => slot.resource_name"
+                        />
                     </div>
 
                     <div class="flex gap-2 text-xs">
