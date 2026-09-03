@@ -29,6 +29,18 @@ export function angularDistance(a: number, b: number): number {
     return diff > 180 ? 360 - diff : diff;
 }
 
+/** SVG path for the arc between two angles, always drawn clockwise (the same
+ *  direction hourAngle/minuteAngle already use) -- how the clock face shows
+ *  a booking's actual start-to-end span, not just its start time. */
+export function describeArc(startAngle: number, endAngle: number, radius: number): string {
+    const start = pointOnCircle(startAngle, radius);
+    const end = pointOnCircle(endAngle, radius);
+    let sweep = endAngle - startAngle;
+    if (sweep < 0) sweep += 360;
+    const largeArc = sweep > 180 ? 1 : 0;
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+}
+
 export function timeKey(iso: string): string {
     const d = new Date(iso);
     return `${d.getHours()}:${d.getMinutes()}`;

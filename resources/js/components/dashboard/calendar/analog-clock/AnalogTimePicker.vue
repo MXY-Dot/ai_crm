@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends { starts_at: string }">
+<script setup lang="ts" generic="T extends { starts_at: string; ends_at: string }">
 // The domain-aware piece -- everything about matching real availability
 // slots to a draggable 12-hour clock face lives here. AnalogClockFace/Hand/
 // SlotDots stay pure presentation. Generic over T so both NewBookingDialog's
@@ -11,7 +11,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '../../../ui
 import AnalogClockFace from './AnalogClockFace.vue';
 import AnalogClockHand from './AnalogClockHand.vue';
 import AnalogClockSlotDots, { type ClockPoint } from './AnalogClockSlotDots.vue';
-import { angularDistance, formatHourMinute, hourAngle, minuteAngle, timeKey } from './analogClockMath';
+import { angularDistance, CLOCK_RADIUS, describeArc, formatHourMinute, hourAngle, minuteAngle, timeKey } from './analogClockMath';
 
 const props = defineProps<{
     slots: T[];
@@ -141,6 +141,20 @@ function onPointerUp(): void {
 const hourHandAngle = computed(() => hourAngle(hour24.value, minute.value));
 const minuteHandAngle = computed(() => minuteAngle(minute.value));
 
+// A duration this session's first cut left invisible entirely -- the label
+// only ever showed the start time, so "13:45 · Шахло" gave no hint the
+// booking actually runs to 15:45. Slot objects already carry ends_at; this
+// just draws it as an arc so the span reads at a glance the way a real
+// calendar block would, on top of the text label below also spelling it out.
+const arcPath = computed(() => {
+    if (! props.modelValue) return null;
+    const start = new Date(props.modelValue.starts_at);
+    const end = new Date(props.modelValue.ends_at);
+    const startAngle = hourAngle(start.getHours(), start.getMinutes());
+    const endAngle = hourAngle(end.getHours(), end.getMinutes());
+    return describeArc(startAngle, endAngle, CLOCK_RADIUS - 6);
+});
+
 // The context-menu's typed-time fallback: land on an exact match if one
 // exists, otherwise the closest real slot across the whole day (searching
 // both halves, since a typed 24-hour value has no AM/PM ambiguity to begin
@@ -205,6 +219,7 @@ const timeInput = computed({
                         @pointerleave="onPointerUp"
                     >
                         <AnalogClockFace>
+                            <path v-if="arcPath" :d="arcPath" class="stroke-primary/30" stroke-width="6" stroke-linecap="round" fill="none" />
                             <AnalogClockHand :angle="hourHandAngle" :length="0.55" :thickness="3.5" />
                             <AnalogClockHand :angle="minuteHandAngle" :length="0.82" :thickness="2" />
                             <AnalogClockSlotDots :points="points" />
@@ -232,7 +247,7 @@ const timeInput = computed({
             </div>
 
             <p v-if="modelValue" class="text-xs font-semibold tabular-nums ui-text">
-                {{ formatHourMinute(modelValue.starts_at) }} · {{ resourceLabel(modelValue) }}
+                {{ formatHourMinute(modelValue.starts_at) }}–{{ formatHourMinute(modelValue.ends_at) }} · {{ resourceLabel(modelValue) }}
             </p>
         </template>
     </div>
