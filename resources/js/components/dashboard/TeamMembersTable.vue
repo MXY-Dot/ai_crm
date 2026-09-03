@@ -72,6 +72,19 @@ async function toggleStatus(member: TenantUser): Promise<void> {
     if (isProtectedOwner(member)) return;
     await store.updateTenantUser(member.id, { status: member.status === 'disabled' ? 'active' : 'disabled' });
 }
+
+// last_seen_at is bumped on every authenticated request (see
+// TrackLastSeen middleware), unlike last_login_at which only updates on
+// actual sign-in -- a user active for hours in one session used to always
+// show a stale "signed in N hours ago". The dashboard's own bootstrap
+// already refreshes every 10s (AppLayout.vue), which is what keeps this
+// feeling live without any extra polling here.
+const ONLINE_THRESHOLD_MS = 120_000;
+
+function isOnline(member: TenantUser): boolean {
+    if (! member.last_seen_at) return false;
+    return Date.now() - new Date(member.last_seen_at).getTime() < ONLINE_THRESHOLD_MS;
+}
 </script>
 
 <template>
@@ -96,12 +109,19 @@ async function toggleStatus(member: TenantUser): Promise<void> {
 
         <div class="divide-y border-border">
             <div v-for="member in filtered" :key="member.id" class="flex flex-wrap items-center gap-3 p-4">
-                <Avatar class="size-9">
-                    <AvatarFallback class="text-xs font-semibold bg-accent text-accent-foreground">{{ member.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
-                </Avatar>
+                <div class="relative shrink-0">
+                    <Avatar class="size-9">
+                        <AvatarFallback class="text-xs font-semibold bg-accent text-accent-foreground">{{ member.name.slice(0, 2).toUpperCase() }}</AvatarFallback>
+                    </Avatar>
+                    <span v-if="isOnline(member)" class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-card bg-emerald-500" />
+                </div>
                 <div class="min-w-0 flex-1">
                     <p class="truncate font-medium ui-text">{{ member.name }}</p>
-                    <p class="truncate text-xs ui-subtle">{{ member.email }} &middot; {{ member.last_login_at ? timeAgo(member.last_login_at, locale.locale) : locale.t('team.neverLoggedIn') }}</p>
+                    <p class="truncate text-xs ui-subtle">
+                        {{ member.email }} &middot;
+                        <span v-if="isOnline(member)" class="font-medium text-emerald-600 dark:text-emerald-400">{{ locale.t('team.online') }}</span>
+                        <template v-else>{{ (member.last_seen_at ?? member.last_login_at) ? timeAgo(member.last_seen_at ?? member.last_login_at, locale.locale) : locale.t('team.neverLoggedIn') }}</template>
+                    </p>
                 </div>
                 <Badge :tone="tone(member.status)">{{ locale.t(`team.status${member.status.charAt(0).toUpperCase()}${member.status.slice(1)}`) }}</Badge>
                 <Select :model-value="member.role" @update:model-value="(value) => updateRole(member, value as TenantUser['role'])">

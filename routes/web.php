@@ -6,6 +6,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Middleware\EnsurePageAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantActive;
+use App\Http\Middleware\TrackLastSeen;
 use App\Models\AiAgent;
 use App\Models\Channel;
 use App\Models\Tenant;
@@ -76,7 +77,7 @@ $dashboardPage = static fn (
     'bootstrap' => $dashboard->forUser($request->user()),
 ]);
 
-Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class])->group(function () use ($dashboardPage): void {
+Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class, TrackLastSeen::class])->group(function () use ($dashboardPage): void {
     Route::get('/app', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'OverviewPage'))->name('dashboard');
     Route::get('/inbox', fn (Request $request, DashboardData $dashboard) =>

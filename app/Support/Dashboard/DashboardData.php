@@ -173,7 +173,7 @@ class DashboardData
             ->where('tenant_id', $tenantId)
             ->latest()
             ->limit(20)
-            ->get(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at'])
+            ->get(['id', 'name', 'email', 'phone', 'role', 'status', 'last_login_at', 'last_seen_at'])
             ->all();
     }
 

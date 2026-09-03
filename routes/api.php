@@ -83,6 +83,7 @@ use App\Http\Controllers\Api\WidgetTokenController;
 use App\Http\Middleware\AuthenticateErpApiKey;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\TrackLastSeen;
 use Illuminate\Support\Facades\Route;
 
 Route::post('chatwoot/webhook', ChatwootWebhookController::class)->middleware('throttle:30,1');
@@ -140,7 +141,7 @@ Route::prefix('widget/{siteKey}')->middleware('throttle:60,1')->group(function (
     Route::post('phone', [WidgetController::class, 'phone']);
 });
 
-Route::middleware(['web', 'auth:web'])->group(function (): void {
+Route::middleware(['web', 'auth:web', TrackLastSeen::class])->group(function (): void {
     Route::get('me', [ProfileController::class, 'me']);
     Route::get('dashboard', [ProfileController::class, 'dashboard']);
     Route::patch('profile', [ProfileController::class, 'update']);

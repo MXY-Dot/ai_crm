@@ -170,6 +170,7 @@ export type TenantUser = {
     role: TenantUserRole;
     status: 'active' | 'invited' | 'disabled';
     last_login_at: string | null;
+    last_seen_at: string | null;
     employee_id: number | null;
 };
 
