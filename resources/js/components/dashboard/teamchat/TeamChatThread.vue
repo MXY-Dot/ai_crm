@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { ArrowLeft } from '@lucide/vue';
-import { storeToRefs } from 'pinia';
-import { useCrmDashboardStore } from '@/stores/crmDashboard';
 import { useTeamChatStore, type TeamMessage } from '@/stores/teamChat';
 import { useLocaleStore } from '@/stores/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bubble, BubbleContent } from '@/components/ui/bubble';
 import { Marker, MarkerContent } from '@/components/ui/marker';
-import { Message, MessageAvatar, MessageContent, MessageFooter, MessageGroup, MessageHeader } from '@/components/ui/message';
+import { MessageGroup } from '@/components/ui/message';
 import {
     MessageScroller,
     MessageScrollerButton,
@@ -20,20 +17,17 @@ import {
 } from '@/components/ui/message-scroller';
 import { Skeleton } from '@/components/ui/skeleton';
 import TeamChatComposer from './TeamChatComposer.vue';
+import TeamMessageBubble from './TeamMessageBubble.vue';
+import TeamProfileDrawer from './TeamProfileDrawer.vue';
 
 defineEmits<{ back: [] }>();
 
-const dashboard = useCrmDashboardStore();
-const { user } = storeToRefs(dashboard);
 const team = useTeamChatStore();
 const locale = useLocaleStore();
+const profileOpen = ref(false);
 
 function initials(name: string): string {
     return name.slice(0, 2).toUpperCase();
-}
-
-function formatTime(iso: string): string {
-    return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
 // Same day-bucketing + consecutive-same-sender grouping ChatMessages.vue
@@ -95,10 +89,6 @@ const rows = computed<ThreadRow[]>(() => {
 
     return result;
 });
-
-function isMine(message: TeamMessage): boolean {
-    return message.sender_id === user.value?.id;
-}
 </script>
 
 <template>
@@ -107,14 +97,21 @@ function isMine(message: TeamMessage): boolean {
             <Button variant="ghost" size="icon" class="lg:hidden" :aria-label="locale.t('teamChat.backToList')" @click="$emit('back')">
                 <ArrowLeft class="h-4 w-4" />
             </Button>
-            <Avatar class="size-9 shrink-0">
-                <AvatarImage v-if="team.activeThread.user.avatar_url" :src="team.activeThread.user.avatar_url" alt="" />
-                <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initials(team.activeThread.user.name) }}</AvatarFallback>
-            </Avatar>
-            <div class="min-w-0">
-                <p class="truncate font-display text-sm font-semibold ui-text">{{ team.activeThread.user.name }}</p>
-                <p class="truncate text-xs ui-subtle">{{ locale.t(`team.roles.${team.activeThread.user.role}`) }}</p>
-            </div>
+            <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-0.5 text-left transition hover:bg-muted"
+                :title="locale.t('teamChat.viewProfile')"
+                @click="profileOpen = true"
+            >
+                <Avatar class="size-9 shrink-0">
+                    <AvatarImage v-if="team.activeThread.user.avatar_url" :src="team.activeThread.user.avatar_url" alt="" />
+                    <AvatarFallback class="bg-primary/10 font-semibold text-primary">{{ initials(team.activeThread.user.name) }}</AvatarFallback>
+                </Avatar>
+                <div class="min-w-0">
+                    <p class="truncate font-display text-sm font-semibold ui-text">{{ team.activeThread.user.name }}</p>
+                    <p class="truncate text-xs ui-subtle">{{ locale.t(`team.roles.${team.activeThread.user.role}`) }}</p>
+                </div>
+            </button>
         </div>
 
         <div v-if="team.loadingMessages && ! team.messages.length" class="flex flex-1 flex-col justify-end gap-4 p-4">
@@ -132,29 +129,13 @@ function isMine(message: TeamMessage): boolean {
 
                             <MessageScrollerItem v-else :message-id="String(row.messages[0].id)" scroll-anchor>
                                 <MessageGroup>
-                                    <Message
+                                    <TeamMessageBubble
                                         v-for="(message, index) in row.messages" :key="message.id"
-                                        :align="isMine(message) ? 'end' : 'start'"
-                                    >
-                                        <MessageAvatar v-if="index === row.messages.length - 1">
-                                            <Avatar class="size-7">
-                                                <AvatarFallback class="text-xs font-semibold bg-primary/10 text-primary">
-                                                    {{ initials(isMine(message) ? (user?.name ?? '?') : team.activeThread.user.name) }}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        </MessageAvatar>
-                                        <MessageAvatar v-else />
-
-                                        <MessageContent>
-                                            <MessageHeader v-if="index === 0 && ! isMine(message)">{{ team.activeThread.user.name }}</MessageHeader>
-                                            <Bubble :variant="isMine(message) ? 'default' : 'muted'" :align="isMine(message) ? 'end' : 'start'">
-                                                <BubbleContent>
-                                                    <p class="whitespace-pre-line">{{ message.body }}</p>
-                                                </BubbleContent>
-                                            </Bubble>
-                                            <MessageFooter>{{ formatTime(message.created_at) }}</MessageFooter>
-                                        </MessageContent>
-                                    </Message>
+                                        :message="message"
+                                        :show-header="index === 0"
+                                        :show-avatar="index === row.messages.length - 1"
+                                        :other-name="team.activeThread.user.name"
+                                    />
                                 </MessageGroup>
                             </MessageScrollerItem>
                         </template>
@@ -167,6 +148,8 @@ function isMine(message: TeamMessage): boolean {
         </MessageScrollerProvider>
 
         <TeamChatComposer />
+
+        <TeamProfileDrawer v-model:open="profileOpen" :user="team.activeThread.user" />
     </div>
 
     <div v-else class="grid h-full flex-1 place-items-center text-sm ui-subtle">{{ locale.t('teamChat.selectColleague') }}</div>

@@ -317,6 +317,9 @@ Route::middleware(['web', 'auth:web', TrackLastSeen::class])->group(function ():
         Route::get('team-messages/threads', [TeamMessageController::class, 'threads']);
         Route::get('team-messages/{colleague}', [TeamMessageController::class, 'messages']);
         Route::post('team-messages', [TeamMessageController::class, 'store']);
+        Route::post('team-messages/attachments', [TeamMessageController::class, 'uploadAttachment'])->middleware('throttle:20,1');
+        Route::patch('team-messages/{message}', [TeamMessageController::class, 'update'])->middleware('throttle:20,1');
+        Route::delete('team-messages/{message}', [TeamMessageController::class, 'destroy'])->middleware('throttle:20,1');
 
         Route::get('cancellation-policy', [CancellationPolicyController::class, 'show']);
         Route::patch('cancellation-policy', [CancellationPolicyController::class, 'update']);
