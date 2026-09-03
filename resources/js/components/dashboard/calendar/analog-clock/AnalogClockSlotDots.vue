@@ -1,13 +1,14 @@
 <script setup lang="ts">
-// Pure presentational -- renders one clickable dot per available time and
-// reports back only the clicked point's `key`. AnalogTimePicker owns turning
-// that key back into real slot data; this component never sees slot objects.
-import { CLOCK_RADIUS, pointOnCircle } from './analogClockMath';
+// Pure presentational -- draws one dot per available time. No click handling
+// of its own: AnalogTimePicker's own pointerdown/pointermove on the whole
+// face already finds the nearest dot (that's what makes both "click a dot"
+// and "drag toward it" the same code path), so these stay pointer-events:none
+// and never see real slot data, only precomputed {key, angle, selected}.
+import { pointOnCircle } from './analogClockMath';
 
 export type ClockPoint = { key: string; angle: number; selected: boolean };
 
 defineProps<{ points: ClockPoint[] }>();
-const emit = defineEmits<{ select: [key: string] }>();
 </script>
 
 <template>
@@ -15,11 +16,10 @@ const emit = defineEmits<{ select: [key: string] }>();
         <circle
             v-for="point in points" :key="point.key"
             :cx="pointOnCircle(point.angle).x" :cy="pointOnCircle(point.angle).y"
-            :r="point.selected ? 6 : 4.5"
+            :r="point.selected ? 6 : 4"
             :stroke-width="point.selected ? 1.5 : 0"
-            class="cursor-pointer transition-all"
-            :class="point.selected ? 'fill-primary stroke-primary-foreground' : 'fill-primary/40 hover:fill-primary/70'"
-            @click="emit('select', point.key)"
+            class="pointer-events-none transition-all"
+            :class="point.selected ? 'fill-primary stroke-primary-foreground' : 'fill-primary/40'"
         />
     </g>
 </template>

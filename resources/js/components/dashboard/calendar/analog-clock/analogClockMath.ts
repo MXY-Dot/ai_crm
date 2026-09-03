@@ -1,27 +1,32 @@
 // Shared geometry for the analog time picker -- every sub-component reads
-// its coordinates from here so the face, hand and slot dots always agree on
-// the same center/radius, and there's exactly one place that knows how a
+// its coordinates from here so the face, hands and slot dots always agree
+// on the same center/radius, and there's exactly one place that knows how a
 // clock-time turns into an angle.
 
 export const CLOCK_SIZE = 220;
 export const CLOCK_CENTER = CLOCK_SIZE / 2;
 export const CLOCK_RADIUS = CLOCK_CENTER - 18;
 
-/**
- * A single 24-hour rotation (00:00 at the top, clockwise) rather than a
- * classic 12-hour face with an AM/PM split. Business-hours bookings never
- * cross midnight, so every time in a day still gets one unique angle here --
- * a 12-hour face would need a second ring (or AM/PM toggle) to avoid two
- * different times landing on the same point, for no benefit in this context.
- */
-export function angleForTime(hour: number, minute: number): number {
-    const fraction = (hour + minute / 60) / 24;
+/** Classic 12-hour face: 12 at the top, 6 at the bottom, going clockwise. */
+export function hourAngle(hour12: number, minute: number): number {
+    const fraction = ((hour12 % 12) + minute / 60) / 12;
     return fraction * 360 - 90;
+}
+
+export function minuteAngle(minute: number): number {
+    return (minute / 60) * 360 - 90;
 }
 
 export function pointOnCircle(angleDeg: number, radius: number = CLOCK_RADIUS): { x: number; y: number } {
     const rad = (angleDeg * Math.PI) / 180;
     return { x: CLOCK_CENTER + radius * Math.cos(rad), y: CLOCK_CENTER + radius * Math.sin(rad) };
+}
+
+/** Shortest angular gap between two angles, always 0-180 -- used to find
+ *  which real slot a dragged pointer is closest to. */
+export function angularDistance(a: number, b: number): number {
+    const diff = Math.abs(a - b) % 360;
+    return diff > 180 ? 360 - diff : diff;
 }
 
 export function timeKey(iso: string): string {
