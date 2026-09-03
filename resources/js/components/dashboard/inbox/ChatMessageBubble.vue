@@ -9,8 +9,11 @@ import { Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader } 
 
 // Same Bubble/Message building blocks as the real Inbox chat (ChatMessageItem.vue)
 // so a support ticket thread looks identical — just without the reply/edit/delete
-// menu, since ticket messages don't support any of that on the backend.
-const props = withDefaults(defineProps<{ message: MessageType; showHeader?: boolean }>(), { showHeader: true });
+// menu, since ticket messages don't support any of that on the backend. showHeader
+// (name label, top of a consecutive group) and showAvatar (bottom of that same
+// group) are separate flags, same split ChatMessageItem.vue itself uses -- a lone
+// showHeader flag would put the avatar at the wrong end of a multi-message group.
+const props = withDefaults(defineProps<{ message: MessageType; showHeader?: boolean; showAvatar?: boolean }>(), { showHeader: true, showAvatar: true });
 
 const isMine = computed(() => props.message.sender_type === 'operator');
 const isAi = computed(() => props.message.sender_type === 'ai');
@@ -35,7 +38,7 @@ const timeLabel = computed(() => (props.message.sent_at
 
 <template>
     <Message :align="align">
-        <MessageAvatar v-if="showHeader">
+        <MessageAvatar v-if="showAvatar">
             <Avatar class="size-7">
                 <AvatarFallback class="text-xs font-semibold" :class="isAi ? 'bg-accent text-accent-foreground' : 'bg-primary/10 text-primary'">
                     <Bot v-if="isAi" class="h-3.5 w-3.5" />

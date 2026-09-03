@@ -110,20 +110,20 @@ async function toggleRecording(): Promise<void> {
             <span class="h-2 w-2 animate-pulse rounded-full bg-destructive" />
             Запись голосового... {{ recordSeconds }}с
         </div>
-        <div class="flex items-end gap-2 rounded-xl border p-1 transition focus-within:border-primary border-border">
+        <div class="flex items-end gap-1 rounded-full border p-1 transition focus-within:border-primary border-border">
             <template v-if="allowAttachments">
                 <input ref="fileInput" type="file" class="hidden" @change="onFileChosen">
-                <Button type="button" variant="ghost" size="icon" class="mb-1 h-9 w-9 shrink-0" :disabled="busy || uploading || recording" title="Прикрепить файл" @click="pickFile">
+                <Button type="button" variant="ghost" size="icon" class="mb-1 shrink-0 rounded-full hover:bg-primary/10 hover:text-primary" :disabled="busy || uploading || recording" title="Прикрепить файл" @click="pickFile">
                     <Paperclip class="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="icon" class="mb-1 h-9 w-9 shrink-0" :class="{ 'text-destructive': recording }" :disabled="busy || uploading" :title="recording ? 'Остановить запись' : 'Записать голосовое'" @click="toggleRecording">
+                <Button type="button" variant="ghost" size="icon" class="mb-1 shrink-0 rounded-full hover:bg-primary/10 hover:text-primary" :class="{ 'text-destructive': recording }" :disabled="busy || uploading" :title="recording ? 'Остановить запись' : 'Записать голосовое'" @click="toggleRecording">
                     <Square v-if="recording" class="h-4 w-4" />
                     <Mic v-else class="h-4 w-4" />
                 </Button>
             </template>
             <Textarea
                 :model-value="body"
-                class="max-h-32 min-h-11 flex-1 resize-none border-none bg-transparent shadow-none focus-visible:ring-0"
+                class="max-h-40 min-h-9 flex-1 resize-none border-none bg-transparent py-2 shadow-none focus-visible:ring-0"
                 :placeholder="locale.t('inbox.replyPlaceholder')"
                 maxlength="4000"
                 rows="1"
@@ -132,7 +132,7 @@ async function toggleRecording(): Promise<void> {
                 @input="autoResize"
             />
             <Button
-                class="mb-1 h-9 w-9 shrink-0"
+                class="mb-1 shrink-0 rounded-full"
                 variant="primary"
                 size="icon"
                 type="submit"
