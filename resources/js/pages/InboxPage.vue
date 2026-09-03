@@ -42,6 +42,6 @@ onBeforeUnmount(() => team.dispose());
         </button>
     </div>
 
-    <InboxWorkspace v-show="mode === 'customers'" />
-    <TeamChatWorkspace v-if="mode === 'team'" />
+    <InboxWorkspace v-if="mode === 'customers'" />
+    <TeamChatWorkspace v-else />
 </template>
