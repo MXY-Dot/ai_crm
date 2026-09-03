@@ -20,7 +20,7 @@ class TeamMessageController extends Controller
             ->where('tenant_id', $user->tenant_id)
             ->where('id', '!=', $user->id)
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'avatar_path']);
+            ->get(['id', 'name', 'email', 'role', 'avatar_path', 'last_seen_at']);
 
         $threads = $colleagues->map(function (User $colleague) use ($user): array {
             $last = TeamMessage::query()

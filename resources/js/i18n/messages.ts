@@ -73,6 +73,7 @@ const en = {
         title: 'Team', subtitle: 'Message colleagues directly — separate from customer chats.',
         noMessages: 'No messages yet', noColleagues: 'No other team members yet',
         startConversation: 'No messages yet — say hi', placeholder: 'Write a message...', selectColleague: 'Select a colleague on the left',
+        searchPlaceholder: 'Search colleagues...', today: 'Today', yesterday: 'Yesterday', backToList: 'Back to list', send: 'Send',
     },
     booking: {
         minutesUnit: 'min',
@@ -298,6 +299,7 @@ const ru = {
         title: 'Команда', subtitle: 'Личные сообщения коллегам — отдельно от чатов с клиентами.',
         noMessages: 'Пока нет сообщений', noColleagues: 'Пока нет других сотрудников',
         startConversation: 'Сообщений пока нет — напишите первым', placeholder: 'Напишите сообщение...', selectColleague: 'Выберите сотрудника слева',
+        searchPlaceholder: 'Поиск коллеги...', today: 'Сегодня', yesterday: 'Вчера', backToList: 'К списку', send: 'Отправить',
     },
     booking: {
         minutesUnit: 'мин',

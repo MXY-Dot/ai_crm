@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { apiRequest } from '../lib/apiClient';
 import { useCrmDashboardStore } from './crmDashboard';
 
-export type TeamThreadUser = { id: number; name: string; email: string; role: string; avatar_url: string | null };
+export type TeamThreadUser = { id: number; name: string; email: string; role: string; avatar_url: string | null; last_seen_at: string | null };
 
 export type TeamThread = {
     user: TeamThreadUser;
