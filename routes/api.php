@@ -84,6 +84,7 @@ use App\Http\Middleware\AuthenticateErpApiKey;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\TrackLastSeen;
+use App\Http\Controllers\Api\TeamMessageController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('chatwoot/webhook', ChatwootWebhookController::class)->middleware('throttle:30,1');
@@ -310,6 +311,12 @@ Route::middleware(['web', 'auth:web', TrackLastSeen::class])->group(function ():
         Route::put('employees/{employee}/services', [EmployeeController::class, 'updateServices']);
         Route::post('employees/{employee}/time-off', [EmployeeController::class, 'storeTimeOff']);
         Route::delete('employees/{employee}/time-off/{timeOff}', [EmployeeController::class, 'destroyTimeOff']);
+
+        // Internal 1-on-1 team chat -- separate from the customer-facing Inbox,
+        // no channel/lead/AI concept, just colleagues messaging each other.
+        Route::get('team-messages/threads', [TeamMessageController::class, 'threads']);
+        Route::get('team-messages/{colleague}', [TeamMessageController::class, 'messages']);
+        Route::post('team-messages', [TeamMessageController::class, 'store']);
 
         Route::get('cancellation-policy', [CancellationPolicyController::class, 'show']);
         Route::patch('cancellation-policy', [CancellationPolicyController::class, 'update']);
