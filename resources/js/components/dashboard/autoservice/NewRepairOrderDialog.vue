@@ -100,11 +100,11 @@ async function submit(): Promise<void> {
                 <DialogHeader>
                     <DialogTitle>{{ locale.t('autoService.newRepairOrder') }}</DialogTitle>
                 </DialogHeader>
-                <div class="grid max-h-[70vh] gap-3 overflow-y-auto py-4">
+                <div class="grid max-h-[70vh] gap-3 overflow-x-hidden overflow-y-auto py-4">
                     <div>
                         <p class="mb-1 text-xs ui-subtle">{{ locale.t('autoService.selectVehicle') }}</p>
                         <Input v-model="plateSearch" :placeholder="locale.t('autoService.vehiclePlate')" />
-                        <div v-if="filteredVehicles.length" class="mt-2 grid max-h-40 gap-1 overflow-y-auto">
+                        <div v-if="filteredVehicles.length" class="mt-2 grid max-h-40 gap-1 overflow-x-hidden overflow-y-auto">
                             <button
                                 v-for="v in filteredVehicles" :key="v.id" type="button"
                                 class="rounded-md border px-2 py-1.5 text-left text-xs"

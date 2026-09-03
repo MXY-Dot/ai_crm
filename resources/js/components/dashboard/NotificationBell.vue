@@ -156,7 +156,7 @@ async function sendAnnouncement(): Promise<void> {
                 >Прочитать все</button>
             </div>
 
-            <div class="max-h-96 overflow-y-auto">
+            <div class="max-h-96 overflow-x-hidden overflow-y-auto">
                 <button
                     v-if="unread.total > 0"
                     type="button"

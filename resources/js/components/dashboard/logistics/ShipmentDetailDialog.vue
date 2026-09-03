@@ -90,7 +90,7 @@ function formatDateTime(iso: string): string {
             <div v-if="loading" class="space-y-2 py-4">
                 <Skeleton v-for="i in 5" :key="i" class="h-10 rounded-lg" />
             </div>
-            <div v-else-if="shipment" class="grid max-h-[75vh] gap-5 overflow-y-auto py-4 text-sm">
+            <div v-else-if="shipment" class="grid max-h-[75vh] gap-5 overflow-x-hidden overflow-y-auto py-4 text-sm">
                 <section class="grid gap-1">
                     <CodeBlock :code="shipment.tracking_number" :label="locale.t('logistics.trackingNumber')" />
                     <p class="mt-2 ui-text"><span class="ui-subtle">{{ locale.t('logistics.sender') }}:</span> {{ shipment.sender_name }} · {{ shipment.sender_phone }}<span v-if="shipment.origin_address"> · {{ shipment.origin_address }}</span></p>

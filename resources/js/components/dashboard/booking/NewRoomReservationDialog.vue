@@ -131,7 +131,7 @@ const canSubmit = computed(() => !! selectedRoom.value && (customerMode.value ==
                 <DialogHeader>
                     <DialogTitle>{{ locale.t('hotel.newReservation') }}</DialogTitle>
                 </DialogHeader>
-                <div class="grid max-h-[70vh] gap-3 overflow-y-auto py-4">
+                <div class="grid max-h-[70vh] gap-3 overflow-x-hidden overflow-y-auto py-4">
                     <div class="grid grid-cols-3 gap-3">
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('hotel.checkIn') }}
                             <DatePicker v-model="checkIn" class="w-full" />
@@ -151,7 +151,7 @@ const canSubmit = computed(() => !! selectedRoom.value && (customerMode.value ==
                         <p class="mb-1 text-xs ui-subtle">{{ locale.t('hotel.selectRoom') }}</p>
                         <p v-if="loadingRooms" class="text-xs ui-subtle">…</p>
                         <p v-else-if="! rooms.length" class="text-xs ui-subtle">{{ locale.t('hotel.noRooms') }}</p>
-                        <div v-else class="grid max-h-40 gap-2 overflow-y-auto">
+                        <div v-else class="grid max-h-40 gap-2 overflow-x-hidden overflow-y-auto">
                             <button
                                 v-for="room in rooms" :key="room.resource_id" type="button"
                                 class="flex items-center justify-between rounded-md border px-2 py-1.5 text-left text-xs"

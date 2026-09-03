@@ -107,7 +107,7 @@ const title = computed(() => props.employee?.name ?? '');
             <div v-if="loading" class="space-y-2 py-4">
                 <Skeleton v-for="i in 4" :key="i" class="h-10 rounded-lg" />
             </div>
-            <div v-else class="grid max-h-[70vh] gap-6 overflow-y-auto py-4">
+            <div v-else class="grid max-h-[70vh] gap-6 overflow-x-hidden overflow-y-auto py-4">
                 <section>
                     <h3 class="mb-2 text-sm font-medium ui-text">{{ locale.t('booking.employeeServices') }}</h3>
                     <div class="flex flex-wrap gap-3">

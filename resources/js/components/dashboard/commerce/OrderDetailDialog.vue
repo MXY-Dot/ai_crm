@@ -270,7 +270,7 @@ async function requestReturn(): Promise<void> {
                 <Skeleton v-for="i in 4" :key="i" class="h-10 rounded-lg" />
             </div>
 
-            <div v-else-if="order" class="grid max-h-[75vh] gap-4 overflow-y-auto py-4 text-sm">
+            <div v-else-if="order" class="grid max-h-[75vh] gap-4 overflow-x-hidden overflow-y-auto py-4 text-sm">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <p class="font-medium ui-text">{{ order.customer?.name ?? '—' }}</p>

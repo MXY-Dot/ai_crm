@@ -66,7 +66,7 @@ async function submit(): Promise<void> {
                 <DialogHeader>
                     <DialogTitle>{{ product ? locale.t('commerce.editProduct') : locale.t('commerce.addProduct') }}</DialogTitle>
                 </DialogHeader>
-                <div class="grid max-h-[70vh] gap-3 overflow-y-auto py-4">
+                <div class="grid max-h-[70vh] gap-3 overflow-x-hidden overflow-y-auto py-4">
                     <Input v-model="form.name" :placeholder="locale.t('commerce.productName')" required />
                     <div class="grid grid-cols-2 gap-3">
                         <Input v-model="form.category" :placeholder="locale.t('commerce.productCategory')" />

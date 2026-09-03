@@ -102,7 +102,7 @@ async function submit(): Promise<void> {
                     </div>
                     <div v-if="knowledgeDocuments.length">
                         <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Источники знаний</span>
-                        <div class="max-h-40 divide-y overflow-y-auto rounded-lg border border-border">
+                        <div class="max-h-40 divide-y overflow-x-hidden overflow-y-auto rounded-lg border border-border">
                             <label v-for="doc in knowledgeDocuments" :key="doc.id" class="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm ui-text hover:bg-muted">
                                 <input
                                     type="checkbox"

@@ -138,7 +138,7 @@ function formatDate(iso: string): string {
             <div v-if="loading" class="space-y-2 py-4">
                 <Skeleton v-for="i in 5" :key="i" class="h-10 rounded-lg" />
             </div>
-            <div v-else-if="departure" class="grid max-h-[75vh] gap-5 overflow-y-auto py-4 text-sm">
+            <div v-else-if="departure" class="grid max-h-[75vh] gap-5 overflow-x-hidden overflow-y-auto py-4 text-sm">
                 <section class="grid gap-1">
                     <div class="flex items-center justify-between">
                         <p class="font-medium ui-text">{{ departure.tour?.destination }}</p>

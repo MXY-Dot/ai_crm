@@ -75,7 +75,7 @@ async function submit(): Promise<void> {
                 <DialogHeader>
                     <DialogTitle>{{ service ? locale.t('booking.editService') : locale.t('booking.addService') }}</DialogTitle>
                 </DialogHeader>
-                <div class="grid max-h-[70vh] gap-3 overflow-y-auto py-4">
+                <div class="grid max-h-[70vh] gap-3 overflow-x-hidden overflow-y-auto py-4">
                     <Input v-model="form.name" :placeholder="locale.t('booking.serviceName')" required />
                     <Input v-model="form.category" :placeholder="locale.t('booking.serviceCategory')" />
                     <Textarea v-model="form.description" :placeholder="locale.t('booking.serviceDescription')" class="min-h-16" />

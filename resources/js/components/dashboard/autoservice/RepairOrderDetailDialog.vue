@@ -122,7 +122,7 @@ function formatDate(iso: string): string {
             <div v-if="loading" class="space-y-2 py-4">
                 <Skeleton v-for="i in 5" :key="i" class="h-10 rounded-lg" />
             </div>
-            <div v-else-if="repairOrder" class="grid max-h-[75vh] gap-5 overflow-y-auto py-4 text-sm">
+            <div v-else-if="repairOrder" class="grid max-h-[75vh] gap-5 overflow-x-hidden overflow-y-auto py-4 text-sm">
                 <section class="grid gap-1">
                     <p class="font-medium ui-text">{{ repairOrder.customer?.name }} <span class="ui-subtle">· {{ repairOrder.customer?.phone }}</span></p>
                     <p class="ui-subtle">{{ repairOrder.vehicle?.make }} {{ repairOrder.vehicle?.model }}<span v-if="repairOrder.vehicle?.year"> · {{ repairOrder.vehicle.year }}</span> · {{ repairOrder.vehicle?.plate_number }}</p>

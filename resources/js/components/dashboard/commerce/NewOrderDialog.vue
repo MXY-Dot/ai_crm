@@ -108,7 +108,7 @@ async function submit(): Promise<void> {
                 <DialogHeader>
                     <DialogTitle>{{ locale.t('commerce.newOrder') }}</DialogTitle>
                 </DialogHeader>
-                <div class="grid max-h-[70vh] gap-3 overflow-y-auto py-4">
+                <div class="grid max-h-[70vh] gap-3 overflow-x-hidden overflow-y-auto py-4">
                     <div>
                         <p class="mb-1 text-xs ui-subtle">{{ locale.t('commerce.orderItems') }}</p>
                         <div class="grid gap-2">

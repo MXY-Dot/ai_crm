@@ -96,7 +96,7 @@ async function submit(): Promise<void> {
                 <DialogHeader>
                     <DialogTitle>{{ vehicle ? locale.t('autoService.editVehicle') : locale.t('autoService.addVehicle') }}</DialogTitle>
                 </DialogHeader>
-                <div class="grid max-h-[70vh] gap-3 overflow-y-auto py-4">
+                <div class="grid max-h-[70vh] gap-3 overflow-x-hidden overflow-y-auto py-4">
                     <div class="grid grid-cols-2 gap-3">
                         <Input v-model="form.make" :placeholder="locale.t('autoService.vehicleMake')" required />
                         <Input v-model="form.model" :placeholder="locale.t('autoService.vehicleModel')" required />

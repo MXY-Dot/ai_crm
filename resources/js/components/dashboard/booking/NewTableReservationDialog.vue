@@ -120,7 +120,7 @@ const canSubmit = computed(() => !! selectedSlot.value && (customerMode.value ==
                 <DialogHeader>
                     <DialogTitle>{{ locale.t('restaurant.newReservation') }}</DialogTitle>
                 </DialogHeader>
-                <div class="grid max-h-[70vh] gap-3 overflow-y-auto py-4">
+                <div class="grid max-h-[70vh] gap-3 overflow-x-hidden overflow-y-auto py-4">
                     <div class="grid grid-cols-2 gap-3">
                         <label class="grid gap-1 text-xs ui-subtle">{{ locale.t('restaurant.partySize') }}
                             <InputGroup v-model.number="partySize" type="number" min="1" required>

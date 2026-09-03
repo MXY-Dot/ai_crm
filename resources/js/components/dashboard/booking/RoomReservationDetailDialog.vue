@@ -218,7 +218,7 @@ function formatDate(iso: string): string {
             <div v-if="loading" class="space-y-2 py-4">
                 <Skeleton v-for="i in 5" :key="i" class="h-10 rounded-lg" />
             </div>
-            <div v-else-if="reservation" class="grid max-h-[75vh] gap-5 overflow-y-auto py-4 text-sm">
+            <div v-else-if="reservation" class="grid max-h-[75vh] gap-5 overflow-x-hidden overflow-y-auto py-4 text-sm">
                 <section class="grid gap-1">
                     <p class="font-medium ui-text">{{ reservation.customer?.name }} <span class="ui-subtle">· {{ reservation.customer?.phone }}</span></p>
                     <p class="ui-subtle">{{ reservation.resource?.name }}<span v-if="reservation.resource?.capacity"> · {{ locale.t('hotel.roomCapacity') }}: {{ reservation.resource.capacity }}</span> · {{ locale.t('hotel.guests') }}: {{ reservation.guests_count }}</p>

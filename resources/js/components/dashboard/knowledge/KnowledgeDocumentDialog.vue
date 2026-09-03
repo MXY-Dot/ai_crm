@@ -121,13 +121,13 @@ async function save(): Promise<void> {
                             <span>Это только просмотр — здесь ничего нельзя изменить напрямую.</span>
                             <Button type="button" variant="outline" size="sm" class="shrink-0" @click="startEdit"><Pencil class="h-3.5 w-3.5" />Редактировать текст</Button>
                         </div>
-                        <div class="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border bg-muted/30 p-4">
+                        <div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-lg border border-border bg-muted/30 p-4">
                             <PdfViewer v-if="fileKind === 'pdf'" :src="fileUrl" @error="onViewerError" />
                             <DocxViewer v-else-if="fileKind === 'docx'" :src="fileUrl" @error="onViewerError" />
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="text" class="mt-0 min-h-0 flex-1 overflow-y-auto rounded-lg border p-4 text-sm leading-6 ui-text border-border bg-background/40">
+                    <TabsContent value="text" class="mt-0 min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-lg border p-4 text-sm leading-6 ui-text border-border bg-background/40">
                         <p v-if="joinedContent" class="whitespace-pre-line">{{ joinedContent }}</p>
                         <p v-else class="ui-subtle">Текст для AI пока пуст.</p>
                     </TabsContent>
@@ -147,7 +147,7 @@ async function save(): Promise<void> {
                     </label>
                 </form>
 
-                <div v-else class="min-h-0 flex-1 overflow-y-auto rounded-lg border p-4 text-sm leading-6 ui-text border-border bg-background/40">
+                <div v-else class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-lg border p-4 text-sm leading-6 ui-text border-border bg-background/40">
                     <p v-if="joinedContent" class="whitespace-pre-line">{{ joinedContent }}</p>
                     <p v-else class="ui-subtle">
                         Содержимое пока пусто — этот файл ещё не распознан автоматически. Нажмите «Редактировать» и вставьте текст вручную, чтобы AI мог его использовать.
