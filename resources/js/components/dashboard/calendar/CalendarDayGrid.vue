@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { hasStrikethrough, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { eventOnDate, hasStrikethrough, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 
 const props = defineProps<{ date: string; resources: CalendarResource[]; events: CalendarEvent[] }>();
 const emit = defineEmits<{ open: [event: CalendarEvent] }>();
@@ -26,10 +26,23 @@ const slots = computed(() => Array.from({ length: SLOT_COUNT }, (_, i) => {
     return { row: i + 2, label: isHour ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '', isHour };
 }));
 
-function rowForIso(iso: string): number {
-    const d = new Date(iso);
+function rowForDate(d: Date): number {
     const minutesFromStart = (d.getHours() - START_HOUR) * 60 + d.getMinutes();
     return Math.max(0, Math.min(SLOT_COUNT, Math.round(minutesFromStart / SLOT_MINUTES))) + 2;
+}
+
+// A multi-day event (e.g. a hotel stay) that only overlaps this day -- rather
+// than starting/ending on it -- clamps to the grid's own top/bottom edge
+// instead of using its real start/end hour, which could otherwise land on
+// the wrong-looking row (or the wrong day's hour entirely).
+function eventStartRow(event: CalendarEvent): number {
+    const d = new Date(event.starts_at);
+    return toLocalDateString(d) === props.date ? rowForDate(d) : 2;
+}
+
+function eventEndRow(event: CalendarEvent): number {
+    const d = new Date(event.ends_at);
+    return toLocalDateString(d) === props.date ? rowForDate(d) : SLOT_COUNT + 2;
 }
 
 function resourceColumn(resourceId: number | string | null): number {
@@ -43,11 +56,15 @@ function formatRange(startsAt: string, endsAt: string): string {
 
 const gridTemplateColumns = computed(() => `${TIME_GUTTER}px repeat(${Math.max(props.resources.length, 1)}, minmax(160px, 1fr))`);
 
-// Only events that actually fall on THIS calendar day and reference a known
-// resource column — a stale/out-of-window event never reaches this grid in
-// practice (CalendarPage already fetches per-day), but this guards against
-// rendering something at an invalid row/column if it ever did.
-const visibleEvents = computed(() => props.events.filter((e) => resourceColumn(e.resource_id) >= 2));
+// CalendarPage deliberately fetches a wide +/-14/15 day window even for day
+// view (CalendarDayAgenda needs that range to catch multi-night stays that
+// only overlap today) -- so this grid gets every event in that window, not
+// just today's, and must filter for itself. rowForDate() only looks at
+// hour-of-day, so without this an event from a different day at the same
+// time-of-day would silently render on today's row instead of not showing
+// at all -- found live via a real screenshot where Sept 1-2 bookings were
+// showing up on the Sept 8 grid.
+const visibleEvents = computed(() => props.events.filter((e) => eventOnDate(e, props.date) && resourceColumn(e.resource_id) >= 2));
 
 const now = ref(new Date());
 let nowTimer: ReturnType<typeof setInterval> | undefined;
@@ -100,7 +117,7 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     :title="`${event.title} · ${event.subtitle}`"
                     class="relative z-[6] m-0.5 flex flex-col justify-center gap-px overflow-hidden rounded-lg border px-2 py-1 text-left leading-tight shadow-sm transition-all hover:z-[7] hover:shadow-md hover:brightness-105"
                     :class="STATUS_COLORS[event.status] ?? 'bg-muted'"
-                    :style="{ gridRow: `${rowForIso(event.starts_at)} / ${rowForIso(event.ends_at)}`, gridColumn: resourceColumn(event.resource_id) }"
+                    :style="{ gridRow: `${eventStartRow(event)} / ${eventEndRow(event)}`, gridColumn: resourceColumn(event.resource_id) }"
                     @click.stop="emit('open', event)"
                 >
                     <span class="flex items-center gap-1.5">

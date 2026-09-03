@@ -35,7 +35,7 @@ defineOptions({ layout: AppLayout });
 
 const locale = useLocaleStore();
 const store = useCrmDashboardStore();
-const { company, tenant } = storeToRefs(store);
+const { company, tenant, customers } = storeToRefs(store);
 // crmDashboard's own `companyId` computed is a private local (never in its
 // return object, so `store.companyId` is always undefined) -- derive it here,
 // same as BookingCalendarPage.vue does.
@@ -44,12 +44,19 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 type ModuleOption = { key: string; label: string };
 type Branch = { id: number; name: string };
+type Service = { id: number; name: string; duration_minutes: number; price: number };
+type Employee = { id: number; name: string };
 
 const date = ref(toLocalDateString(new Date()));
 const viewMode = ref<'day' | 'week' | 'month'>('day');
 const branchFilter = ref('all');
 const branches = ref<Branch[]>([]);
 const modules = ref<ModuleOption[]>([]);
+// NewBookingDialog (booking_calendar's own create dialog) needs these to pick
+// a service/specialist -- fetched eagerly alongside modules/branches, same as
+// how branches are already fetched regardless of which module ends up active.
+const services = ref<Service[]>([]);
+const employees = ref<Employee[]>([]);
 const activeModule = ref<string | null>(null);
 const resources = ref<CalendarResource[]>([]);
 const events = ref<CalendarEvent[]>([]);
@@ -99,12 +106,16 @@ function fetchRange(): { from: string; to: string } {
 async function loadModules(): Promise<void> {
     modulesLoading.value = true;
     try {
-        const [modulesRes, branchesRes] = await Promise.all([
+        const [modulesRes, branchesRes, servicesRes, employeesRes] = await Promise.all([
             apiRequest<{ modules: ModuleOption[] }>('/api/calendar/modules', { tenant: tenantSlug.value }),
             apiRequest<{ data: Branch[] }>('/api/branches', { tenant: tenantSlug.value }),
+            apiRequest<{ data: Service[] }>('/api/services', { tenant: tenantSlug.value }),
+            apiRequest<{ data: Employee[] }>('/api/employees', { tenant: tenantSlug.value }),
         ]);
         modules.value = modulesRes.modules;
         branches.value = branchesRes.data;
+        services.value = servicesRes.data;
+        employees.value = employeesRes.data;
         if (! activeModule.value && modules.value.length) {
             activeModule.value = modules.value[0].key;
         }
@@ -263,9 +274,34 @@ function openDetail(event: CalendarEvent): void {
         <RepairOrderDetailDialog v-model:open="detailOpen.vehicle_service" :repair-order-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
         <ShipmentDetailDialog v-model:open="detailOpen.shipment_tracking" :shipment-id="detailId" :tenant-slug="tenantSlug" @changed="loadEvents" />
 
-        <NewBookingDialog v-if="activeModule === 'booking_calendar'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
-        <NewTableReservationDialog v-else-if="activeModule === 'table_reservations'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
-        <NewRoomReservationDialog v-else-if="activeModule === 'room_booking'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
+        <NewBookingDialog
+            v-if="activeModule === 'booking_calendar'"
+            v-model:open="createOpen"
+            :company-id="companyId as number"
+            :tenant-slug="tenantSlug"
+            :services="services"
+            :employees="employees"
+            :customers="(customers as unknown as Array<{ id: number; name: string; phone: string | null }>)"
+            :initial-date="date"
+            @created="loadEvents"
+        />
+        <NewTableReservationDialog
+            v-else-if="activeModule === 'table_reservations'"
+            v-model:open="createOpen"
+            :company-id="companyId as number"
+            :tenant-slug="tenantSlug"
+            :customers="(customers as unknown as Array<{ id: number; name: string; phone: string | null }>)"
+            :initial-date="date"
+            @created="loadEvents"
+        />
+        <NewRoomReservationDialog
+            v-else-if="activeModule === 'room_booking'"
+            v-model:open="createOpen"
+            :company-id="companyId as number"
+            :tenant-slug="tenantSlug"
+            :customers="(customers as unknown as Array<{ id: number; name: string; phone: string | null }>)"
+            @created="loadEvents"
+        />
         <CourseGroupFormDialog v-else-if="activeModule === 'course_scheduling'" v-model:open="createOpen" :group="null" :company-id="companyId as number" :tenant-slug="tenantSlug" @saved="loadEvents" />
         <TourDepartureFormDialog v-else-if="activeModule === 'tour_bookings'" v-model:open="createOpen" :departure="null" :company-id="companyId as number" :tenant-slug="tenantSlug" @saved="loadEvents" />
         <NewRepairOrderDialog v-else-if="activeModule === 'vehicle_service'" v-model:open="createOpen" :company-id="companyId as number" :tenant-slug="tenantSlug" @created="loadEvents" />
