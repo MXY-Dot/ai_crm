@@ -2,8 +2,9 @@
 
 namespace App\Notifications;
 
+use App\Mail\EmailVerificationMail;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
 
 class EmailVerificationCode extends Notification
@@ -19,14 +20,9 @@ class EmailVerificationCode extends Notification
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): Mailable
     {
-        return (new MailMessage())
-            ->subject('Код подтверждения WERO')
-            ->greeting('Здравствуйте!')
-            ->line('Ваш код подтверждения почты: **'.$this->code.'**')
-            ->line('Код действует 15 минут.')
-            ->action('Подтвердить почту', $this->verifyUrl)
-            ->line('Если вы не регистрировались в WERO, просто проигнорируйте это письмо.');
+        return (new EmailVerificationMail($this->code, $this->verifyUrl))
+            ->to($notifiable->routeNotificationFor('mail'));
     }
 }
