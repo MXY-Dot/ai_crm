@@ -93,7 +93,8 @@ export type Message = {
     sender_name: string | null;
     body: string;
     sent_at: string | null;
-    meta?: { attachment?: MessageAttachment | null } | null;
+    /** `buttons` mirrors App\Support\Chat\ChatButtons' own {id, title, description?} shape — real tap buttons sent alongside this message on Telegram/WhatsApp (see ChatMessageItem.vue's own read-only rendering of them). */
+    meta?: { attachment?: MessageAttachment | null; buttons?: Array<{ id: string; title: string; description?: string }> | null } | null;
 };
 
 export type AiAgent = {

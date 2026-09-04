@@ -43,6 +43,13 @@ const isAi = computed(() => props.message.sender_type === 'ai');
 const align = computed<'start' | 'end'>(() => (isMine.value || isAi.value ? 'end' : 'start'));
 const isDeleted = computed(() => Boolean(props.message.deleted_at));
 const attachment = computed(() => props.message.meta?.attachment ?? null);
+// Real tap buttons this message went out with on Telegram/WhatsApp (see
+// ChatButtons::withAssistantOption()) -- rendered read-only here so an
+// operator reading the transcript can see what the customer was actually
+// offered/tapped, not just the shortened intro text (the enumerated list
+// is deliberately NOT repeated in the message body once buttons exist —
+// see ChatButtons::shortenForButtons()).
+const buttons = computed(() => props.message.meta?.buttons ?? null);
 
 const bodyIsAttachmentPlaceholder = computed(() => {
     if (! attachment.value) return false;
@@ -151,6 +158,17 @@ function formatTime(value: string | null): string {
 
                         <template v-else>
                             <p v-if="message.body && ! bodyIsAttachmentPlaceholder" class="whitespace-pre-line">{{ message.body }}</p>
+
+                            <div v-if="buttons?.length" class="mt-1.5 flex flex-col gap-1">
+                                <span
+                                    v-for="btn in buttons"
+                                    :key="btn.id"
+                                    class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-left text-[11px] font-medium leading-tight border-current/25 bg-black/5 dark:bg-black/25"
+                                >
+                                    <span v-if="btn.id !== 'assistant'" class="shrink-0 font-semibold">{{ btn.id }}.</span>
+                                    <span>{{ btn.title }}<template v-if="btn.description"> — {{ btn.description }}</template></span>
+                                </span>
+                            </div>
 
                             <ImageLightbox
                                 v-if="attachment?.type === 'photo'"
