@@ -5,10 +5,11 @@ import { useForwardProps } from 'reka-ui'
 import { computed } from 'vue'
 import { useVueOTPContext } from 'vue-input-otp'
 import { cn } from '@/lib/utils'
+import { type InputOTPSlotVariants, inputOTPSlotVariants } from '.'
 
-const props = defineProps<{ index: number, class?: HTMLAttributes['class'] }>()
+const props = defineProps<{ index: number, size?: InputOTPSlotVariants['size'], class?: HTMLAttributes['class'] }>()
 
-const delegatedProps = reactiveOmit(props, 'class')
+const delegatedProps = reactiveOmit(props, 'class', 'size')
 
 const forwarded = useForwardProps(delegatedProps)
 
@@ -22,7 +23,7 @@ const slot = computed(() => context?.value.slots[props.index])
     v-bind="forwarded"
     data-slot="input-otp-slot"
     :data-active="slot?.isActive"
-    :class="cn('dark:bg-input/30 border-input data-[active=true]:border-ring data-[active=true]:ring-ring/50 data-[active=true]:aria-invalid:ring-destructive/20 dark:data-[active=true]:aria-invalid:ring-destructive/40 aria-invalid:border-destructive data-[active=true]:aria-invalid:border-destructive size-8 border-y border-r text-sm transition-all outline-none first:rounded-l-lg first:border-l last:rounded-r-lg data-[active=true]:ring-3 relative flex items-center justify-center data-[active=true]:z-10', props.class)"
+    :class="cn(inputOTPSlotVariants({ size }), props.class)"
   >
     {{ slot?.char }}
     <div v-if="slot?.hasFakeCaret" class="pointer-events-none absolute inset-0 flex items-center justify-center">

@@ -12,22 +12,22 @@ use Symfony\Component\HttpFoundation\Response;
  * Two-tier gate (see EmailVerificationController for how each is set):
  *
  * 1. email_verified_at (5-digit code, entered right after signup) unlocks
- *    nothing but the Settings page -- just enough to trigger step 2.
- * 2. email_link_confirmed_at (a signed link, sent on demand from that same
- *    Settings page) unlocks everything else: onboarding, dashboard, every
- *    other authenticated API route.
+ *    nothing at all -- everything, including reading, redirects to
+ *    /verify-email until this is done.
+ * 2. email_link_confirmed_at (a signed link, sent on demand from a
+ *    "Подтвердить почту" button on Settings) unlocks WRITES. Once the code
+ *    is done, every GET already works -- the whole app is Browse-able --
+ *    but any mutation (POST/PUT/PATCH/DELETE) 403s until the link is also
+ *    confirmed, except the handful of self-service Settings writes needed
+ *    to actually get there (update profile/avatar/2FA/notifications).
  *
  * Super admins are exempt, same convention as EnsureTenantActive: they're
  * created by other means, never through self-signup.
  */
 class EnsureEmailVerified
 {
-    /** Reachable once the code is confirmed but before the link is -- just enough for Settings to work. */
-    private const PROFILE_STAGE_PATHS = [
-        'profile',
-        'verify-email*',
-        'api/me',
-        'api/dashboard',
+    /** Writes still allowed with only the code done -- self-service account management, not business data. */
+    private const ACCOUNT_WRITE_PATHS = [
         'api/profile',
         'api/profile/*',
         'api/notification-settings/*',
@@ -45,7 +45,9 @@ class EnsureEmailVerified
             return $this->deny($request, '/verify-email', 'Подтвердите почту, чтобы продолжить.');
         }
 
-        if (! $user->email_link_confirmed_at && ! $request->is(...self::PROFILE_STAGE_PATHS)) {
+        $isSafeMethod = $request->isMethod('get') || $request->isMethod('head');
+
+        if (! $user->email_link_confirmed_at && ! $isSafeMethod && ! $request->is(...self::ACCOUNT_WRITE_PATHS)) {
             return $this->deny($request, '/profile', 'Подтвердите почту по ссылке в Настройках, чтобы получить полный доступ.');
         }
 

@@ -85,7 +85,11 @@ class SessionController extends Controller
         $tenant = Tenant::query()->create([
             'name' => $data['workspace'],
             'slug' => $this->tenantSlug($data['workspace']),
-            'status' => 'inactive',
+            // No more manual moderator review before the dashboard is
+            // reachable -- email verification (see EnsureEmailVerified) is
+            // now the gate: full read access once the code is entered,
+            // write access once the link is confirmed.
+            'status' => 'active',
             'trial_ends_at' => null,
             'settings' => ['billing' => ['plan' => $data['plan'] ?? 'starter']],
         ]);
@@ -109,7 +113,7 @@ class SessionController extends Controller
         PlatformTelegramNotifier::notify(
             'Новая компания зарегистрирована: '.$tenant->name.PHP_EOL.
             'Владелец: '.$user->name.' ('.$user->email.')'.PHP_EOL.
-            'Статус: неактивна, ожидает проверки модератором.'
+            'Статус: активна, ожидает подтверждения почты владельцем.'
         );
 
         EmailVerificationController::sendCode($user);

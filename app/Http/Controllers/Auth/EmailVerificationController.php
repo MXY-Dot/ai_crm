@@ -20,10 +20,11 @@ use Inertia\Response;
  * flag (see EnsureEmailVerified for how each gates the app):
  *
  * 1. email_verified_at -- a 5-digit code, sent automatically right after
- *    signup (sendCode/verify below). Unlocks nothing but the Settings page.
+ *    signup (sendCode/verify below). Unlocks reading the whole app.
  * 2. email_link_confirmed_at -- a signed link, sent only when the user
  *    clicks "Подтвердить почту" on Settings (sendConfirmationLink/verifyLink
- *    below), i.e. strictly after (1). Unlocks the rest of the app.
+ *    below), i.e. strictly after (1). Unlocks writes everywhere except the
+ *    account self-service Settings already needed to get here.
  */
 class EmailVerificationController extends Controller
 {
@@ -135,10 +136,9 @@ class EmailVerificationController extends Controller
 
     private function nextPath(User $user): string
     {
-        if (! $user->email_link_confirmed_at) {
-            return '/profile';
-        }
-
+        // Reading works everywhere as soon as the code is done (see
+        // EnsureEmailVerified) -- no need to detour through /profile first,
+        // the link-confirm banner there is one click away from any page.
         $company = $user->tenant_id ? Company::withoutGlobalScopes()->where('tenant_id', $user->tenant_id)->first() : null;
 
         return ($company && ($company->business_type_id || $company->business_type_other)) ? '/app' : '/onboarding';

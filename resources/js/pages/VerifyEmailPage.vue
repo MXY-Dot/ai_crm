@@ -74,11 +74,11 @@ async function resend(): Promise<void> {
                 <div class="flex flex-col items-center gap-1">
                     <InputOTP v-model="code" :maxlength="5" :pattern="REGEXP_ONLY_DIGITS" autofocus @complete="submit">
                         <InputOTPGroup>
-                            <InputOTPSlot :index="0" />
-                            <InputOTPSlot :index="1" />
-                            <InputOTPSlot :index="2" />
-                            <InputOTPSlot :index="3" />
-                            <InputOTPSlot :index="4" />
+                            <InputOTPSlot :index="0" size="xl" />
+                            <InputOTPSlot :index="1" size="xl" />
+                            <InputOTPSlot :index="2" size="xl" />
+                            <InputOTPSlot :index="3" size="xl" />
+                            <InputOTPSlot :index="4" size="xl" />
                         </InputOTPGroup>
                     </InputOTP>
                     <span v-if="error" class="mt-1 block text-xs text-destructive">{{ error }}</span>
