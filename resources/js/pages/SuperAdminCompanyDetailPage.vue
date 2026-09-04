@@ -30,7 +30,7 @@ type PlanId = 'starter' | 'pro' | 'business';
 
 type Detail = {
     tenant: { id: number; name: string; slug: string; status: Status; plan: PlanId; created_at: string; trial_ends_at: string | null };
-    company: { id: number; name: string; industry: string | null; phone: string | null; email: string | null; logo_url: string | null } | null;
+    company: { id: number; name: string; industry: string | null; phone: string | null; email: string | null; logo_url: string | null; currency: string | null } | null;
     owner: { id: number; name: string; email: string; avatar_url: string | null } | null;
     kpis: { mrr: number; arr: number; team_count: number; messages_30d: number; leads_count: number; active_channels: number };
     limits: { conversations: { used: number; limit: number | null }; ai_agents: { used: number; limit: number | null } };
@@ -244,6 +244,10 @@ onMounted(load);
                         <div>
                             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Отрасль</span>
                             <span class="text-sm ui-text">{{ data.company?.industry ?? '—' }}</span>
+                        </div>
+                        <div>
+                            <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Валюта</span>
+                            <span class="text-sm ui-text">{{ data.company?.currency ?? 'TJS' }}</span>
                         </div>
                         <div>
                             <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Дата регистрации</span>

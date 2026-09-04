@@ -13,6 +13,7 @@ import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
 import { COMMON_TIMEZONES } from '../../lib/timezones';
 import { INDUSTRY_VALUES } from '../../lib/industries';
+import { CURRENCIES, CURRENCY_CODES } from '../../lib/currencies';
 import CompanyLogoField from './CompanyLogoField.vue';
 
 const store = useCrmDashboardStore();
@@ -25,6 +26,7 @@ const form = reactive({
     industry_other: '',
     phone: '',
     address: '',
+    currency: 'TJS',
     timezone: 'none',
     working_hours_start: '',
     working_hours_end: '',
@@ -48,6 +50,7 @@ watch(company, (value) => {
         industry_other: ! rawIndustry || knownIndustry ? '' : rawIndustry,
         phone: value.phone ?? '',
         address: value.address ?? '',
+        currency: value.currency ?? 'TJS',
         timezone: value.timezone ?? 'none',
         working_hours_start: value.working_hours?.start ?? '',
         working_hours_end: value.working_hours?.end ?? '',
@@ -70,6 +73,7 @@ async function save(): Promise<void> {
         industry,
         phone: form.phone.trim(),
         address: form.address.trim(),
+        currency: form.currency,
         timezone: form.timezone !== 'none' ? form.timezone : null,
         working_hours: { start: form.working_hours_start, end: form.working_hours_end, summary },
         brand_settings: {
@@ -111,6 +115,16 @@ async function save(): Promise<void> {
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.address') }}</span>
                     <Textarea v-model="form.address" class="min-h-20" />
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.currency') }}</span>
+                    <Select v-model="form.currency">
+                        <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent class="max-h-72">
+                            <SelectItem v-for="code in CURRENCY_CODES" :key="code" :value="code">{{ CURRENCIES[code].label }} ({{ code }}, {{ CURRENCIES[code].symbol }})</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p class="mt-1 text-[11px] ui-subtle">{{ locale.t('company.currencyHint') }}</p>
                 </label>
                 <label class="block">
                     <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">{{ locale.t('company.timezone') }}</span>
