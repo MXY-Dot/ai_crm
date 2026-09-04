@@ -3,9 +3,8 @@
 namespace App\Support\Travel;
 
 use App\Support\Business\Currency;
-use App\Support\Chat\ChatButtons;
 
-/** Same role as App\Support\Booking\BookingOfferButtons, for TravelChatAssistant's own `offered_departures` shape (see TravelChatContext::openDeparturesForTour()). See that class's own docblock for why this stays a separate file per module. */
+/** Same role as App\Support\Booking\BookingOfferButtons, for TravelChatAssistant's own `offered_departures` shape (see TravelChatContext::openDeparturesForTour()). See that class's own docblock for why this stays a separate file per module, and for why this returns raw picks only (no assistant option, no pagination). */
 class TravelOfferButtons
 {
     /**
@@ -14,12 +13,10 @@ class TravelOfferButtons
      */
     public static function build(array $departures, ?string $currencyCode): array
     {
-        $buttons = collect($departures)->map(fn (array $d, int $i): array => [
+        return collect($departures)->map(fn (array $d, int $i): array => [
             'id' => (string) ($i + 1),
             'title' => date('d.m', strtotime($d['departure_date'])).'–'.date('d.m', strtotime($d['return_date'])),
             'description' => Currency::format($d['price'], $currencyCode).($d['seats_remaining'] !== null ? ', мест: '.$d['seats_remaining'] : ''),
         ])->values()->all();
-
-        return ChatButtons::withAssistantOption($buttons);
     }
 }

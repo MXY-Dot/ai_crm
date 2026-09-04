@@ -9,6 +9,7 @@ use App\Models\Enrollment;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Ai\AiDecision;
+use App\Support\Chat\ChatButtons;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -208,7 +209,14 @@ class EducationChatAssistant
             .$this->formatOffers($groups)
             ."\nНапишите номер варианта, который вам подходит, и я вас запишу.";
 
-        return $this->withReply($decision, 'education_offer', $text, meta: ['flow' => 'education_offer_groups', 'offered_groups' => $groups, 'buttons' => EducationOfferButtons::build($groups)]);
+        $rawButtons = EducationOfferButtons::build($groups);
+
+        return $this->withReply($decision, 'education_offer', $text, meta: [
+            'flow' => 'education_offer_groups',
+            'offered_groups' => $groups,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     /** @param array{group_id:int, course_name:string, employee_name:string, schedule_text:string} $group */

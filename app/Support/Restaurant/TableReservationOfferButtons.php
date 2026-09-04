@@ -2,10 +2,9 @@
 
 namespace App\Support\Restaurant;
 
-use App\Support\Chat\ChatButtons;
 use Illuminate\Support\Carbon;
 
-/** Same role as App\Support\Booking\BookingOfferButtons, for TableReservationChatAssistant's own `offered_slots` shape (see TableReservationChatContext::nextAvailableSlots()). See that class's own docblock for why this stays a separate file per module. */
+/** Same role as App\Support\Booking\BookingOfferButtons, for TableReservationChatAssistant's own `offered_slots` shape (see TableReservationChatContext::nextAvailableSlots()). See that class's own docblock for why this stays a separate file per module, and for why this returns raw picks only (no assistant option, no pagination). */
 class TableReservationOfferButtons
 {
     /**
@@ -14,12 +13,10 @@ class TableReservationOfferButtons
      */
     public static function build(array $slots): array
     {
-        $buttons = collect($slots)->map(fn (array $slot, int $i): array => [
+        return collect($slots)->map(fn (array $slot, int $i): array => [
             'id' => (string) ($i + 1),
             'title' => Carbon::parse($slot['starts_at'])->format('d.m H:i'),
             'description' => $slot['resource_name'],
         ])->values()->all();
-
-        return ChatButtons::withAssistantOption($buttons);
     }
 }

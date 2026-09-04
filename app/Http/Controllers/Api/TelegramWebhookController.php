@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Ai\LlmClient;
 use App\Support\Chat\AssistantModeSwitcher;
+use App\Support\Chat\ChatButtonPager;
 use App\Support\Chat\ChatButtons;
 use App\Support\Inbox\ChatwootWebhookHandler;
 use App\Support\Integrations\TenantIntegrationSettings;
@@ -29,7 +31,7 @@ class TelegramWebhookController extends Controller
     {
     }
 
-    public function __invoke(Request $request, ChatwootWebhookHandler $handler, TenantIntegrationSettings $settings, TelegramClient $telegram, AssistantModeSwitcher $modeSwitcher): JsonResponse
+    public function __invoke(Request $request, ChatwootWebhookHandler $handler, TenantIntegrationSettings $settings, TelegramClient $telegram, AssistantModeSwitcher $modeSwitcher, ChatButtonPager $pager): JsonResponse
     {
         $tenant = $this->tenant($request);
         $this->guardSecret($request, $tenant, $settings);
@@ -37,7 +39,7 @@ class TelegramWebhookController extends Controller
         $callbackQuery = $request->input('callback_query');
 
         if (is_array($callbackQuery)) {
-            return $this->handleCallbackQuery($tenant, $callbackQuery, $handler, $telegram, $modeSwitcher);
+            return $this->handleCallbackQuery($tenant, $callbackQuery, $handler, $telegram, $modeSwitcher, $pager);
         }
 
         $message = $request->input('message') ?? $request->input('edited_message');
@@ -77,7 +79,7 @@ class TelegramWebhookController extends Controller
      * *ChatAssistant applies completely unchanged; only the 'assistant' sentinel gets
      * special handling (see AssistantModeSwitcher).
      */
-    private function handleCallbackQuery(Tenant $tenant, array $callbackQuery, ChatwootWebhookHandler $handler, TelegramClient $telegram, AssistantModeSwitcher $modeSwitcher): JsonResponse
+    private function handleCallbackQuery(Tenant $tenant, array $callbackQuery, ChatwootWebhookHandler $handler, TelegramClient $telegram, AssistantModeSwitcher $modeSwitcher, ChatButtonPager $pager): JsonResponse
     {
         $callbackId = (string) Arr::get($callbackQuery, 'id', '');
         $data = trim((string) Arr::get($callbackQuery, 'data', ''));
@@ -108,6 +110,24 @@ class TelegramWebhookController extends Controller
             return response()->json(['ok' => true, 'handled' => 'assistant_mode']);
         }
 
+        // "◀ Назад"/"Далее ▶" -- see ChatButtons::forOffer()'s own docblock for
+        // why this never touches booking/availability logic at all, just
+        // re-slices the same raw option list onto a different page.
+        if (ChatButtons::isPageRequest($data)) {
+            $conversation = Conversation::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('external_id', 'telegram-'.$chatId)
+                ->latest('id')
+                ->first();
+
+            if ($conversation) {
+                $lastMeta = $this->lastAiMeta($conversation);
+                $pager->handleTelegram($tenant, $conversation, $chatId, $lastMeta, ChatButtons::pageFromId($data));
+            }
+
+            return response()->json(['ok' => true, 'handled' => 'page']);
+        }
+
         $syntheticMessage = [
             'message_id' => 'cb-'.$callbackId,
             'chat' => ['id' => $chatId],
@@ -118,6 +138,18 @@ class TelegramWebhookController extends Controller
         $result = $handler->handle($tenant, $this->payload($tenant, $syntheticMessage, $telegram));
 
         return response()->json(['ok' => true] + $result, ! empty($result['duplicate']) ? 200 : 201);
+    }
+
+    /** Same "latest ai-sender row's own meta" convention every *ChatAssistant's own lastAiMeta() already uses. */
+    private function lastAiMeta(Conversation $conversation): array
+    {
+        $meta = Message::withoutGlobalScopes()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', 'ai')
+            ->latest('id')
+            ->value('meta');
+
+        return is_array($meta) ? $meta : [];
     }
 
     /**

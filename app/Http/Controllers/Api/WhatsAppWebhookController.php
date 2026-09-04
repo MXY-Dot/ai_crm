@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\Ai\LlmClient;
 use App\Support\Chat\AssistantModeSwitcher;
+use App\Support\Chat\ChatButtonPager;
 use App\Support\Chat\ChatButtons;
 use App\Support\Inbox\ChatwootWebhookHandler;
 use App\Support\Integrations\MetaChannelResolver;
@@ -35,7 +37,7 @@ class WhatsAppWebhookController extends Controller
     {
     }
 
-    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, WhatsAppClient $whatsapp, AssistantModeSwitcher $modeSwitcher): JsonResponse|Response
+    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, WhatsAppClient $whatsapp, AssistantModeSwitcher $modeSwitcher, ChatButtonPager $pager): JsonResponse|Response
     {
         if ($request->isMethod('get')) {
             return $this->handleSubscriptionVerification($request) ?? response('', 404);
@@ -119,6 +121,28 @@ class WhatsAppWebhookController extends Controller
                         continue;
                     }
 
+                    // "◀ Назад"/"Далее ▶" -- see ChatButtons::forOffer()'s own docblock
+                    // for why this never touches booking/availability logic at all.
+                    $listReplyId = (string) Arr::get($message, 'interactive.list_reply.id', '');
+
+                    if (ChatButtons::isPageRequest($listReplyId)) {
+                        $from = (string) Arr::get($message, 'from', '');
+                        $conversation = Conversation::withoutGlobalScopes()
+                            ->where('tenant_id', $tenant->id)
+                            ->where('external_id', 'whatsapp-'.$from)
+                            ->latest('id')
+                            ->first();
+
+                        if ($conversation) {
+                            $lastMeta = $this->lastAiMeta($conversation);
+                            $pager->handleWhatsapp($tenant, $conversation, $from, $lastMeta, ChatButtons::pageFromId($listReplyId));
+                        }
+
+                        $processed++;
+
+                        continue;
+                    }
+
                     $handler->handle($tenant, $this->payload($tenant, $value, $message, $whatsapp));
                     $processed++;
                 }
@@ -126,6 +150,18 @@ class WhatsAppWebhookController extends Controller
         }
 
         return response()->json(['ok' => true, 'processed' => $processed]);
+    }
+
+    /** Same "latest ai-sender row's own meta" convention every *ChatAssistant's own lastAiMeta() already uses. */
+    private function lastAiMeta(Conversation $conversation): array
+    {
+        $meta = Message::withoutGlobalScopes()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', 'ai')
+            ->latest('id')
+            ->value('meta');
+
+        return is_array($meta) ? $meta : [];
     }
 
     private function payload(Tenant $tenant, array $value, array $message, WhatsAppClient $whatsapp): array

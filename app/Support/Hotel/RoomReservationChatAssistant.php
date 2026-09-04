@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Models\RoomReservation;
 use App\Models\Tenant;
 use App\Support\Ai\AiDecision;
+use App\Support\Chat\ChatButtons;
 use App\Support\Payments\AlifPayClient;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -322,6 +323,8 @@ class RoomReservationChatAssistant
             .$this->formatOffers($rooms)
             ."\nНапишите номер варианта, который вам подходит, и я вас забронирую.";
 
+        $rawButtons = RoomReservationOfferButtons::build($rooms, $company->currency);
+
         return $this->withReply($decision, 'room_offer', $text, meta: [
             'flow' => 'new_room_reservation',
             'offered_slots' => $rooms,
@@ -329,7 +332,8 @@ class RoomReservationChatAssistant
             'company_id' => $company->id,
             'customer_id' => $customerId,
             'guests_count' => $guests,
-            'buttons' => RoomReservationOfferButtons::build($rooms, $company->currency),
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
         ]);
     }
 

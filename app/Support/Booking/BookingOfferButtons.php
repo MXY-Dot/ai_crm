@@ -2,7 +2,6 @@
 
 namespace App\Support\Booking;
 
-use App\Support\Chat\ChatButtons;
 use Illuminate\Support\Carbon;
 
 /**
@@ -14,6 +13,11 @@ use Illuminate\Support\Carbon;
  * assistant's own formatOffers()); this mirrors that same one-file-per-
  * module convention instead of forcing one generic formatter to know about
  * 5 different array shapes.
+ *
+ * Returns the RAW numbered picks only -- no assistant option, no
+ * pagination. The caller wraps this with ChatButtons::forOffer() (which
+ * adds both) so the raw list can also be stored on its own and re-sliced
+ * later if a "Далее ▶" tap asks for a different page.
  */
 class BookingOfferButtons
 {
@@ -23,12 +27,10 @@ class BookingOfferButtons
      */
     public static function build(array $slots): array
     {
-        $buttons = collect($slots)->map(fn (array $slot, int $i): array => [
+        return collect($slots)->map(fn (array $slot, int $i): array => [
             'id' => (string) ($i + 1),
             'title' => Carbon::parse($slot['starts_at'])->format('d.m H:i'),
             'description' => $slot['employee_name'],
         ])->values()->all();
-
-        return ChatButtons::withAssistantOption($buttons);
     }
 }

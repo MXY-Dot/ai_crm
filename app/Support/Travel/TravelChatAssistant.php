@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\Tour;
 use App\Models\TourBooking;
 use App\Support\Ai\AiDecision;
+use App\Support\Chat\ChatButtons;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -209,11 +210,14 @@ class TravelChatAssistant
             .$this->formatOffers($departures)
             ."\nНапишите номер варианта, который вам подходит, и я оформлю заявку.";
 
+        $rawButtons = TravelOfferButtons::build($departures, $company->currency);
+
         return $this->withReply($decision, 'travel_offer', $text, meta: [
             'flow' => 'travel_offer_departures',
             'offered_departures' => $departures,
             'pax_count' => $intent['pax_count'],
-            'buttons' => TravelOfferButtons::build($departures, $company->currency),
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
         ]);
     }
 

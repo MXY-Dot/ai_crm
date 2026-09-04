@@ -34,6 +34,58 @@ class ChatButtons
         return [...$buttons, ['id' => self::ASSISTANT_BUTTON_ID, 'title' => '💬 Поговорить с ассистентом']];
     }
 
+    public const PAGE_ID_PREFIX = 'page:';
+
+    private const PER_PAGE = 7;
+
+    /**
+     * Wraps a module's own raw numbered picks (no assistant option, no
+     * pagination -- see e.g. BookingOfferButtons::build()) into one page's
+     * worth of real, sendable buttons: up to PER_PAGE picks for $page, a
+     * "◀ Назад"/"Далее ▶" nav row where needed, and the shared assistant
+     * option always last. Every existing offer flow has at most 3 picks
+     * (OFFER_LIMIT everywhere), so $page is always 0 and totalPages always
+     * 1 in practice today -- this exists so a future module offering more
+     * doesn't silently blow past WhatsApp's 10-row hard cap (PER_PAGE=7 +
+     * up to 2 nav rows + 1 assistant row = 10 max). Each option's own `id`
+     * is set by the *OfferButtons builder as its absolute position in the
+     * FULL list (e.g. "8" on page 2, not renumbered to "1") -- slicing here
+     * never touches `id`, so a pick on any page still resolves through the
+     * exact same 0-based `selected_offer_index` matching every
+     * *ChatAssistant::continueFlow() already does for a typed digit.
+     *
+     * @param array<int, array{id:string, title:string, description?:string}> $rawOptions
+     * @return array<int, array{id:string, title:string, description?:string}>
+     */
+    public static function forOffer(array $rawOptions, int $page = 0): array
+    {
+        $totalPages = max(1, (int) ceil(count($rawOptions) / self::PER_PAGE));
+        $page = max(0, min($page, $totalPages - 1));
+        $slice = array_slice($rawOptions, $page * self::PER_PAGE, self::PER_PAGE);
+
+        $nav = [];
+
+        if ($page > 0) {
+            $nav[] = ['id' => self::PAGE_ID_PREFIX.($page - 1), 'title' => '◀ Назад'];
+        }
+
+        if ($page < $totalPages - 1) {
+            $nav[] = ['id' => self::PAGE_ID_PREFIX.($page + 1), 'title' => 'Далее ▶'];
+        }
+
+        return self::withAssistantOption([...$slice, ...$nav]);
+    }
+
+    public static function isPageRequest(string $buttonId): bool
+    {
+        return str_starts_with($buttonId, self::PAGE_ID_PREFIX);
+    }
+
+    public static function pageFromId(string $buttonId): int
+    {
+        return (int) substr($buttonId, strlen(self::PAGE_ID_PREFIX));
+    }
+
     /**
      * When real tap buttons are attached, the enumerated "1) ... 2) ... 3) ..."
      * list and the "напишите номер..." instruction in the assistant's own

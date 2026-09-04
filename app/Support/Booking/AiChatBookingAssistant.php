@@ -9,6 +9,7 @@ use App\Models\Message;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Support\Ai\AiDecision;
+use App\Support\Chat\ChatButtons;
 use App\Support\Payments\AlifPayClient;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -428,7 +429,14 @@ class AiChatBookingAssistant
             .$this->formatOffers($slots)
             ."\nНапишите номер варианта, который вам подходит, и я вас запишу.";
 
-        return $this->withReply($decision, 'booking_offer', $text, meta: ['flow' => 'new_booking', 'offered_slots' => $slots, 'buttons' => BookingOfferButtons::build($slots)]);
+        $rawButtons = BookingOfferButtons::build($slots);
+
+        return $this->withReply($decision, 'booking_offer', $text, meta: [
+            'flow' => 'new_booking',
+            'offered_slots' => $slots,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     private function offerRescheduleSlots(Company $company, Booking $booking, Carbon $from, AiDecision $decision): AiDecision
@@ -454,11 +462,14 @@ class AiChatBookingAssistant
             .$this->formatOffers($slots)
             ."\nНапишите номер подходящего варианта.";
 
+        $rawButtons = BookingOfferButtons::build($slots);
+
         return $this->withReply($decision, 'booking_reschedule_offer', $text, meta: [
             'flow' => 'booking_reschedule',
             'reschedule_booking_id' => $booking->id,
             'offered_slots' => $slots,
-            'buttons' => BookingOfferButtons::build($slots),
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
         ]);
     }
 

@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Models\Tenant;
 use App\Models\TableReservation;
 use App\Support\Ai\AiDecision;
+use App\Support\Chat\ChatButtons;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -256,6 +257,8 @@ class TableReservationChatAssistant
             .$this->formatOffers($slots)
             ."\nНапишите номер варианта, который вам подходит, и я вас забронирую.";
 
+        $rawButtons = TableReservationOfferButtons::build($slots);
+
         return $this->withReply($decision, 'table_offer', $text, meta: [
             'flow' => 'new_reservation',
             'offered_slots' => $slots,
@@ -263,7 +266,8 @@ class TableReservationChatAssistant
             'company_id' => $company->id,
             'customer_id' => $customerId,
             'party_size' => $partySize,
-            'buttons' => TableReservationOfferButtons::build($slots),
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
         ]);
     }
 
@@ -290,11 +294,14 @@ class TableReservationChatAssistant
             .$this->formatOffers($slots)
             ."\nНапишите номер подходящего варианта.";
 
+        $rawButtons = TableReservationOfferButtons::build($slots);
+
         return $this->withReply($decision, 'table_reschedule_offer', $text, meta: [
             'flow' => 'table_reschedule',
             'reschedule_reservation_id' => $reservation->id,
             'offered_slots' => $slots,
-            'buttons' => TableReservationOfferButtons::build($slots),
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
         ]);
     }
 

@@ -3,10 +3,9 @@
 namespace App\Support\Hotel;
 
 use App\Support\Business\Currency;
-use App\Support\Chat\ChatButtons;
 use Illuminate\Support\Carbon;
 
-/** Same role as App\Support\Booking\BookingOfferButtons, for RoomReservationChatAssistant's own `offered_slots` shape (see RoomReservationChatContext::availableRooms()). See that class's own docblock for why this stays a separate file per module. */
+/** Same role as App\Support\Booking\BookingOfferButtons, for RoomReservationChatAssistant's own `offered_slots` shape (see RoomReservationChatContext::availableRooms()). See that class's own docblock for why this stays a separate file per module, and for why this returns raw picks only (no assistant option, no pagination). */
 class RoomReservationOfferButtons
 {
     /**
@@ -15,12 +14,10 @@ class RoomReservationOfferButtons
      */
     public static function build(array $rooms, ?string $currencyCode): array
     {
-        $buttons = collect($rooms)->map(fn (array $room, int $i): array => [
+        return collect($rooms)->map(fn (array $room, int $i): array => [
             'id' => (string) ($i + 1),
             'title' => $room['resource_name'],
             'description' => Carbon::parse($room['starts_at'])->format('d.m').'–'.Carbon::parse($room['ends_at'])->format('d.m').', '.Currency::format($room['total_amount'], $currencyCode),
         ])->values()->all();
-
-        return ChatButtons::withAssistantOption($buttons);
     }
 }
