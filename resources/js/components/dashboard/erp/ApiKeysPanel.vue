@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { KeyRound, Plus, Trash2 } from '@lucide/vue';
+import { Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import GenerateApiKeyDialog from './GenerateApiKeyDialog.vue';
 
 const props = defineProps<{ companyId: number; tenantSlug: string }>();
@@ -56,22 +55,33 @@ function formatDate(iso: string | null): string {
             <Button size="sm" @click="newOpen = true"><Plus class="h-4 w-4" />{{ locale.t('erp.generateKey') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 2" :key="i" class="h-12 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! keys.length" :icon="KeyRound" :title="locale.t('erp.noKeys')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="key in keys" :key="key.id" class="flex items-center justify-between gap-3 py-3">
-                <div>
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="keys.length"
+            :column-count="3"
+            :empty-message="locale.t('erp.noKeys')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('erp.tabKeys') }}</th>
+                <th class="p-3">{{ locale.t('common.status') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="key in keys" :key="key.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ key.name }}</p>
                     <p class="text-xs ui-subtle">{{ locale.t('erp.lastUsed') }}: {{ formatDate(key.last_used_at) }}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <Badge :tone="key.is_active ? 'green' : 'neutral'">{{ key.is_active ? locale.t('erp.active') : locale.t('erp.revokedStatus') }}</Badge>
-                    <Button v-if="key.is_active" variant="ghost" size="icon" @click="revoke(key)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3"><Badge :tone="key.is_active ? 'green' : 'neutral'">{{ key.is_active ? locale.t('erp.active') : locale.t('erp.revokedStatus') }}</Badge></td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Button v-if="key.is_active" variant="ghost" size="icon" @click="revoke(key)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <GenerateApiKeyDialog v-model:open="newOpen" :company-id="companyId" :tenant-slug="tenantSlug" @created="load" />
     </Card>

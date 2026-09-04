@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Package, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
 import { Money } from '../../ui/money';
-import { Skeleton } from '../../ui/skeleton';
 import { Switch } from '../../ui/switch';
 import ProductFormDialog, { type ProductRow } from './ProductFormDialog.vue';
 
@@ -79,24 +78,35 @@ function stockLabel(product: ProductRow): string {
             <Button size="sm" @click="openCreate"><Plus class="h-4 w-4" />{{ locale.t('commerce.addProduct') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! products.length" :icon="Package" :title="locale.t('commerce.noProducts')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="product in products" :key="product.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div class="min-w-0">
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="products.length"
+            :column-count="3"
+            :empty-message="locale.t('commerce.noProducts')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('commerce.tabProducts') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.price') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="product in products" :key="product.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ product.name }}</p>
                     <p class="text-xs ui-subtle">{{ product.category || '—' }} · {{ stockLabel(product) }}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <Money :value="product.price" tone="lg" />
-                    <Switch :model-value="product.is_active" @update:model-value="toggleActive(product)" />
-                    <Button variant="ghost" size="icon" @click="openEdit(product)"><Pencil class="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" @click="remove(product)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3 text-right"><Money :value="product.price" tone="lg" /></td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Switch :model-value="product.is_active" @update:model-value="toggleActive(product)" />
+                        <Button variant="ghost" size="icon" @click="openEdit(product)"><Pencil class="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" @click="remove(product)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <ProductFormDialog v-model:open="dialogOpen" :product="editing" :company-id="companyId" :tenant-slug="tenantSlug" @saved="load" />
     </Card>

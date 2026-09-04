@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Money } from '@/components/ui/money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import DataTable from '../components/dashboard/DataTable.vue';
 import NewOrderDialog from '../components/dashboard/commerce/NewOrderDialog.vue';
 import OrderDetailDialog from '../components/dashboard/commerce/OrderDetailDialog.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
@@ -121,25 +122,28 @@ const STATUS_TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red' | 'blue'
         <Card v-else-if="! orders.length" class="p-0">
             <EmptyState :icon="ShoppingCart" :title="locale.t('commerce.noOrders')" />
         </Card>
-        <div v-else class="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-foreground/10">
-            <div class="divide-y divide-border">
-                <button
-                    v-for="order in orders" :key="order.id" type="button"
-                    class="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
-                    @click="openDetail(order.id)"
-                >
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium ui-text">{{ locale.t('commerce.orderNumber') }} #{{ order.id }} · {{ order.customer?.name ?? '—' }}</p>
-                        <p class="truncate text-xs ui-subtle">{{ order.items.map((i) => `${i.product_name} × ${i.quantity}`).join(', ') }}</p>
-                    </div>
-                    <div class="flex shrink-0 items-center gap-3">
-                        <span class="text-xs font-medium tabular-nums ui-text">{{ formatDate(order.created_at) }}</span>
-                        <Money :value="order.total" tone="lg" />
-                        <Badge :tone="STATUS_TONE[order.status] ?? 'neutral'">{{ locale.t('commerce.statuses.' + order.status) }}</Badge>
-                    </div>
-                </button>
-            </div>
-        </div>
+        <DataTable
+            v-else
+            :row-count="orders.length"
+            :column-count="4"
+        >
+            <template #thead>
+                <th class="p-4">{{ locale.t('commerce.orderNumber') }}</th>
+                <th class="p-4">{{ locale.t('commerce.orderDate') }}</th>
+                <th class="p-4 text-right">{{ locale.t('common.price') }}</th>
+                <th class="p-4 text-right">{{ locale.t('commerce.orderStatus') }}</th>
+            </template>
+
+            <tr v-for="order in orders" :key="order.id" class="cursor-pointer transition hover:bg-muted" @click="openDetail(order.id)">
+                <td class="p-4">
+                    <p class="text-sm font-medium ui-text">{{ locale.t('commerce.orderNumber') }} #{{ order.id }} · {{ order.customer?.name ?? '—' }}</p>
+                    <p class="truncate text-xs ui-subtle">{{ order.items.map((i) => `${i.product_name} × ${i.quantity}`).join(', ') }}</p>
+                </td>
+                <td class="p-4 font-mono text-xs ui-subtle">{{ formatDate(order.created_at) }}</td>
+                <td class="p-4 text-right"><Money :value="order.total" tone="lg" /></td>
+                <td class="p-4 text-right"><Badge :tone="STATUS_TONE[order.status] ?? 'neutral'">{{ locale.t('commerce.statuses.' + order.status) }}</Badge></td>
+            </tr>
+        </DataTable>
 
         <NewOrderDialog
             v-model:open="newOrderOpen"

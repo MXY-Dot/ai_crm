@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Check, Undo2, X } from '@lucide/vue';
+import { Check, X } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 
 type ReturnRow = {
     id: number;
@@ -63,25 +62,35 @@ async function decide(row: ReturnRow, decision: 'approved' | 'rejected'): Promis
 
 <template>
     <Card :title="locale.t('commerce.tabReturns')">
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-16 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! returns.length" :icon="Undo2" :title="locale.t('commerce.noReturns')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="row in returns" :key="row.id" class="flex flex-wrap items-start justify-between gap-3 py-3">
-                <div class="min-w-0">
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="returns.length"
+            :column-count="2"
+            :empty-message="locale.t('commerce.noReturns')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('commerce.tabReturns') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="row in returns" :key="row.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ row.customer?.name ?? '—' }} · {{ locale.t('commerce.orderNumber') }} #{{ row.order_id }}</p>
                     <p class="text-xs ui-subtle">{{ row.reason }}</p>
-                </div>
-                <div class="flex shrink-0 items-center gap-2">
-                    <Button size="sm" variant="outline" :disabled="busyId === row.id" @click="decide(row, 'approved')">
-                        <Check class="h-4 w-4" />{{ locale.t('commerce.approve') }}
-                    </Button>
-                    <Button size="sm" variant="ghost" :disabled="busyId === row.id" @click="decide(row, 'rejected')">
-                        <X class="h-4 w-4 text-destructive" />{{ locale.t('commerce.reject') }}
-                    </Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="outline" :disabled="busyId === row.id" @click="decide(row, 'approved')">
+                            <Check class="h-4 w-4" />{{ locale.t('commerce.approve') }}
+                        </Button>
+                        <Button size="sm" variant="ghost" :disabled="busyId === row.id" @click="decide(row, 'rejected')">
+                            <X class="h-4 w-4 text-destructive" />{{ locale.t('commerce.reject') }}
+                        </Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
     </Card>
 </template>

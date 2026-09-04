@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { CalendarClock, Pencil, Plus, Trash2, Users2 } from '@lucide/vue';
+import { CalendarClock, Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import EmployeeFormDialog, { type EmployeeRow } from './EmployeeFormDialog.vue';
 import EmployeeScheduleDialog from './EmployeeScheduleDialog.vue';
 
@@ -80,23 +79,33 @@ function onSaved(row: EmployeeRow): void {
             <Button size="sm" @click="openCreate"><Plus class="h-4 w-4" />{{ locale.t('booking.addEmployee') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! employees.length" :icon="Users2" :title="locale.t('booking.noEmployees')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="employee in employees" :key="employee.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div class="min-w-0">
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="employees.length"
+            :column-count="2"
+            :empty-message="locale.t('booking.noEmployees')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('booking.tabEmployees') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="employee in employees" :key="employee.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ employee.name }}</p>
                     <p class="text-xs ui-subtle">{{ employee.position || '—' }}<span v-if="employee.phone"> · {{ employee.phone }}</span><span v-if="employee.branch_id"> · {{ branches.find((b) => b.id === employee.branch_id)?.name }}</span></p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <Button variant="outline" size="sm" @click="openSchedule(employee)"><CalendarClock class="h-4 w-4" />{{ locale.t('booking.employeeSchedule') }}</Button>
-                    <Button variant="ghost" size="icon" @click="openEdit(employee)"><Pencil class="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" @click="remove(employee)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Button variant="outline" size="sm" @click="openSchedule(employee)"><CalendarClock class="h-4 w-4" />{{ locale.t('booking.employeeSchedule') }}</Button>
+                        <Button variant="ghost" size="icon" @click="openEdit(employee)"><Pencil class="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" @click="remove(employee)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <EmployeeFormDialog v-model:open="formOpen" :employee="editing" :company-id="companyId" :tenant-slug="tenantSlug" :branches="branches" @saved="onSaved" />
         <EmployeeScheduleDialog v-model:open="scheduleOpen" :employee="scheduling" :all-services="services" :tenant-slug="tenantSlug" />

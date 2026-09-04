@@ -2,15 +2,14 @@
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
-import { CalendarClock, Plus } from '@lucide/vue';
+import { Plus } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import NewTableReservationDialog from './NewTableReservationDialog.vue';
 import TableReservationDetailDialog from './TableReservationDetailDialog.vue';
 
@@ -73,26 +72,29 @@ const STATUS_TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red' | 'blue'
             <Button size="sm" @click="newOpen = true"><Plus class="h-4 w-4" />{{ locale.t('restaurant.newReservation') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! reservations.length" :icon="CalendarClock" :title="locale.t('restaurant.noReservations')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <button
-                v-for="r in reservations" :key="r.id" type="button"
-                class="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left transition-colors hover:bg-accent/40"
-                @click="openDetail(r.id)"
-            >
-                <div class="min-w-0">
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="reservations.length"
+            :column-count="3"
+            :empty-message="locale.t('restaurant.noReservations')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('restaurant.tabReservations') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.date') }}</th>
+                <th class="p-3">{{ locale.t('common.status') }}</th>
+            </template>
+
+            <tr v-for="r in reservations" :key="r.id" class="cursor-pointer transition hover:bg-muted" @click="openDetail(r.id)">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ r.customer?.name ?? '—' }} · {{ r.resource?.name }}</p>
                     <p class="text-xs ui-subtle">{{ locale.t('restaurant.partySize') }}: {{ r.party_size }}</p>
-                </div>
-                <div class="flex shrink-0 items-center gap-3">
-                    <span class="text-xs font-medium tabular-nums ui-text">{{ formatDateTime(r.starts_at) }}</span>
-                    <Badge :tone="STATUS_TONE[r.status] ?? 'neutral'">{{ locale.t('restaurant.statuses.' + r.status) }}</Badge>
-                </div>
-            </button>
-        </div>
+                </td>
+                <td class="p-3 text-right"><span class="text-xs font-medium tabular-nums ui-text">{{ formatDateTime(r.starts_at) }}</span></td>
+                <td class="p-3"><Badge :tone="STATUS_TONE[r.status] ?? 'neutral'">{{ locale.t('restaurant.statuses.' + r.status) }}</Badge></td>
+            </tr>
+        </DataTable>
 
         <NewTableReservationDialog
             v-model:open="newOpen"

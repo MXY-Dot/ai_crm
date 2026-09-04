@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { MapPin, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
 import { Money } from '../../ui/money';
-import { Skeleton } from '../../ui/skeleton';
 import TourFormDialog, { type TourRow } from './TourFormDialog.vue';
 
 const props = defineProps<{ companyId: number; tenantSlug: string }>();
@@ -60,22 +59,34 @@ async function remove(tour: TourRow): Promise<void> {
             <Button size="sm" @click="openCreate"><Plus class="h-4 w-4" />{{ locale.t('travel.addTour') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-12 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! tours.length" :icon="MapPin" :title="locale.t('travel.noTours')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="tour in tours" :key="tour.id" class="flex items-center justify-between gap-3 py-3">
-                <div>
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="tours.length"
+            :column-count="3"
+            :empty-message="locale.t('travel.noTours')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('travel.tabTours') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.price') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="tour in tours" :key="tour.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ tour.name }}<span v-if="tour.destination" class="font-normal ui-subtle"> · {{ tour.destination }}</span></p>
-                    <p class="text-xs ui-subtle"><Money :value="tour.price" tone="muted" /><span v-if="tour.duration_days"> · {{ tour.duration_days }} {{ locale.t('travel.daysUnit') }}</span></p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" @click="openEdit(tour)"><Pencil class="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" @click="remove(tour)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                    <p v-if="tour.duration_days" class="text-xs ui-subtle">{{ tour.duration_days }} {{ locale.t('travel.daysUnit') }}</p>
+                </td>
+                <td class="p-3 text-right"><Money :value="tour.price" tone="muted" /></td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" @click="openEdit(tour)"><Pencil class="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" @click="remove(tour)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <TourFormDialog v-model:open="dialogOpen" :tour="editing" :company-id="companyId" :tenant-slug="tenantSlug" @saved="load" />
     </Card>

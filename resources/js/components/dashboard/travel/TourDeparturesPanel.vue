@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Luggage, Plus } from '@lucide/vue';
+import { Plus } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import TourDepartureDetailDialog from './TourDepartureDetailDialog.vue';
 import TourDepartureFormDialog from './TourDepartureFormDialog.vue';
 
@@ -60,26 +59,31 @@ const STATUS_TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red' | 'blue'
             <Button size="sm" @click="newOpen = true"><Plus class="h-4 w-4" />{{ locale.t('travel.addDeparture') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! departures.length" :icon="Luggage" :title="locale.t('travel.noDepartures')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <button
-                v-for="d in departures" :key="d.id" type="button"
-                class="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left transition-colors hover:bg-accent/40"
-                @click="openDetail(d.id)"
-            >
-                <div class="min-w-0">
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="departures.length"
+            :column-count="3"
+            :empty-message="locale.t('travel.noDepartures')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('travel.tabDepartures') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.date') }}</th>
+                <th class="p-3">{{ locale.t('common.status') }}</th>
+            </template>
+
+            <tr v-for="d in departures" :key="d.id" class="cursor-pointer transition hover:bg-muted" @click="openDetail(d.id)">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ d.tour?.name }}</p>
-                    <p class="text-xs ui-subtle">
-                        {{ formatDate(d.departure_date) }}<span v-if="d.return_date"> — {{ formatDate(d.return_date) }}</span>
-                        <span v-if="d.capacity"> · {{ d.booked_seats ?? 0 }}/{{ d.capacity }} {{ locale.t('travel.seatsUnit') }}</span>
-                    </p>
-                </div>
-                <Badge :tone="STATUS_TONE[d.status] ?? 'neutral'">{{ locale.t('travel.statuses.' + d.status) }}</Badge>
-            </button>
-        </div>
+                    <p v-if="d.capacity" class="text-xs ui-subtle">{{ d.booked_seats ?? 0 }}/{{ d.capacity }} {{ locale.t('travel.seatsUnit') }}</p>
+                </td>
+                <td class="p-3 text-right">
+                    <span class="text-xs font-medium tabular-nums ui-text">{{ formatDate(d.departure_date) }}<span v-if="d.return_date"> — {{ formatDate(d.return_date) }}</span></span>
+                </td>
+                <td class="p-3"><Badge :tone="STATUS_TONE[d.status] ?? 'neutral'">{{ locale.t('travel.statuses.' + d.status) }}</Badge></td>
+            </tr>
+        </DataTable>
 
         <TourDepartureFormDialog v-model:open="newOpen" :departure="null" :company-id="companyId" :tenant-slug="tenantSlug" @saved="load" />
         <TourDepartureDetailDialog v-model:open="detailOpen" :departure-id="selectedId" :company-id="companyId" :tenant-slug="tenantSlug" @changed="load" />

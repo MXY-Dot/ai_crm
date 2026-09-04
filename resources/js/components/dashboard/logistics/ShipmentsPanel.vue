@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
-import { Package, Plus } from '@lucide/vue';
+import { Plus } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
 import { Input } from '../../ui/input';
-import { Skeleton } from '../../ui/skeleton';
 import NewShipmentDialog from './NewShipmentDialog.vue';
 import ShipmentDetailDialog from './ShipmentDetailDialog.vue';
 
@@ -70,25 +69,31 @@ const STATUS_TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red' | 'blue'
             <Button size="sm" @click="newOpen = true"><Plus class="h-4 w-4" />{{ locale.t('logistics.newShipment') }}</Button>
         </template>
 
-        <Input v-model="search" :placeholder="locale.t('logistics.searchPlaceholder')" class="mb-3" />
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="shipments.length"
+            :column-count="2"
+            :empty-message="locale.t('logistics.noShipments')"
+            min-width="min-w-full"
+        >
+            <template #toolbar>
+                <Input v-model="search" :placeholder="locale.t('logistics.searchPlaceholder')" class="w-64" />
+            </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! shipments.length" :icon="Package" :title="locale.t('logistics.noShipments')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <button
-                v-for="s in shipments" :key="s.id" type="button"
-                class="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left transition-colors hover:bg-accent/40"
-                @click="openDetail(s.id)"
-            >
-                <div class="min-w-0">
+            <template #thead>
+                <th class="p-3">{{ locale.t('logistics.tabShipments') }}</th>
+                <th class="p-3">{{ locale.t('common.status') }}</th>
+            </template>
+
+            <tr v-for="s in shipments" :key="s.id" class="cursor-pointer transition hover:bg-muted" @click="openDetail(s.id)">
+                <td class="p-3">
                     <p class="text-sm font-medium tabular-nums ui-text">{{ s.tracking_number }}</p>
                     <p class="text-xs ui-subtle">{{ s.sender_name }} → {{ s.recipient_name }} · {{ formatDate(s.created_at) }}</p>
-                </div>
-                <Badge :tone="STATUS_TONE[s.status] ?? 'neutral'">{{ locale.t('logistics.statuses.' + s.status) }}</Badge>
-            </button>
-        </div>
+                </td>
+                <td class="p-3"><Badge :tone="STATUS_TONE[s.status] ?? 'neutral'">{{ locale.t('logistics.statuses.' + s.status) }}</Badge></td>
+            </tr>
+        </DataTable>
 
         <NewShipmentDialog v-model:open="newOpen" :company-id="companyId" :tenant-slug="tenantSlug" @created="load" />
         <ShipmentDetailDialog v-model:open="detailOpen" :shipment-id="selectedId" :tenant-slug="tenantSlug" @changed="load" />

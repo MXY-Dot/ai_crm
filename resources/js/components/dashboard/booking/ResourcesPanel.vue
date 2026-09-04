@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
-import { Armchair, BedDouble, Pencil, Plus, Trash2, Utensils } from '@lucide/vue';
+import { Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
 import { Money } from '../../ui/money';
-import { Skeleton } from '../../ui/skeleton';
 import ResourceFormDialog, { type ResourceRow } from './ResourceFormDialog.vue';
 
 const props = defineProps<{ companyId: number; tenantSlug: string; type?: string; title?: string }>();
@@ -70,13 +69,21 @@ async function remove(resource: ResourceRow): Promise<void> {
             <Button size="sm" @click="openCreate"><Plus class="h-4 w-4" />{{ locale.t('booking.addResource') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-12 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! resources.length" :icon="type === 'table' ? Utensils : type === 'room' ? BedDouble : Armchair" :title="locale.t('booking.noResources')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="resource in resources" :key="resource.id" class="flex items-center justify-between gap-3 py-3">
-                <div>
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="resources.length"
+            :column-count="2"
+            :empty-message="locale.t('booking.noResources')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ panelTitle }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="resource in resources" :key="resource.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ resource.name }}</p>
                     <p class="text-xs ui-subtle">
                         {{ locale.t('booking.resourceTypes.' + resource.type) }}
@@ -84,13 +91,15 @@ async function remove(resource: ResourceRow): Promise<void> {
                         <span v-if="resource.branch_id"> · {{ branches.find((b) => b.id === resource.branch_id)?.name }}</span>
                     </p>
                     <p v-if="resource.price_per_night" class="text-xs ui-subtle"><Money :value="resource.price_per_night" tone="muted" /> / {{ locale.t('hotel.night') }}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" @click="openEdit(resource)"><Pencil class="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" @click="remove(resource)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" @click="openEdit(resource)"><Pencil class="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" @click="remove(resource)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <ResourceFormDialog v-model:open="dialogOpen" :resource="editing" :company-id="companyId" :tenant-slug="tenantSlug" :branches="branches" :default-type="type" @saved="load" />
     </Card>

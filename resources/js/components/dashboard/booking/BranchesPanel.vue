@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Building2, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import BranchFormDialog, { type BranchRow } from './BranchFormDialog.vue';
 
 const props = defineProps<{ companyId: number; tenantSlug: string }>();
@@ -59,22 +58,32 @@ async function remove(branch: BranchRow): Promise<void> {
             <Button size="sm" @click="openCreate"><Plus class="h-4 w-4" />{{ locale.t('booking.addBranch') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-12 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! branches.length" :icon="Building2" :title="locale.t('booking.noBranches')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="branch in branches" :key="branch.id" class="flex items-center justify-between gap-3 py-3">
-                <div>
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="branches.length"
+            :column-count="2"
+            :empty-message="locale.t('booking.noBranches')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('booking.tabBranches') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="branch in branches" :key="branch.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ branch.name }}</p>
                     <p class="text-xs ui-subtle">{{ branch.address || '—' }}<span v-if="branch.phone"> · {{ branch.phone }}</span></p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" @click="openEdit(branch)"><Pencil class="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" @click="remove(branch)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" @click="openEdit(branch)"><Pencil class="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" @click="remove(branch)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <BranchFormDialog v-model:open="dialogOpen" :branch="editing" :company-id="companyId" :tenant-slug="tenantSlug" @saved="load" />
     </Card>

@@ -2,14 +2,13 @@
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
-import { Car, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import VehicleFormDialog, { type VehicleRow } from './VehicleFormDialog.vue';
 
 const props = defineProps<{ companyId: number; tenantSlug: string }>();
@@ -63,22 +62,32 @@ async function remove(vehicle: VehicleRow): Promise<void> {
             <Button size="sm" @click="openCreate"><Plus class="h-4 w-4" />{{ locale.t('autoService.addVehicle') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-12 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! vehicles.length" :icon="Car" :title="locale.t('autoService.noVehicles')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="vehicle in vehicles" :key="vehicle.id" class="flex items-center justify-between gap-3 py-3">
-                <div>
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="vehicles.length"
+            :column-count="2"
+            :empty-message="locale.t('autoService.noVehicles')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('autoService.tabVehicles') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="vehicle in vehicles" :key="vehicle.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ vehicle.make }} {{ vehicle.model }}<span v-if="vehicle.year"> · {{ vehicle.year }}</span> · {{ vehicle.plate_number }}</p>
                     <p class="text-xs ui-subtle">{{ vehicle.customer?.name }}<span v-if="vehicle.customer?.phone"> · {{ vehicle.customer.phone }}</span></p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" @click="openEdit(vehicle)"><Pencil class="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" @click="remove(vehicle)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" @click="openEdit(vehicle)"><Pencil class="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" @click="remove(vehicle)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <VehicleFormDialog v-model:open="dialogOpen" :vehicle="editing" :company-id="companyId" :tenant-slug="tenantSlug" :customers="customers as unknown as Array<{ id: number; name: string; phone: string | null }>" @saved="load" />
     </Card>

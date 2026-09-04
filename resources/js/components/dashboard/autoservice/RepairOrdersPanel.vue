@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { ClipboardList, Plus } from '@lucide/vue';
+import { Plus } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import NewRepairOrderDialog from './NewRepairOrderDialog.vue';
 import RepairOrderDetailDialog from './RepairOrderDetailDialog.vue';
 
@@ -65,23 +64,27 @@ const STATUS_TONE: Record<string, 'neutral' | 'green' | 'amber' | 'red' | 'blue'
             <Button size="sm" @click="newOpen = true"><Plus class="h-4 w-4" />{{ locale.t('autoService.newRepairOrder') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! repairOrders.length" :icon="ClipboardList" :title="locale.t('autoService.noRepairOrders')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <button
-                v-for="r in repairOrders" :key="r.id" type="button"
-                class="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left transition-colors hover:bg-accent/40"
-                @click="openDetail(r.id)"
-            >
-                <div class="min-w-0">
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="repairOrders.length"
+            :column-count="2"
+            :empty-message="locale.t('autoService.noRepairOrders')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('autoService.tabRepairOrders') }}</th>
+                <th class="p-3">{{ locale.t('common.status') }}</th>
+            </template>
+
+            <tr v-for="r in repairOrders" :key="r.id" class="cursor-pointer transition hover:bg-muted" @click="openDetail(r.id)">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ r.customer?.name ?? '—' }} · {{ r.vehicle?.make }} {{ r.vehicle?.model }} · {{ r.vehicle?.plate_number }}</p>
                     <p class="text-xs ui-subtle"><span v-if="r.employee">{{ locale.t('autoService.mechanic') }}: {{ r.employee.name }} · </span>{{ formatDate(r.created_at) }}</p>
-                </div>
-                <Badge :tone="STATUS_TONE[r.status] ?? 'neutral'">{{ locale.t('autoService.statuses.' + r.status) }}</Badge>
-            </button>
-        </div>
+                </td>
+                <td class="p-3"><Badge :tone="STATUS_TONE[r.status] ?? 'neutral'">{{ locale.t('autoService.statuses.' + r.status) }}</Badge></td>
+            </tr>
+        </DataTable>
 
         <NewRepairOrderDialog v-model:open="newOpen" :company-id="companyId" :tenant-slug="tenantSlug" @created="load" />
         <RepairOrderDetailDialog v-model:open="detailOpen" :repair-order-id="selectedId" :tenant-slug="tenantSlug" @changed="load" />
