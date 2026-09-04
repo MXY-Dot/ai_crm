@@ -2,11 +2,12 @@
 
 namespace App\Notifications;
 
+use App\Mail\CompanyNotificationMail;
 use App\Models\Company;
 use App\Models\User;
 use App\Notifications\Channels\TenantTelegramChannel;
 use App\Support\Notifications\NotificationTypeBuckets;
-use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -64,19 +65,17 @@ class AppNotification extends Notification
         ];
     }
 
-    public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): Mailable
     {
-        $message = (new MailMessage())->subject($this->title)->greeting($this->title);
+        $company = $notifiable instanceof User ? $this->company($notifiable) : null;
 
-        if ($this->body) {
-            $message->line($this->body);
-        }
-
-        if ($this->actionUrl) {
-            $message->action('Открыть в WERO', url($this->actionUrl));
-        }
-
-        return $message;
+        return (new CompanyNotificationMail(
+            title: $this->title,
+            body: $this->body,
+            actionUrl: $this->actionUrl ? url($this->actionUrl) : null,
+            companyName: $company?->name,
+            urgent: $this->priority === 'urgent',
+        ))->to($notifiable->routeNotificationFor('mail'));
     }
 
     /** Consumed by TenantTelegramChannel, not a Laravel-recognized to* method -- Telegram isn't a built-in channel. */
@@ -164,12 +163,15 @@ class AppNotification extends Notification
 
     private function preferences(User $notifiable): array
     {
+        return (array) ($this->company($notifiable)?->brand_settings['notifications'] ?? []);
+    }
+
+    private function company(User $notifiable): ?Company
+    {
         if (! $notifiable->tenant_id) {
-            return [];
+            return null;
         }
 
-        $company = Company::withoutGlobalScopes()->where('tenant_id', $notifiable->tenant_id)->first();
-
-        return (array) ($company?->brand_settings['notifications'] ?? []);
+        return Company::withoutGlobalScopes()->where('tenant_id', $notifiable->tenant_id)->first();
     }
 }
