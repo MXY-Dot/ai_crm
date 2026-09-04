@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import { toast } from 'vue-sonner';
+import { Mail, Send } from '@lucide/vue';
+import { apiRequest } from '../../lib/apiClient';
+import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -71,6 +75,34 @@ function typeChannelValue(bucket: Bucket, channel: 'email' | 'telegram_bot'): bo
 
 const telegramConnected = computed(() => channels.value.some((channel) => channel.provider.toLowerCase().includes('telegram') && channel.status === 'connected'));
 
+const testEmailBusy = ref(false);
+const testTelegramBusy = ref(false);
+
+/** Owner clicks "Проверить" and gets a real send to their own account -- bypasses every preference/frequency gate in AppNotification, since the whole point is testing the channel itself, not the routing rules above it. */
+async function testEmail(): Promise<void> {
+    testEmailBusy.value = true;
+    try {
+        await apiRequest('/api/notification-settings/test-email', { method: 'POST' });
+        toast.success('Тестовое письмо отправлено на вашу почту');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось отправить письмо');
+    } finally {
+        testEmailBusy.value = false;
+    }
+}
+
+async function testTelegram(): Promise<void> {
+    testTelegramBusy.value = true;
+    try {
+        await apiRequest('/api/notification-settings/test-telegram', { method: 'POST' });
+        toast.success('Тестовое сообщение отправлено в Telegram');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось отправить сообщение');
+    } finally {
+        testTelegramBusy.value = false;
+    }
+}
+
 async function toggle(key: 'email' | 'push' | 'telegram_bot', value: boolean): Promise<void> {
     if (! company.value) return;
 
@@ -112,6 +144,11 @@ async function setTypeChannel(bucket: Bucket, channel: 'email' | 'telegram_bot',
 <template>
     <Card :title="locale.t('company.notificationsTitle')" :subtitle="locale.t('company.notificationsSubtitle')">
         <div class="space-y-4">
+            <div class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-3 border-border">
+                <p class="mr-auto text-xs ui-subtle">Проверить, что уведомления реально доходят до вас лично:</p>
+                <Button variant="outline" size="sm" :disabled="testEmailBusy" @click="testEmail"><Mail class="h-4 w-4" />Проверить Email</Button>
+                <Button variant="outline" size="sm" :disabled="testTelegramBusy" @click="testTelegram"><Send class="h-4 w-4" />Проверить Telegram</Button>
+            </div>
             <div class="flex items-center justify-between gap-3">
                 <div>
                     <p class="text-sm font-medium ui-text">{{ locale.t('company.notifyEmail') }}</p>

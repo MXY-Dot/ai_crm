@@ -158,6 +158,8 @@ Route::middleware(['web', 'auth:web', EnsureEmailVerified::class, TrackLastSeen:
     Route::get('notification-settings/status', [NotificationSettingsController::class, 'status']);
     Route::post('notification-settings/telegram-link-code', [NotificationSettingsController::class, 'telegramLinkCode']);
     Route::post('notification-settings/telegram-unlink', [NotificationSettingsController::class, 'telegramUnlink']);
+    Route::post('notification-settings/test-email', [NotificationSettingsController::class, 'testEmail'])->middleware('throttle:5,1');
+    Route::post('notification-settings/test-telegram', [NotificationSettingsController::class, 'testTelegram'])->middleware('throttle:5,1');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
 
