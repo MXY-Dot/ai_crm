@@ -7,6 +7,7 @@ import LanguageSwitcher from '../dashboard/LanguageSwitcher.vue';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
+import { Switch } from '../ui/switch';
 
 const props = withDefaults(defineProps<{
     mode: 'login' | 'register';
@@ -62,7 +63,13 @@ async function submit(): Promise<void> {
             remember: form.remember,
         });
 
-        router.visit(result.two_factor ? '/two-factor-challenge' : '/app');
+        if (result.two_factor) {
+            router.visit('/two-factor-challenge');
+        } else if (isRegister.value) {
+            router.visit('/verify-email');
+        } else {
+            router.visit('/app');
+        }
     } catch (caught) {
         errors.value = caught instanceof Error && 'errors' in caught ? (caught.errors as AuthErrors) : { email: 'Не удалось войти. Проверьте данные.' };
     } finally {
@@ -94,7 +101,7 @@ async function submit(): Promise<void> {
                 </span>
 
                 <h1 class="mt-4 max-w-xl text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl">
-                    {{ isRegister ? 'Создайте workspace WERO' : 'С возвращением в WERO' }}
+                    {{ isRegister ? 'Зарегистрируйте компанию в WERO' : 'С возвращением в WERO' }}
                 </h1>
                 <p class="mt-4 max-w-lg text-base leading-7 text-zinc-400">
                     Диалоги сайта и Telegram, CRM-связи, AI-черновики и handoff оператору в одном дашборде.
@@ -125,7 +132,7 @@ async function submit(): Promise<void> {
                         <span v-if="errors.name" class="mt-1 block text-xs text-destructive">{{ errors.name }}</span>
                     </label>
                     <label v-if="isRegister" class="block">
-                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Workspace</span>
+                        <span class="mb-1 block text-xs font-semibold uppercase ui-subtle">Компания</span>
                         <div class="relative">
                             <Sparkles class="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 ui-subtle" />
                             <Input v-model="form.workspace" class="h-11 pl-9 lg:pl-9" type="text" required />
@@ -155,11 +162,11 @@ async function submit(): Promise<void> {
                             <Input v-model="form.password_confirmation" class="h-11 pl-9 lg:pl-9" type="password" required />
                         </div>
                     </label>
-                    <label v-if="!isRegister" class="flex items-center gap-2 text-sm ui-subtle">
-                        <input v-model="form.remember" class="h-4 w-4 rounded border accent-primary border-border" type="checkbox">
-                        Запомнить меня
+                    <label v-if="!isRegister" class="flex items-center justify-between gap-2 text-sm ui-subtle">
+                        <span>Запомнить меня</span>
+                        <Switch v-model="form.remember" />
                     </label>
-                    <Button class="w-full" variant="primary" type="submit" :disabled="processing">{{ processing ? 'Подождите...' : (isRegister ? 'Создать workspace' : 'Войти') }}</Button>
+                    <Button class="w-full" variant="primary" type="submit" :disabled="processing">{{ processing ? 'Подождите...' : (isRegister ? 'Зарегистрироваться' : 'Войти') }}</Button>
                 </form>
                 <p class="mt-4 text-center text-sm ui-subtle">
                     <Link class="font-medium text-primary hover:underline" :href="isRegister ? '/login' : `/register?plan=${plan}`">{{ isRegister ? 'У меня уже есть аккаунт' : 'Создать аккаунт' }}</Link>

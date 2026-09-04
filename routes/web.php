@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Middleware\EnsureEmailVerified;
 use App\Http\Middleware\EnsurePageAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantActive;
@@ -55,6 +57,18 @@ Route::middleware('guest')->group(function (): void {
 
 Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth')->name('logout');
 
+// Sits between register and onboarding: register() sends the first code and
+// redirects here, and EnsureEmailVerified sends any unverified user back to
+// this page whenever they try to reach anything past it.
+Route::middleware('auth')->group(function (): void {
+    Route::get('/verify-email', [EmailVerificationController::class, 'notice'])->name('verification.notice');
+    Route::post('/verify-email/code', [EmailVerificationController::class, 'verify'])->name('verification.verify-code');
+    Route::post('/verify-email/resend', [EmailVerificationController::class, 'resend'])->name('verification.resend');
+});
+Route::get('/verify-email/link/{id}/{hash}', [EmailVerificationController::class, 'verifyLink'])
+    ->middleware(['auth', 'signed'])
+    ->name('verification.verify-link');
+
 Route::get('/onboarding', function (Request $request) {
     $user = $request->user();
     $company = $user->tenant_id ? Company::withoutGlobalScopes()->where('tenant_id', $user->tenant_id)->first() : null;
@@ -67,7 +81,7 @@ Route::get('/onboarding', function (Request $request) {
         'businessTypes' => BusinessType::query()->where('is_active', true)->orderBy('sort_order')->get(['id', 'key', 'name']),
         'modules' => ModuleRegistry::labels(),
     ]);
-})->middleware('auth')->name('onboarding');
+})->middleware(['auth', EnsureEmailVerified::class])->name('onboarding');
 
 $dashboardPage = static fn (
     Request $request,
@@ -77,7 +91,7 @@ $dashboardPage = static fn (
     'bootstrap' => $dashboard->forUser($request->user()),
 ]);
 
-Route::middleware(['auth', EnsureTenantActive::class, EnsurePageAccess::class, TrackLastSeen::class])->group(function () use ($dashboardPage): void {
+Route::middleware(['auth', EnsureEmailVerified::class, EnsureTenantActive::class, EnsurePageAccess::class, TrackLastSeen::class])->group(function () use ($dashboardPage): void {
     Route::get('/app', fn (Request $request, DashboardData $dashboard) =>
         $dashboardPage($request, $dashboard, 'OverviewPage'))->name('dashboard');
     Route::get('/inbox', fn (Request $request, DashboardData $dashboard) =>

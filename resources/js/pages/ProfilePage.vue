@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
-import { GraduationCap, KeyRound, Save, Send, ShieldCheck, ShieldOff, Upload, User as UserIcon } from '@lucide/vue';
+import { GraduationCap, KeyRound, Mail, MailCheck, Save, Send, ShieldCheck, ShieldOff, Upload, User as UserIcon } from '@lucide/vue';
 import { storeToRefs } from 'pinia';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
@@ -121,6 +121,20 @@ async function disableTwoFactor(): Promise<void> {
 }
 
 const maskedSecret = computed(() => secretKey.value.replace(/(.{4})/g, '$1 ').trim());
+
+const emailResendBusy = ref(false);
+
+async function resendEmailVerification(): Promise<void> {
+    emailResendBusy.value = true;
+    try {
+        await apiRequest('/verify-email/resend', { method: 'POST' });
+        toast.success('Код отправлен на почту');
+    } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Не удалось отправить код');
+    } finally {
+        emailResendBusy.value = false;
+    }
+}
 
 // ТЗ раздел 18 — per-user Telegram linking (see TenantTelegramChannel /
 // TelegramWebhookController's /link handling). "Отключён" here just means no
@@ -253,6 +267,24 @@ async function unlinkTelegram(): Promise<void> {
             </div>
             <Button v-if="! user.two_factor_enabled" variant="primary" size="sm" @click="openTwoFactorSetup"><ShieldCheck class="h-4 w-4" />{{ locale.t('profile.twoFactor.enable') }}</Button>
             <Button v-else variant="outline" size="sm" @click="disableOpen = true"><ShieldOff class="h-4 w-4" />{{ locale.t('profile.twoFactor.disable') }}</Button>
+        </div>
+    </Card>
+
+    <Card v-if="user" class="mt-6" title="Email" subtitle="Подтверждение почты защищает доступ к аккаунту">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="grid size-10 shrink-0 place-items-center rounded-lg" :class="user.email_verified_at ? 'bg-primary/10' : 'bg-muted'">
+                    <MailCheck v-if="user.email_verified_at" class="h-5 w-5 text-primary" />
+                    <Mail v-else class="h-5 w-5 ui-subtle" />
+                </div>
+                <div>
+                    <p class="text-sm font-medium ui-text">{{ user.email_verified_at ? 'Почта подтверждена' : 'Почта не подтверждена' }}</p>
+                    <p class="text-xs ui-subtle">{{ user.email }}</p>
+                </div>
+            </div>
+            <Button v-if="! user.email_verified_at" variant="primary" size="sm" :disabled="emailResendBusy" @click="resendEmailVerification">
+                <Send class="h-4 w-4" />Отправить код
+            </Button>
         </div>
     </Card>
 

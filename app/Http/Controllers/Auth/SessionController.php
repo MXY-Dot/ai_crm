@@ -112,10 +112,12 @@ class SessionController extends Controller
             'Статус: неактивна, ожидает проверки модератором.'
         );
 
+        EmailVerificationController::sendCode($user);
+
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route("onboarding");
+        return redirect()->route('verification.notice');
     }
 
     public function destroy(Request $request): RedirectResponse
