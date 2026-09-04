@@ -213,6 +213,7 @@ class TravelChatAssistant
             'flow' => 'travel_offer_departures',
             'offered_departures' => $departures,
             'pax_count' => $intent['pax_count'],
+            'buttons' => TravelOfferButtons::build($departures),
         ]);
     }
 

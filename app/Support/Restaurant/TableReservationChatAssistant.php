@@ -263,6 +263,7 @@ class TableReservationChatAssistant
             'company_id' => $company->id,
             'customer_id' => $customerId,
             'party_size' => $partySize,
+            'buttons' => TableReservationOfferButtons::build($slots),
         ]);
     }
 
@@ -293,6 +294,7 @@ class TableReservationChatAssistant
             'flow' => 'table_reschedule',
             'reschedule_reservation_id' => $reservation->id,
             'offered_slots' => $slots,
+            'buttons' => TableReservationOfferButtons::build($slots),
         ]);
     }
 

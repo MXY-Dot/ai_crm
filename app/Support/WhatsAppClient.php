@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Tenant;
+use App\Support\Chat\ChatButtons;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
@@ -26,6 +27,23 @@ class WhatsAppClient
             'to' => $to,
             'type' => 'text',
             'text' => ['body' => $text],
+            'context' => $replyToMessageId ? ['message_id' => $replyToMessageId] : null,
+        ], fn ($value) => $value !== null));
+    }
+
+    /**
+     * Real tap buttons -- an interactive LIST message (not the "button" type,
+     * which hard-caps at 3 total and leaves no room for the assistant-mode
+     * option once a real offer already uses all 3). See ChatButtons's own
+     * docblock for why a list was chosen over stacked reply buttons.
+     */
+    public function sendInteractiveList(Tenant $tenant, string $to, string $bodyText, array $buttons, ?string $replyToMessageId = null): array
+    {
+        return $this->post($tenant, array_filter([
+            'messaging_product' => 'whatsapp',
+            'to' => $to,
+            'type' => 'interactive',
+            'interactive' => ChatButtons::toWhatsAppInteractiveList($bodyText, $buttons),
             'context' => $replyToMessageId ? ['message_id' => $replyToMessageId] : null,
         ], fn ($value) => $value !== null));
     }

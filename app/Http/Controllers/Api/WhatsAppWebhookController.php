@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
 use App\Models\Tenant;
 use App\Support\Ai\LlmClient;
+use App\Support\Chat\AssistantModeSwitcher;
+use App\Support\Chat\ChatButtons;
 use App\Support\Inbox\ChatwootWebhookHandler;
 use App\Support\Integrations\MetaChannelResolver;
 use App\Support\Meta\VerifiesMetaWebhook;
@@ -32,7 +35,7 @@ class WhatsAppWebhookController extends Controller
     {
     }
 
-    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, WhatsAppClient $whatsapp): JsonResponse|Response
+    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, WhatsAppClient $whatsapp, AssistantModeSwitcher $modeSwitcher): JsonResponse|Response
     {
         if ($request->isMethod('get')) {
             return $this->handleSubscriptionVerification($request) ?? response('', 404);
@@ -91,6 +94,31 @@ class WhatsAppWebhookController extends Controller
                 }
 
                 foreach ($messages as $message) {
+                    // A tap on the shared "💬 Поговорить с ассистентом" row (see
+                    // ChatButtons::withAssistantOption()) is intercepted here, before it
+                    // ever reaches the normal message pipeline -- same reasoning as
+                    // TelegramWebhookController's own callback_query handling, just
+                    // arriving as a real `interactive` message here instead of a separate
+                    // update type. A numbered pick needs no special-casing at all: it
+                    // already flows through $handler->handle() below exactly like typed
+                    // text, since content() (see below) resolves it to the plain digit.
+                    if (Arr::get($message, 'interactive.list_reply.id') === ChatButtons::ASSISTANT_BUTTON_ID) {
+                        $from = (string) Arr::get($message, 'from', '');
+                        $conversation = Conversation::withoutGlobalScopes()
+                            ->where('tenant_id', $tenant->id)
+                            ->where('external_id', 'whatsapp-'.$from)
+                            ->latest('id')
+                            ->first();
+
+                        if ($conversation) {
+                            $modeSwitcher->handleWhatsapp($tenant, $conversation, $from);
+                        }
+
+                        $processed++;
+
+                        continue;
+                    }
+
                     $handler->handle($tenant, $this->payload($tenant, $value, $message, $whatsapp));
                     $processed++;
                 }
@@ -158,6 +186,17 @@ class WhatsAppWebhookController extends Controller
         }
 
         if ($type === 'interactive') {
+            // A numbered pick's list row id is the plain option number itself (see
+            // ChatButtons::toWhatsAppInteractiveList()) -- prefer that over the
+            // human-readable title so a tap resolves exactly as unambiguously as a
+            // typed digit does, through the identical selection logic either way.
+            // The assistant-mode row never reaches here (intercepted in __invoke()).
+            $listReplyId = trim((string) Arr::get($message, 'interactive.list_reply.id', ''));
+
+            if ($listReplyId !== '' && ctype_digit($listReplyId)) {
+                return $listReplyId;
+            }
+
             return trim((string) (Arr::get($message, 'interactive.button_reply.title') ?? Arr::get($message, 'interactive.list_reply.title') ?? ''));
         }
 

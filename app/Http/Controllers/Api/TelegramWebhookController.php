@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Ai\LlmClient;
+use App\Support\Chat\AssistantModeSwitcher;
+use App\Support\Chat\ChatButtons;
 use App\Support\Inbox\ChatwootWebhookHandler;
 use App\Support\Integrations\TenantIntegrationSettings;
 use App\Support\TelegramClient;
@@ -26,10 +29,17 @@ class TelegramWebhookController extends Controller
     {
     }
 
-    public function __invoke(Request $request, ChatwootWebhookHandler $handler, TenantIntegrationSettings $settings, TelegramClient $telegram): JsonResponse
+    public function __invoke(Request $request, ChatwootWebhookHandler $handler, TenantIntegrationSettings $settings, TelegramClient $telegram, AssistantModeSwitcher $modeSwitcher): JsonResponse
     {
         $tenant = $this->tenant($request);
         $this->guardSecret($request, $tenant, $settings);
+
+        $callbackQuery = $request->input('callback_query');
+
+        if (is_array($callbackQuery)) {
+            return $this->handleCallbackQuery($tenant, $callbackQuery, $handler, $telegram, $modeSwitcher);
+        }
+
         $message = $request->input('message') ?? $request->input('edited_message');
 
         // ТЗ раздел 18 — staff Telegram linking. Handled before anything else touches
@@ -51,6 +61,61 @@ class TelegramWebhookController extends Controller
         }
 
         $result = $handler->handle($tenant, $this->payload($tenant, $message, $telegram));
+
+        return response()->json(['ok' => true] + $result, ! empty($result['duplicate']) ? 200 : 201);
+    }
+
+    /**
+     * A tap on an inline keyboard button (see ChatButtons::toTelegramInlineKeyboard())
+     * arrives as its own `callback_query` update -- a completely different shape from
+     * `message`, with no text of its own and no corresponding customer message Telegram
+     * sends on its behalf. The button's `data` is exactly what a customer would have
+     * typed by hand (a plain digit "1"/"2"/"3", or the shared 'assistant' sentinel — see
+     * ChatButtons::ASSISTANT_BUTTON_ID) — a numbered pick is synthesized into the SAME
+     * inbound-message shape a real typed reply takes and fed through the identical
+     * pipeline, so every already-hardened selection/flow-chain rule in each
+     * *ChatAssistant applies completely unchanged; only the 'assistant' sentinel gets
+     * special handling (see AssistantModeSwitcher).
+     */
+    private function handleCallbackQuery(Tenant $tenant, array $callbackQuery, ChatwootWebhookHandler $handler, TelegramClient $telegram, AssistantModeSwitcher $modeSwitcher): JsonResponse
+    {
+        $callbackId = (string) Arr::get($callbackQuery, 'id', '');
+        $data = trim((string) Arr::get($callbackQuery, 'data', ''));
+        $chatId = (string) Arr::get($callbackQuery, 'message.chat.id', '');
+
+        // Best-effort: dismisses the tap's loading spinner on the customer's own
+        // client. Telegram doesn't retry a webhook that returned 200 regardless, so
+        // a failure here must never block the actual reply below.
+        if ($callbackId !== '') {
+            $telegram->answerCallbackQuery($tenant, $callbackId);
+        }
+
+        if ($chatId === '' || $data === '') {
+            return response()->json(['ok' => true, 'ignored' => true, 'reason' => 'empty_callback']);
+        }
+
+        if ($data === ChatButtons::ASSISTANT_BUTTON_ID) {
+            $conversation = Conversation::withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('external_id', 'telegram-'.$chatId)
+                ->latest('id')
+                ->first();
+
+            if ($conversation) {
+                $modeSwitcher->handleTelegram($tenant, $conversation, $chatId);
+            }
+
+            return response()->json(['ok' => true, 'handled' => 'assistant_mode']);
+        }
+
+        $syntheticMessage = [
+            'message_id' => 'cb-'.$callbackId,
+            'chat' => ['id' => $chatId],
+            'from' => Arr::get($callbackQuery, 'from', []),
+            'text' => $data,
+        ];
+
+        $result = $handler->handle($tenant, $this->payload($tenant, $syntheticMessage, $telegram));
 
         return response()->json(['ok' => true] + $result, ! empty($result['duplicate']) ? 200 : 201);
     }

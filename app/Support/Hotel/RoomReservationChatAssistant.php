@@ -329,6 +329,7 @@ class RoomReservationChatAssistant
             'company_id' => $company->id,
             'customer_id' => $customerId,
             'guests_count' => $guests,
+            'buttons' => RoomReservationOfferButtons::build($rooms),
         ]);
     }
 

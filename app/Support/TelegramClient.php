@@ -165,6 +165,33 @@ class TelegramClient
         }
     }
 
+    /**
+     * Required after handling an inline-keyboard tap (a `callback_query` update) --
+     * without this, the customer's Telegram client shows an endless loading
+     * spinner on the button they just pressed. Best-effort like editMessageText/
+     * deleteMessage above: never throws, a failure here must never block the
+     * actual reply TelegramWebhookController sends for the tap.
+     */
+    public function answerCallbackQuery(Tenant $tenant, string $callbackQueryId, string $text = ''): bool
+    {
+        $token = $this->settings->telegramBotToken($tenant);
+
+        if ($token === '') {
+            return false;
+        }
+
+        try {
+            $response = $this->http()->post('https://api.telegram.org/bot'.$token.'/answerCallbackQuery', array_filter([
+                'callback_query_id' => $callbackQueryId,
+                'text' => $text !== '' ? $text : null,
+            ], fn ($value) => $value !== null));
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $response->successful() && (bool) Arr::get($response->json(), 'ok', false);
+    }
+
     public function getMe(Tenant $tenant): array
     {
         $token = $this->settings->telegramBotToken($tenant);
@@ -248,7 +275,7 @@ class TelegramClient
             $response = $this->http()->post('https://api.telegram.org/bot'.$token.'/setWebhook', [
                 'url' => $url,
                 'secret_token' => $secret,
-                'allowed_updates' => ['message', 'edited_message'],
+                'allowed_updates' => ['message', 'edited_message', 'callback_query'],
                 'drop_pending_updates' => true,
             ]);
         } catch (Throwable $error) {

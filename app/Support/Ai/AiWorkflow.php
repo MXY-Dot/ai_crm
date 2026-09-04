@@ -22,6 +22,7 @@ use App\Support\Hotel\RoomReservationChatAssistant;
 use App\Support\Logistics\LogisticsChatAssistant;
 use App\Support\Restaurant\TableReservationChatAssistant;
 use App\Support\Travel\TravelChatAssistant;
+use App\Support\Chat\ChatButtons;
 use App\Support\Chatwoot\ChatwootClient;
 use App\Support\Emergency\AutoAssignmentService;
 use App\Support\Emergency\EmergencyStateManager;
@@ -1201,11 +1202,18 @@ class AiWorkflow
         $isTelegram = $provider === 'telegram';
         $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
         $bubbles = $this->splitIntoBubbles($draft->body);
+        // Real tap buttons (a numbered offer -- see e.g. BookingOfferButtons)
+        // ride on the draft's own meta and attach only to the LAST bubble sent
+        // (where "напишите номер варианта" actually appears), never every
+        // bubble — see sendRemainingBubbles()'s own last-index check below.
+        // Chatwoot has no equivalent button API here, so $isTelegram is the
+        // only branch that ever actually uses $buttons.
+        $buttons = is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
 
-        $send = function (string $text) use ($tenant, $conversation, $isTelegram, $chatId): ?array {
+        $send = function (string $text, ?array $buttons = null) use ($tenant, $conversation, $isTelegram, $chatId): ?array {
             try {
                 $payload = $isTelegram
-                    ? $this->telegram->sendMessage($tenant, $chatId, $text)
+                    ? $this->telegram->sendMessage($tenant, $chatId, $text, replyMarkup: $buttons ? ChatButtons::toTelegramInlineKeyboard($buttons) : null)
                     : $this->chatwoot->sendOutgoingMessage($tenant, (string) $conversation->external_id, $text);
             } catch (RuntimeException $error) {
                 return ['error' => $error->getMessage()];
@@ -1223,7 +1231,7 @@ class AiWorkflow
             return ['external_id' => $externalId, 'payload' => $payload];
         };
 
-        $result = $send($bubbles[0]);
+        $result = $send($bubbles[0], count($bubbles) === 1 ? $buttons : null);
 
         if (isset($result['error'])) {
             $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $result['error']]])->save();
@@ -1238,7 +1246,7 @@ class AiWorkflow
         ])->save();
         $conversation->markFirstResponse();
 
-        $this->sendRemainingBubbles($tenant, $conversation, $draft, array_slice($bubbles, 1), $provider, $send);
+        $this->sendRemainingBubbles($tenant, $conversation, $draft, array_slice($bubbles, 1), $provider, $send, $buttons);
     }
 
     /** WhatsApp/Instagram/Facebook branch of autoReply() — same job as the Telegram/Chatwoot block above, split out because each of the three has its own recipient-id prefix and reply payload shape (mirrors ConversationReplyController::send()'s equivalent branches for operator-sent replies). */
@@ -1246,12 +1254,17 @@ class AiWorkflow
     {
         $recipient = str_replace($provider.'-', '', (string) $conversation->external_id);
         $bubbles = $this->splitIntoBubbles($draft->body);
+        // Same button-on-last-bubble reasoning as autoReply()'s own copy of this
+        // line -- only 'whatsapp' actually sends anything for $buttons below,
+        // Instagram/Facebook have no equivalent button API wired up here.
+        $buttons = is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
 
-        $send = function (string $text) use ($tenant, $recipient, $provider): array {
+        $send = function (string $text, ?array $buttons = null) use ($tenant, $recipient, $provider): array {
             try {
-                $payload = match ($provider) {
-                    'whatsapp' => $this->whatsapp->sendMessage($tenant, $recipient, $text),
-                    'instagram' => $this->instagram->sendMessage($tenant, $recipient, $text),
+                $payload = match (true) {
+                    $provider === 'whatsapp' && $buttons !== null => $this->whatsapp->sendInteractiveList($tenant, $recipient, $text, $buttons),
+                    $provider === 'whatsapp' => $this->whatsapp->sendMessage($tenant, $recipient, $text),
+                    $provider === 'instagram' => $this->instagram->sendMessage($tenant, $recipient, $text),
                     default => $this->facebook->sendMessage($tenant, $recipient, $text),
                 };
             } catch (RuntimeException $error) {
@@ -1263,7 +1276,7 @@ class AiWorkflow
             return ['external_id' => $provider.'-'.$recipient.'-'.($messageId ?? Str::random(12)), 'payload' => $payload];
         };
 
-        $result = $send($bubbles[0]);
+        $result = $send($bubbles[0], count($bubbles) === 1 ? $buttons : null);
 
         if (isset($result['error'])) {
             $draft->forceFill(['meta' => ($draft->meta ?? []) + ['auto_reply_failed' => $result['error']]])->save();
@@ -1278,7 +1291,7 @@ class AiWorkflow
         ])->save();
         $conversation->markFirstResponse();
 
-        $this->sendRemainingBubbles($tenant, $conversation, $draft, array_slice($bubbles, 1), $provider, $send);
+        $this->sendRemainingBubbles($tenant, $conversation, $draft, array_slice($bubbles, 1), $provider, $send, $buttons);
     }
 
     /**
@@ -1298,13 +1311,15 @@ class AiWorkflow
      * ever runs inside a queued job, never an HTTP request, so blocking here
      * for a second or two is the deliberate point, not a stray cost.
      */
-    private function sendRemainingBubbles(Tenant $tenant, Conversation $conversation, Message $draft, array $bubbles, string $provider, callable $send): void
+    private function sendRemainingBubbles(Tenant $tenant, Conversation $conversation, Message $draft, array $bubbles, string $provider, callable $send, ?array $buttons = null): void
     {
+        $lastIndex = array_key_last($bubbles);
+
         foreach ($bubbles as $index => $text) {
             $this->showTyping($tenant, $conversation, true);
             usleep(min(2200, max(700, mb_strlen($text) * 25)) * 1000);
 
-            $result = $send($text);
+            $result = $send($text, $index === $lastIndex ? $buttons : null);
 
             if (isset($result['error'])) {
                 Log::warning('AI reply bubble failed to send', ['conversation_id' => $conversation->id, 'provider' => $provider, 'error' => $result['error']]);

@@ -428,7 +428,7 @@ class AiChatBookingAssistant
             .$this->formatOffers($slots)
             ."\nНапишите номер варианта, который вам подходит, и я вас запишу.";
 
-        return $this->withReply($decision, 'booking_offer', $text, meta: ['flow' => 'new_booking', 'offered_slots' => $slots]);
+        return $this->withReply($decision, 'booking_offer', $text, meta: ['flow' => 'new_booking', 'offered_slots' => $slots, 'buttons' => BookingOfferButtons::build($slots)]);
     }
 
     private function offerRescheduleSlots(Company $company, Booking $booking, Carbon $from, AiDecision $decision): AiDecision
@@ -458,6 +458,7 @@ class AiChatBookingAssistant
             'flow' => 'booking_reschedule',
             'reschedule_booking_id' => $booking->id,
             'offered_slots' => $slots,
+            'buttons' => BookingOfferButtons::build($slots),
         ]);
     }
 

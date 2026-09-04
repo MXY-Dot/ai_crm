@@ -208,7 +208,7 @@ class EducationChatAssistant
             .$this->formatOffers($groups)
             ."\nНапишите номер варианта, который вам подходит, и я вас запишу.";
 
-        return $this->withReply($decision, 'education_offer', $text, meta: ['flow' => 'education_offer_groups', 'offered_groups' => $groups]);
+        return $this->withReply($decision, 'education_offer', $text, meta: ['flow' => 'education_offer_groups', 'offered_groups' => $groups, 'buttons' => EducationOfferButtons::build($groups)]);
     }
 
     /** @param array{group_id:int, course_name:string, employee_name:string, schedule_text:string} $group */
