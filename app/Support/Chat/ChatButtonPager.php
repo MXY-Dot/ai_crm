@@ -6,7 +6,6 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\FacebookClient;
-use App\Support\InstagramClient;
 use App\Support\TelegramClient;
 use App\Support\WhatsAppClient;
 use Illuminate\Support\Arr;
@@ -28,6 +27,10 @@ use RuntimeException;
  * Never actually exercised by real data today (every *ChatContext's own
  * OFFER_LIMIT is 3, well under ChatButtons::forOffer()'s own per-page
  * cap) -- exists so a future module offering more doesn't hit a dead end.
+ *
+ * No handleInstagram() -- see InstagramClient's own docblock for why
+ * Instagram never gets real buttons at all (Meta's Graph API silently
+ * accepts a quick_replies payload but the customer never sees any button).
  */
 class ChatButtonPager
 {
@@ -36,7 +39,6 @@ class ChatButtonPager
     public function __construct(
         private readonly TelegramClient $telegram,
         private readonly WhatsAppClient $whatsapp,
-        private readonly InstagramClient $instagram,
         private readonly FacebookClient $facebook,
     ) {
     }
@@ -74,26 +76,6 @@ class ChatButtonPager
             $payload = $this->whatsapp->sendInteractiveList($tenant, $recipient, self::PAGE_INTRO, $buttons);
             $messageId = Arr::get($payload, 'messages.0.id');
             $externalId = 'whatsapp-'.$recipient.'-'.($messageId ?? Str::random(12));
-        } catch (RuntimeException) {
-        }
-
-        $this->persist($tenant, $conversation, $externalId, $lastMeta, $buttons);
-    }
-
-    public function handleInstagram(Tenant $tenant, Conversation $conversation, string $igsid, array $lastMeta, int $page): void
-    {
-        $buttons = $this->pageButtons($lastMeta, $page);
-
-        if ($buttons === null) {
-            return;
-        }
-
-        $externalId = 'instagram-page-'.$igsid.'-'.Str::random(8);
-
-        try {
-            $payload = $this->instagram->sendQuickReplies($tenant, $igsid, self::PAGE_INTRO, $buttons);
-            $messageId = Arr::get($payload, 'message_id');
-            $externalId = 'instagram-'.$igsid.'-'.($messageId ?? Str::random(12));
         } catch (RuntimeException) {
         }
 

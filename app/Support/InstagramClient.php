@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\Tenant;
-use App\Support\Chat\ChatButtons;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
@@ -22,6 +21,14 @@ use Throwable;
  * account-id lookup. The `instagram.page_access_token` setting name is legacy
  * (predates this fix, when the client targeted the older Page-linked flow) but the
  * value it holds is genuinely the Instagram account's own access token either way.
+ *
+ * Deliberately has no sendQuickReplies() the way FacebookClient does -- found
+ * live: sending a `quick_replies` payload here returns success (a real
+ * message_id, no error) but the customer never actually sees any buttons,
+ * just the plain text. Matches Meta's own documented gap (quick replies are
+ * a Messenger-only feature, not part of Instagram Messaging's supported set)
+ * rather than a bug on our side. AiWorkflow::autoReplyMeta() only calls
+ * sendMessage() for this provider now.
  */
 class InstagramClient
 {
@@ -57,15 +64,6 @@ class InstagramClient
         }
 
         return $result;
-    }
-
-    /** Real tap buttons -- see ChatButtons::toMessengerQuickReplies()'s own docblock for the shape/limits. */
-    public function sendQuickReplies(Tenant $tenant, string $recipientIgsid, string $text, array $buttons): array
-    {
-        return $this->post($tenant, [
-            'recipient' => ['id' => $recipientIgsid],
-            'message' => ['text' => $text, 'quick_replies' => ChatButtons::toMessengerQuickReplies($buttons)],
-        ]);
     }
 
     /** Same sender_action mechanism as Messenger (Instagram DMs ride the same Messenger Platform infrastructure) -- real typing_on/typing_off. */

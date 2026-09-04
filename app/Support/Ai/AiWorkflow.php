@@ -1254,11 +1254,15 @@ class AiWorkflow
     private function autoReplyMeta(Tenant $tenant, Conversation $conversation, Message $draft, string $provider): void
     {
         $recipient = str_replace($provider.'-', '', (string) $conversation->external_id);
-        // WhatsApp/Instagram/Facebook all have a real button API wired up here
-        // now (interactive list / Messenger Platform quick replies) --
-        // Instagram DMs ride the same Messenger Platform infrastructure
-        // Facebook does, see InstagramClient's own docblock.
-        $buttons = in_array($provider, ['whatsapp', 'instagram', 'facebook'], true) && is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
+        // WhatsApp/Facebook have a real button API wired up here (interactive
+        // list / Messenger Platform quick replies). Instagram deliberately
+        // does NOT -- found live: Meta's Graph API silently accepts a
+        // quick_replies payload for an Instagram send (no error, a real
+        // message_id comes back) but the customer never sees any buttons,
+        // just the plain text -- confirms Meta's own documented platform gap
+        // (quick replies are a Messenger-only feature, not part of Instagram
+        // Messaging's supported feature set) rather than a bug on our side.
+        $buttons = in_array($provider, ['whatsapp', 'facebook'], true) && is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
         // Same "buttons already show every option, don't also repeat them as
         // text" reasoning as autoReply()'s own copy of this line.
         $bubbles = $buttons ? [ChatButtons::shortenForButtons($draft->body)] : $this->splitIntoBubbles($draft->body);
@@ -1268,7 +1272,6 @@ class AiWorkflow
                 $payload = match (true) {
                     $provider === 'whatsapp' && $buttons !== null => $this->whatsapp->sendInteractiveList($tenant, $recipient, $text, $buttons),
                     $provider === 'whatsapp' => $this->whatsapp->sendMessage($tenant, $recipient, $text),
-                    $provider === 'instagram' && $buttons !== null => $this->instagram->sendQuickReplies($tenant, $recipient, $text, $buttons),
                     $provider === 'instagram' => $this->instagram->sendMessage($tenant, $recipient, $text),
                     $provider === 'facebook' && $buttons !== null => $this->facebook->sendQuickReplies($tenant, $recipient, $text, $buttons),
                     default => $this->facebook->sendMessage($tenant, $recipient, $text),
