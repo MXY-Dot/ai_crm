@@ -5,6 +5,8 @@ namespace App\Support\Chat;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\FacebookClient;
+use App\Support\InstagramClient;
 use App\Support\TelegramClient;
 use App\Support\WhatsAppClient;
 use Illuminate\Support\Arr;
@@ -31,6 +33,8 @@ class AssistantModeSwitcher
     public function __construct(
         private readonly TelegramClient $telegram,
         private readonly WhatsAppClient $whatsapp,
+        private readonly InstagramClient $instagram,
+        private readonly FacebookClient $facebook,
     ) {
     }
 
@@ -55,6 +59,34 @@ class AssistantModeSwitcher
             $payload = $this->whatsapp->sendMessage($tenant, $recipient, self::REPLY_TEXT);
             $messageId = Arr::get($payload, 'messages.0.id');
             $externalId = 'whatsapp-'.$recipient.'-'.($messageId ?? Str::random(12));
+        } catch (RuntimeException) {
+        }
+
+        $this->persist($tenant, $conversation, $externalId);
+    }
+
+    public function handleInstagram(Tenant $tenant, Conversation $conversation, string $igsid): void
+    {
+        $externalId = 'instagram-assistant-'.$igsid.'-'.Str::random(8);
+
+        try {
+            $payload = $this->instagram->sendMessage($tenant, $igsid, self::REPLY_TEXT);
+            $messageId = Arr::get($payload, 'message_id');
+            $externalId = 'instagram-'.$igsid.'-'.($messageId ?? Str::random(12));
+        } catch (RuntimeException) {
+        }
+
+        $this->persist($tenant, $conversation, $externalId);
+    }
+
+    public function handleFacebook(Tenant $tenant, Conversation $conversation, string $psid): void
+    {
+        $externalId = 'facebook-assistant-'.$psid.'-'.Str::random(8);
+
+        try {
+            $payload = $this->facebook->sendMessage($tenant, $psid, self::REPLY_TEXT);
+            $messageId = Arr::get($payload, 'message_id');
+            $externalId = 'facebook-'.$psid.'-'.($messageId ?? Str::random(12));
         } catch (RuntimeException) {
         }
 

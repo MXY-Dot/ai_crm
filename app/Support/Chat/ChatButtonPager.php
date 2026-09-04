@@ -5,6 +5,8 @@ namespace App\Support\Chat;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\FacebookClient;
+use App\Support\InstagramClient;
 use App\Support\TelegramClient;
 use App\Support\WhatsAppClient;
 use Illuminate\Support\Arr;
@@ -34,6 +36,8 @@ class ChatButtonPager
     public function __construct(
         private readonly TelegramClient $telegram,
         private readonly WhatsAppClient $whatsapp,
+        private readonly InstagramClient $instagram,
+        private readonly FacebookClient $facebook,
     ) {
     }
 
@@ -70,6 +74,46 @@ class ChatButtonPager
             $payload = $this->whatsapp->sendInteractiveList($tenant, $recipient, self::PAGE_INTRO, $buttons);
             $messageId = Arr::get($payload, 'messages.0.id');
             $externalId = 'whatsapp-'.$recipient.'-'.($messageId ?? Str::random(12));
+        } catch (RuntimeException) {
+        }
+
+        $this->persist($tenant, $conversation, $externalId, $lastMeta, $buttons);
+    }
+
+    public function handleInstagram(Tenant $tenant, Conversation $conversation, string $igsid, array $lastMeta, int $page): void
+    {
+        $buttons = $this->pageButtons($lastMeta, $page);
+
+        if ($buttons === null) {
+            return;
+        }
+
+        $externalId = 'instagram-page-'.$igsid.'-'.Str::random(8);
+
+        try {
+            $payload = $this->instagram->sendQuickReplies($tenant, $igsid, self::PAGE_INTRO, $buttons);
+            $messageId = Arr::get($payload, 'message_id');
+            $externalId = 'instagram-'.$igsid.'-'.($messageId ?? Str::random(12));
+        } catch (RuntimeException) {
+        }
+
+        $this->persist($tenant, $conversation, $externalId, $lastMeta, $buttons);
+    }
+
+    public function handleFacebook(Tenant $tenant, Conversation $conversation, string $psid, array $lastMeta, int $page): void
+    {
+        $buttons = $this->pageButtons($lastMeta, $page);
+
+        if ($buttons === null) {
+            return;
+        }
+
+        $externalId = 'facebook-page-'.$psid.'-'.Str::random(8);
+
+        try {
+            $payload = $this->facebook->sendQuickReplies($tenant, $psid, self::PAGE_INTRO, $buttons);
+            $messageId = Arr::get($payload, 'message_id');
+            $externalId = 'facebook-'.$psid.'-'.($messageId ?? Str::random(12));
         } catch (RuntimeException) {
         }
 

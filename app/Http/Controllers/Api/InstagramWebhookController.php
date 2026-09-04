@@ -3,7 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\Chat\AssistantModeSwitcher;
+use App\Support\Chat\ChatButtonPager;
+use App\Support\Chat\ChatButtons;
 use App\Support\Inbox\ChatwootWebhookHandler;
 use App\Support\InstagramClient;
 use App\Support\Integrations\MetaChannelResolver;
@@ -26,7 +31,7 @@ class InstagramWebhookController extends Controller
 {
     use VerifiesMetaWebhook;
 
-    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, InstagramClient $instagram): JsonResponse|Response
+    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, InstagramClient $instagram, AssistantModeSwitcher $modeSwitcher, ChatButtonPager $pager): JsonResponse|Response
     {
         if ($request->isMethod('get')) {
             return $this->handleSubscriptionVerification($request) ?? response('', 404);
@@ -53,12 +58,57 @@ class InstagramWebhookController extends Controller
                     continue;
                 }
 
+                // A tap on a quick reply (see ChatButtons::toMessengerQuickReplies())
+                // arrives as a normal text message event PLUS this payload field --
+                // the assistant/pagination sentinels are intercepted here, before the
+                // normal pipeline, same reasoning as Telegram's callback_query and
+                // WhatsApp's interactive.list_reply.id handling. A numbered pick needs
+                // no special-casing: content() below prefers the payload digit over
+                // the button's own title text, so it flows through unchanged.
+                $quickReplyPayload = trim((string) Arr::get($event, 'message.quick_reply.payload', ''));
+                $igsid = (string) Arr::get($event, 'sender.id', '');
+
+                if ($quickReplyPayload !== '' && $igsid !== '') {
+                    $conversation = Conversation::withoutGlobalScopes()
+                        ->where('tenant_id', $tenant->id)
+                        ->where('external_id', 'instagram-'.$igsid)
+                        ->latest('id')
+                        ->first();
+
+                    if ($conversation && $quickReplyPayload === ChatButtons::ASSISTANT_BUTTON_ID) {
+                        $modeSwitcher->handleInstagram($tenant, $conversation, $igsid);
+                        $processed++;
+
+                        continue;
+                    }
+
+                    if ($conversation && ChatButtons::isPageRequest($quickReplyPayload)) {
+                        $lastMeta = $this->lastAiMeta($conversation);
+                        $pager->handleInstagram($tenant, $conversation, $igsid, $lastMeta, ChatButtons::pageFromId($quickReplyPayload));
+                        $processed++;
+
+                        continue;
+                    }
+                }
+
                 $handler->handle($tenant, $this->payload($tenant, $event, $instagram));
                 $processed++;
             }
         }
 
         return response()->json(['ok' => true, 'processed' => $processed]);
+    }
+
+    /** Same "latest ai-sender row's own meta" convention every *ChatAssistant's own lastAiMeta() already uses. */
+    private function lastAiMeta(Conversation $conversation): array
+    {
+        $meta = Message::withoutGlobalScopes()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', 'ai')
+            ->latest('id')
+            ->value('meta');
+
+        return is_array($meta) ? $meta : [];
     }
 
     private function shouldIngest(array $event): bool
@@ -107,6 +157,18 @@ class InstagramWebhookController extends Controller
 
     private function content(array $event, ?array $attachment): string
     {
+        // A numbered pick's quick-reply payload is the plain option number
+        // itself (see ChatButtons::toMessengerQuickReplies()) -- prefer that
+        // over the button's own visible title (which Messenger also echoes
+        // into message.text) so a tap resolves exactly as unambiguously as a
+        // typed digit does. The assistant/page sentinels never reach here
+        // (intercepted in __invoke()).
+        $quickReplyPayload = trim((string) Arr::get($event, 'message.quick_reply.payload', ''));
+
+        if ($quickReplyPayload !== '' && ctype_digit($quickReplyPayload)) {
+            return $quickReplyPayload;
+        }
+
         $text = trim((string) Arr::get($event, 'message.text', ''));
 
         if ($text !== '' || ! $attachment) {

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Tenant;
+use App\Support\Chat\ChatButtons;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
@@ -56,6 +57,15 @@ class InstagramClient
         }
 
         return $result;
+    }
+
+    /** Real tap buttons -- see ChatButtons::toMessengerQuickReplies()'s own docblock for the shape/limits. */
+    public function sendQuickReplies(Tenant $tenant, string $recipientIgsid, string $text, array $buttons): array
+    {
+        return $this->post($tenant, [
+            'recipient' => ['id' => $recipientIgsid],
+            'message' => ['text' => $text, 'quick_replies' => ChatButtons::toMessengerQuickReplies($buttons)],
+        ]);
     }
 
     /** Same sender_action mechanism as Messenger (Instagram DMs ride the same Messenger Platform infrastructure) -- real typing_on/typing_off. */

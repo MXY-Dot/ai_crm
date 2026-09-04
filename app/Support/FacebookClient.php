@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Tenant;
+use App\Support\Chat\ChatButtons;
 use App\Support\Integrations\TenantIntegrationSettings;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Arr;
@@ -53,6 +54,16 @@ class FacebookClient
         }
 
         return $result;
+    }
+
+    /** Real tap buttons -- see ChatButtons::toMessengerQuickReplies()'s own docblock for the shape/limits. */
+    public function sendQuickReplies(Tenant $tenant, string $recipientPsid, string $text, array $buttons): array
+    {
+        return $this->post($tenant, [
+            'recipient' => ['id' => $recipientPsid],
+            'messaging_type' => 'RESPONSE',
+            'message' => ['text' => $text, 'quick_replies' => ChatButtons::toMessengerQuickReplies($buttons)],
+        ]);
     }
 
     /** Messenger Platform sender action -- real typing_on/typing_off, unlike WhatsApp's read-receipt-triggered indicator, so this genuinely turns off too. */

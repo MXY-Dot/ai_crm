@@ -157,6 +157,25 @@ class ChatButtons
         ];
     }
 
+    /**
+     * Messenger Platform quick replies -- the same Send API shape Instagram
+     * Direct and Facebook Messenger both ride (see InstagramClient's own
+     * docblock for why Instagram DMs go through this infrastructure at
+     * all). Up to 13 quick replies, `title` capped at 20 chars (tighter
+     * than WhatsApp's own 24) -- description has no field to go in here,
+     * so unlike Telegram this never combines title+description. `payload`
+     * carries the same id a Telegram callback_data/WhatsApp row id would;
+     * InstagramWebhookController/FacebookWebhookController both read that
+     * back (message.quick_reply.payload), not the button's visible title,
+     * same reasoning as the other two platforms.
+     */
+    public static function toMessengerQuickReplies(array $buttons): array
+    {
+        return collect($buttons)
+            ->map(fn (array $b) => ['content_type' => 'text', 'title' => self::truncate($b['title'], 20), 'payload' => $b['id']])
+            ->values()->all();
+    }
+
     private static function truncate(string $text, int $max): string
     {
         return mb_strlen($text) > $max ? mb_substr($text, 0, $max - 1).'…' : $text;

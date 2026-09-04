@@ -1254,9 +1254,11 @@ class AiWorkflow
     private function autoReplyMeta(Tenant $tenant, Conversation $conversation, Message $draft, string $provider): void
     {
         $recipient = str_replace($provider.'-', '', (string) $conversation->external_id);
-        // Only 'whatsapp' actually sends anything for $buttons below —
-        // Instagram/Facebook have no equivalent button API wired up here.
-        $buttons = $provider === 'whatsapp' && is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
+        // WhatsApp/Instagram/Facebook all have a real button API wired up here
+        // now (interactive list / Messenger Platform quick replies) --
+        // Instagram DMs ride the same Messenger Platform infrastructure
+        // Facebook does, see InstagramClient's own docblock.
+        $buttons = in_array($provider, ['whatsapp', 'instagram', 'facebook'], true) && is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
         // Same "buttons already show every option, don't also repeat them as
         // text" reasoning as autoReply()'s own copy of this line.
         $bubbles = $buttons ? [ChatButtons::shortenForButtons($draft->body)] : $this->splitIntoBubbles($draft->body);
@@ -1266,7 +1268,9 @@ class AiWorkflow
                 $payload = match (true) {
                     $provider === 'whatsapp' && $buttons !== null => $this->whatsapp->sendInteractiveList($tenant, $recipient, $text, $buttons),
                     $provider === 'whatsapp' => $this->whatsapp->sendMessage($tenant, $recipient, $text),
+                    $provider === 'instagram' && $buttons !== null => $this->instagram->sendQuickReplies($tenant, $recipient, $text, $buttons),
                     $provider === 'instagram' => $this->instagram->sendMessage($tenant, $recipient, $text),
+                    $provider === 'facebook' && $buttons !== null => $this->facebook->sendQuickReplies($tenant, $recipient, $text, $buttons),
                     default => $this->facebook->sendMessage($tenant, $recipient, $text),
                 };
             } catch (RuntimeException $error) {

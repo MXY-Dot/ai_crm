@@ -3,7 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\Tenant;
+use App\Support\Chat\AssistantModeSwitcher;
+use App\Support\Chat\ChatButtonPager;
+use App\Support\Chat\ChatButtons;
 use App\Support\FacebookClient;
 use App\Support\Inbox\ChatwootWebhookHandler;
 use App\Support\Integrations\MetaChannelResolver;
@@ -28,7 +33,7 @@ class FacebookWebhookController extends Controller
 {
     use VerifiesMetaWebhook;
 
-    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, FacebookClient $facebook): JsonResponse|Response
+    public function __invoke(Request $request, ChatwootWebhookHandler $handler, MetaChannelResolver $resolver, FacebookClient $facebook, AssistantModeSwitcher $modeSwitcher, ChatButtonPager $pager): JsonResponse|Response
     {
         if ($request->isMethod('get')) {
             return $this->handleSubscriptionVerification($request) ?? response('', 404);
@@ -55,12 +60,53 @@ class FacebookWebhookController extends Controller
                     continue;
                 }
 
+                // Same quick-reply sentinel interception as InstagramWebhookController's
+                // own copy of this block -- both ride the identical Messenger Platform
+                // Send/webhook shape.
+                $quickReplyPayload = trim((string) Arr::get($event, 'message.quick_reply.payload', ''));
+                $psid = (string) Arr::get($event, 'sender.id', '');
+
+                if ($quickReplyPayload !== '' && $psid !== '') {
+                    $conversation = Conversation::withoutGlobalScopes()
+                        ->where('tenant_id', $tenant->id)
+                        ->where('external_id', 'facebook-'.$psid)
+                        ->latest('id')
+                        ->first();
+
+                    if ($conversation && $quickReplyPayload === ChatButtons::ASSISTANT_BUTTON_ID) {
+                        $modeSwitcher->handleFacebook($tenant, $conversation, $psid);
+                        $processed++;
+
+                        continue;
+                    }
+
+                    if ($conversation && ChatButtons::isPageRequest($quickReplyPayload)) {
+                        $lastMeta = $this->lastAiMeta($conversation);
+                        $pager->handleFacebook($tenant, $conversation, $psid, $lastMeta, ChatButtons::pageFromId($quickReplyPayload));
+                        $processed++;
+
+                        continue;
+                    }
+                }
+
                 $handler->handle($tenant, $this->payload($tenant, $event, $facebook));
                 $processed++;
             }
         }
 
         return response()->json(['ok' => true, 'processed' => $processed]);
+    }
+
+    /** Same "latest ai-sender row's own meta" convention every *ChatAssistant's own lastAiMeta() already uses. */
+    private function lastAiMeta(Conversation $conversation): array
+    {
+        $meta = Message::withoutGlobalScopes()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', 'ai')
+            ->latest('id')
+            ->value('meta');
+
+        return is_array($meta) ? $meta : [];
     }
 
     /** Skips echoes of our own outbound sends, postbacks, delivery/read receipts and anything with neither text nor an attachment. */
@@ -112,6 +158,14 @@ class FacebookWebhookController extends Controller
 
     private function content(array $event, ?array $attachment): string
     {
+        // Same "prefer the payload digit over the echoed title text" reasoning
+        // as InstagramWebhookController::content()'s own copy of this block.
+        $quickReplyPayload = trim((string) Arr::get($event, 'message.quick_reply.payload', ''));
+
+        if ($quickReplyPayload !== '' && ctype_digit($quickReplyPayload)) {
+            return $quickReplyPayload;
+        }
+
         $text = trim((string) Arr::get($event, 'message.text', ''));
 
         if ($text !== '' || ! $attachment) {
