@@ -67,6 +67,7 @@ use App\Http\Controllers\Auth\WelcomeSetupController;
 use App\Http\Controllers\Api\CompanyModuleController;
 use App\Http\Controllers\Api\PaymentGatewayWebhookController;
 use App\Http\Controllers\Api\SuperAdminOverviewController;
+use App\Http\Controllers\Api\SuperAdminMessagingController;
 use App\Http\Controllers\Api\SuperAdminSupportController;
 use App\Http\Controllers\Api\SuperAdminUserController;
 use App\Http\Controllers\Api\SupportTicketController;
@@ -233,6 +234,9 @@ Route::middleware(['web', 'auth:web', EnsureEmailVerified::class, TrackLastSeen:
         Route::post('announcements', [SuperAdminSupportController::class, 'announce']);
         Route::get('incidents', [SuperAdminIncidentController::class, 'index']);
         Route::get('incidents/{incident}', [SuperAdminIncidentController::class, 'show']);
+        Route::get('messaging/logs', [SuperAdminMessagingController::class, 'index']);
+        Route::get('messaging/companies', [SuperAdminMessagingController::class, 'companies']);
+        Route::patch('messaging/companies/{tenant}/toggle', [SuperAdminMessagingController::class, 'toggleChannel']);
     });
 
     Route::middleware(ResolveTenant::class)->group(function (): void {

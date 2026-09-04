@@ -204,6 +204,7 @@ Route::middleware(['auth', EnsureSuperAdmin::class])->prefix('super-admin')->gro
     Route::get('/language-quality', fn (Request $request) => $superAdminPage($request, 'SuperAdminLanguageQualityPage'))->name('super-admin.language-quality');
     Route::get('/incidents', fn (Request $request) => $superAdminPage($request, 'SuperAdminIncidentsPage'))->name('super-admin.incidents');
     Route::get('/vip', fn (Request $request) => $superAdminPage($request, 'SuperAdminVipPage'))->name('super-admin.vip');
+    Route::get('/messaging', fn (Request $request) => $superAdminPage($request, 'SuperAdminMessagingPage'))->name('super-admin.messaging');
     Route::get('/users/{user}', fn (Request $request, \App\Models\User $user) => Inertia::render('SuperAdminUserDetailPage', [
         'currentUser' => $request->user()?->only(['id', 'name', 'email', 'role', 'avatar_url']),
         'userId' => $user->id,

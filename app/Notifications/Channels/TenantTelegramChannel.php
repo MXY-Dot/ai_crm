@@ -4,6 +4,7 @@ namespace App\Notifications\Channels;
 
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Messaging\MessageLogger;
 use App\Support\TelegramClient;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
@@ -37,10 +38,20 @@ class TenantTelegramChannel
             return;
         }
 
+        $text = $notification->toTenantTelegram($notifiable);
+
+        if (! MessageLogger::isChannelEnabled($tenant->id, 'telegram')) {
+            MessageLogger::log($tenant->id, 'telegram', (string) $notifiable->telegram_chat_id, mb_strimwidth($text, 0, 80, '…'), 'blocked');
+
+            return;
+        }
+
         try {
-            app(TelegramClient::class)->sendMessage($tenant, $notifiable->telegram_chat_id, $notification->toTenantTelegram($notifiable));
+            app(TelegramClient::class)->sendMessage($tenant, $notifiable->telegram_chat_id, $text);
+            MessageLogger::log($tenant->id, 'telegram', (string) $notifiable->telegram_chat_id, mb_strimwidth($text, 0, 80, '…'), 'sent');
         } catch (Throwable $error) {
             Log::warning('TenantTelegramChannel: send failed', ['user_id' => $notifiable->id, 'error' => $error->getMessage()]);
+            MessageLogger::log($tenant->id, 'telegram', (string) $notifiable->telegram_chat_id, mb_strimwidth($text, 0, 80, '…'), 'failed', $error->getMessage());
         }
     }
 }

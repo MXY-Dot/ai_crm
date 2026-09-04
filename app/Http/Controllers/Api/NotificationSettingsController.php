@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\CompanyNotificationMail;
 use App\Models\Company;
 use App\Models\Tenant;
+use App\Support\Messaging\MessageLogger;
 use App\Support\TelegramClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -86,9 +87,20 @@ class NotificationSettingsController extends Controller
         $tenant = Tenant::query()->find($user->tenant_id);
         abort_unless($tenant, 404);
 
+        $text = "Тестовое уведомление\n\nЕсли вы видите это сообщение — Telegram-уведомления в WERO настроены и работают.";
+
+        if (! MessageLogger::isChannelEnabled($tenant->id, 'telegram')) {
+            MessageLogger::log($tenant->id, 'telegram', (string) $user->telegram_chat_id, 'Тестовое уведомление', 'blocked');
+
+            return response()->json(['message' => 'Telegram-уведомления отключены для вашей компании — обратитесь в поддержку WERO.'], 422);
+        }
+
         try {
-            $telegram->sendMessage($tenant, $user->telegram_chat_id, "Тестовое уведомление\n\nЕсли вы видите это сообщение — Telegram-уведомления в WERO настроены и работают.");
+            $telegram->sendMessage($tenant, $user->telegram_chat_id, $text);
+            MessageLogger::log($tenant->id, 'telegram', (string) $user->telegram_chat_id, 'Тестовое уведомление', 'sent');
         } catch (RuntimeException $error) {
+            MessageLogger::log($tenant->id, 'telegram', (string) $user->telegram_chat_id, 'Тестовое уведомление', 'failed', $error->getMessage());
+
             return response()->json(['message' => 'Не удалось отправить сообщение: '.$error->getMessage()], 422);
         }
 
