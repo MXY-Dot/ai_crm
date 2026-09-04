@@ -4,6 +4,7 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import { storeToRefs } from 'pinia';
 import { LogOut, Menu } from '@lucide/vue';
 import AppSidebar from '@/components/dashboard/AppSidebar.vue';
+import EmailConfirmationBanner from '@/components/dashboard/EmailConfirmationBanner.vue';
 import EmergencyBanner from '@/components/dashboard/EmergencyBanner.vue';
 import EmptyState from '@/components/dashboard/EmptyState.vue';
 import GlobalSearch from '@/components/dashboard/GlobalSearch.vue';
@@ -124,6 +125,9 @@ function toggleSidebar(): void {
             <main class="h-full min-w-0 flex-1 overflow-y-auto pb-20 lg:pb-0">
                 <div v-if="emergency.mode === 'emergency'" class="px-4 pt-3 sm:px-6 lg:px-8">
                     <EmergencyBanner />
+                </div>
+                <div v-if="user?.email_verified_at && !user?.email_link_confirmed_at" class="px-4 pt-3 sm:px-6 lg:px-8">
+                    <EmailConfirmationBanner />
                 </div>
                 <header class="sticky top-0 z-10 border-b px-4 py-3 backdrop-blur sm:px-6 lg:px-8 lg:py-4 border-border bg-card/92">
                     <!-- Desktop / tablet header -->

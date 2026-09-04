@@ -2,11 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
-import { ChevronLeft, ChevronRight, Plus } from '@lucide/vue';
+import { CalendarClock, ChevronLeft, ChevronRight, Plus } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/date-picker';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import BookingDetailDialog from '../components/dashboard/booking/BookingDetailDialog.vue';
@@ -215,7 +217,9 @@ function openCreateFromSlot(payload: { resourceId: number | string; iso: string 
         </div>
 
         <Skeleton v-if="modulesLoading" class="h-10 w-full rounded-xl" />
-        <p v-else-if="! modules.length" class="text-sm ui-subtle">{{ locale.t('calendar.noModules') }}</p>
+        <Card v-else-if="! modules.length" class="p-0">
+            <EmptyState :icon="CalendarClock" :title="locale.t('calendar.noModulesTitle')" :description="locale.t('calendar.noModules')" />
+        </Card>
 
         <template v-else>
             <div class="flex flex-wrap items-center gap-3">
