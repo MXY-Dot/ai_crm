@@ -7,6 +7,7 @@ use App\Models\CompanyModule;
 use App\Models\Tour;
 use App\Models\TourBooking;
 use App\Models\TourDeparture;
+use App\Support\Business\Currency;
 use Illuminate\Support\Collection;
 
 /**
@@ -64,7 +65,7 @@ class TravelChatContext
 
         $tours = $this->activeTours($company);
 
-        $lines = $tours->map(fn (Tour $t): string => sprintf('- %s (%s, %s смн)', $t->name, $t->destination, number_format((float) $t->price, 0, ',', ' ')));
+        $lines = $tours->map(fn (Tour $t): string => sprintf('- %s (%s, %s)', $t->name, $t->destination, Currency::format($t->price, $company->currency)));
 
         return "Заявки на туры доступны прямо в этом чате. Список туров (используй ТОЛЬКО эти названия, не выдумывай другие):\n"
             .$lines->implode("\n")

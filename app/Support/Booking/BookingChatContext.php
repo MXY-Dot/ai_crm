@@ -5,6 +5,7 @@ namespace App\Support\Booking;
 use App\Models\Company;
 use App\Models\CompanyModule;
 use App\Models\Service;
+use App\Support\Business\Currency;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -68,10 +69,10 @@ class BookingChatContext
         }
 
         $lines = $services->map(fn (Service $service): string => sprintf(
-            '- %s (%d мин, %s смн)',
+            '- %s (%d мин, %s)',
             $service->name,
             $service->duration_minutes,
-            number_format((float) $service->price, 0, ',', ' '),
+            Currency::format($service->price, $company->currency),
         ));
 
         return "Онлайн-запись доступна прямо в этом чате. Список услуг (используй ТОЛЬКО эти названия, не выдумывай другие):\n"

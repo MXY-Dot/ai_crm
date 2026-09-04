@@ -11,6 +11,7 @@ use App\Models\Message;
 use App\Models\Tenant;
 use App\Support\AutoService\RepairOrderChatContext;
 use App\Support\Booking\BookingChatContext;
+use App\Support\Business\Currency;
 use App\Support\Education\EducationChatContext;
 use App\Support\Hotel\RoomReservationChatContext;
 use App\Support\Logistics\LogisticsChatContext;
@@ -421,7 +422,22 @@ class DifyClient
         $hours = $company->working_hours ?? [];
         $hoursSummary = is_array($hours) ? ($hours['summary'] ?? json_encode($hours)) : '';
 
+        // ТЗ — "тип валюты для услуг": found live (a real customer asked about
+        // pricing on Instagram and the model confidently answered "цены в
+        // долларах США") that a company's own free-typed "Services and
+        // prices" blurb below can carry a stale/wrong currency mention the
+        // model then just repeats as fact. This line is deliberately first,
+        // in the strongest terms, so it overrides that rather than losing to
+        // it -- every real price (from Service/Product records via each
+        // *ChatContext::promptSection() below) is already correct, only the
+        // company's own free text can lie.
+        $currencyLine = 'CURRENCY (authoritative, overrides anything else in this profile): this company prices EVERYTHING in '
+            .Currency::label($company->currency).' ('.$company->currency.', symbol "'.Currency::symbol($company->currency).'"). '
+            .'ALWAYS state every price using this currency and symbol. NEVER say USD, dollars, euros, rubles, or any other currency — '
+            .'even if the "Services and prices" text below happens to mention one (that text may be stale). No conversion is ever needed: every number you see already IS in '.$company->currency.'.';
+
         $lines = array_filter([
+            $currencyLine,
             'Company: '.$company->name,
             'Industry: '.($company->industry ?? ''),
             'Phone: '.($company->phone ?? ''),

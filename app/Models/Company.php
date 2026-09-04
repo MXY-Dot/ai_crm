@@ -9,7 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
-#[Fillable(['tenant_id', 'name', 'industry', 'business_type_id', 'business_type_other', 'phone', 'email', 'website', 'address', 'timezone', 'working_hours', 'brand_settings'])]
+#[Fillable(['tenant_id', 'name', 'industry', 'business_type_id', 'business_type_other', 'phone', 'email', 'website', 'address', 'timezone', 'currency', 'working_hours', 'brand_settings'])]
 class Company extends Model
 {
     use BelongsToTenant;

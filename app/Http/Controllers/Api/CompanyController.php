@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Company;
 use App\Support\Audit\AuditLogger;
+use App\Support\Business\Currency;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class CompanyController extends TenantResourceController
 {
@@ -27,6 +29,7 @@ class CompanyController extends TenantResourceController
             'website' => ['nullable', 'url', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
             'timezone' => ['nullable', 'string', 'max:80'],
+            'currency' => ['nullable', 'string', Rule::in(array_keys(Currency::ALL))],
             'working_hours' => ['nullable', 'array'],
             'brand_settings' => ['nullable', 'array'],
         ];

@@ -7,6 +7,7 @@ use App\Models\CompanyModule;
 use App\Models\Course;
 use App\Models\CourseGroup;
 use App\Models\Enrollment;
+use App\Support\Business\Currency;
 use Illuminate\Support\Collection;
 
 /**
@@ -67,7 +68,7 @@ class EducationChatContext
 
         $courses = $this->activeCourses($company);
 
-        $lines = $courses->map(fn (Course $c): string => sprintf('- %s (%s смн)', $c->name, number_format((float) $c->price, 0, ',', ' ')));
+        $lines = $courses->map(fn (Course $c): string => sprintf('- %s (%s)', $c->name, Currency::format($c->price, $company->currency)));
 
         return "Запись на курсы доступна прямо в этом чате. Список курсов (используй ТОЛЬКО эти названия, не выдумывай другие):\n"
             .$lines->implode("\n")
