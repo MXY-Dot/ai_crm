@@ -72,6 +72,115 @@ const gridTemplateColumns = computed(() => `${TIME_GUTTER}px repeat(${Math.max(p
 // showing up on the Sept 8 grid.
 const visibleEvents = computed(() => props.events.filter((e) => eventOnDate(e, props.date) && resourceColumn(e.resource_id) >= 2));
 
+type SubColumn = { col: number; cols: number };
+
+/**
+ * Two events for the SAME master overlapping in time used to just land in
+ * the same grid cell and visually stack directly on top of each other --
+ * found live via a real screenshot, unreadable ("orgy of colors"). Standard
+ * greedy interval-partitioning (same idea Google Calendar's day view uses):
+ * events are swept in start-time order, each placed in the first column
+ * whose last event has already ended, a new column opened otherwise; once a
+ * contiguous overlapping cluster closes, every event in it gets the
+ * cluster's own final column count so they split that width evenly.
+ * Cancelled/no-show/returned events (hasStrikethrough()) are excluded from
+ * this entirely -- they're historical noise, not a real scheduling
+ * conflict, so they'd only force needless extra columns onto a slot that in
+ * practice has just one real booking; see eventStyle()'s own handling of
+ * them as a slim, fixed sliver instead.
+ */
+function computeSubColumns(events: CalendarEvent[]): Map<string, SubColumn> {
+    const layout = new Map<string, SubColumn>();
+    const live = events
+        .filter((e) => ! hasStrikethrough(e.status))
+        .slice()
+        .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+
+    let cluster: CalendarEvent[] = [];
+    let clusterEnd: number | null = null;
+
+    const flush = () => {
+        if (! cluster.length) return;
+
+        const columns: CalendarEvent[][] = [];
+
+        for (const event of cluster) {
+            const start = new Date(event.starts_at).getTime();
+            let col = columns.findIndex((column) => new Date(column[column.length - 1].ends_at).getTime() <= start);
+
+            if (col === -1) {
+                columns.push([event]);
+                col = columns.length - 1;
+            } else {
+                columns[col].push(event);
+            }
+
+            layout.set(event.id, { col, cols: 0 });
+        }
+
+        for (const event of cluster) {
+            layout.get(event.id)!.cols = columns.length;
+        }
+
+        cluster = [];
+        clusterEnd = null;
+    };
+
+    for (const event of live) {
+        const start = new Date(event.starts_at).getTime();
+
+        if (clusterEnd !== null && start >= clusterEnd) {
+            flush();
+        }
+
+        cluster.push(event);
+        const end = new Date(event.ends_at).getTime();
+        clusterEnd = clusterEnd === null ? end : Math.max(clusterEnd, end);
+    }
+    flush();
+
+    return layout;
+}
+
+const subColumns = computed(() => {
+    const byResource = new Map<string, CalendarEvent[]>();
+
+    for (const event of visibleEvents.value) {
+        const key = String(event.resource_id);
+
+        if (! byResource.has(key)) byResource.set(key, []);
+        byResource.get(key)!.push(event);
+    }
+
+    const merged = new Map<string, SubColumn>();
+
+    for (const group of byResource.values()) {
+        for (const [id, info] of computeSubColumns(group)) {
+            merged.set(id, info);
+        }
+    }
+
+    return merged;
+});
+
+function eventStyle(event: CalendarEvent): Record<string, string> {
+    const base = { gridRow: `${eventStartRow(event)} / ${eventEndRow(event)}`, gridColumn: String(resourceColumn(event.resource_id)) };
+
+    if (hasStrikethrough(event.status)) {
+        return { ...base, width: '30%', marginLeft: '0%', zIndex: '4' };
+    }
+
+    const info = subColumns.value.get(event.id);
+
+    if (! info || info.cols <= 1) {
+        return base;
+    }
+
+    const width = 100 / info.cols;
+
+    return { ...base, width: `calc(${width}% - 3px)`, marginLeft: `${info.col * width}%` };
+}
+
 const now = ref(new Date());
 let nowTimer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
@@ -123,9 +232,9 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     :key="event.id"
                     type="button"
                     :title="`${event.title} · ${event.subtitle}${isOverdue(event) ? ' · Просрочено, статус не обновлён' : ''}`"
-                    class="relative z-[6] m-0.5 flex flex-col justify-center gap-px overflow-hidden rounded-lg border px-2 py-1 text-left leading-tight shadow-sm transition-all hover:z-[7] hover:shadow-md hover:brightness-105"
-                    :class="[STATUS_COLORS[event.status] ?? 'bg-muted', isOverdue(event) ? 'ring-2 ring-destructive' : '']"
-                    :style="{ gridRow: `${eventStartRow(event)} / ${eventEndRow(event)}`, gridColumn: resourceColumn(event.resource_id) }"
+                    class="relative z-[6] mt-0.5 mb-0.5 flex flex-col justify-center gap-px overflow-hidden rounded-lg border px-2 py-1 text-left leading-tight shadow-sm transition-all hover:z-[7] hover:shadow-md hover:brightness-105"
+                    :class="[STATUS_COLORS[event.status] ?? 'bg-muted', isOverdue(event) ? 'ring-2 ring-destructive' : '', hasStrikethrough(event.status) ? 'opacity-70' : '']"
+                    :style="eventStyle(event)"
                     @click.stop="emit('open', event)"
                 >
                     <span v-if="isNew(event)" class="absolute right-1 top-1 size-1.5 shrink-0 rounded-full bg-emerald-500" title="Новая запись" />
