@@ -181,6 +181,12 @@ class DifyClient
                 : '',
             'Customers in this region commonly write in colloquial Tajik (Cyrillic script), a mix of Tajik and Russian within one message, or Tajik transliterated into Latin letters. Treat all of these as completely normal — never ask what language the customer is writing in, never comment on mixed or transliterated spelling, and reply naturally in the same language/mix the customer used.',
             $isFirstMessage ? "This is the customer's first message in this conversation. Begin your reply with a brief, natural greeting that states the company name (and phone number if it helps the customer), then answer their question." : '',
+            // Found live: the model re-greeted ("Здравствуйте! Мы — <company>...") on
+            // its first substantive answer even when isFirstMessage was already false,
+            // apparently treating "first time explaining services" as license to
+            // reintroduce itself. Explicit negative instruction, not just relying on
+            // recentMessages() context to imply it already said hello.
+            ! $isFirstMessage ? 'You already greeted this customer earlier in this conversation. Do not greet them again or restate the company name as an opener — continue naturally and answer their question directly.' : '',
             // ЭТАП 7.5/7.6 — only needed once per conversation, recentMessages() already covers continuity within it.
             $isFirstMessage ? $this->customerMemory($conversation) : '',
             // ЭТАП 5.7 — anti-hallucination: only fires when nothing in the

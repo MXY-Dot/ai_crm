@@ -69,11 +69,14 @@ class RoomReservationChatContext
     /** Injected into DifyClient::businessProfile() alongside Booking's/TableReservation's own sections -- deliberately never mentions a specific free room or price itself, only that the largest room's capacity exists, same "never let the model invent availability" discipline as the other two contexts. */
     public function promptSection(Company $company): string
     {
-        $rooms = $this->activeRooms($company);
-
-        if ($rooms->isEmpty()) {
+        // Found live (same bug as TableReservationChatContext): this only checked
+        // activeRooms()->isEmpty(), never the room_booking module flag itself.
+        // isAvailableFor() already covers both checks.
+        if (! $this->isAvailableFor($company)) {
             return '';
         }
+
+        $rooms = $this->activeRooms($company);
 
         $maxCapacity = (int) $rooms->max('capacity');
 

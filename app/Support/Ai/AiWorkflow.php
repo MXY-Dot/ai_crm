@@ -93,11 +93,22 @@ class AiWorkflow
         // ProcessAiReplyJob, which re-fetches the conversation via find() in a
         // separate process; it would silently be false here every time. Derived from
         // real DB state instead: true iff no earlier customer message exists.
-        $isFirstMessage = ! Message::withoutGlobalScopes()
-            ->where('conversation_id', $conversation->id)
+        //
+        // Scoped by customer (across ALL their conversations today), not just this
+        // conversation_id — found live: a customer whose message opens/continues
+        // within the same day still got greeted a second time because a per-
+        // conversation check alone doesn't catch a re-greet within one long thread
+        // either (recentMessages() context alone wasn't a strong enough signal to
+        // stop the model re-introducing the company). Falls back to a plain
+        // per-conversation check when the conversation has no linked customer yet.
+        $isFirstMessageQuery = Message::withoutGlobalScopes()
             ->where('sender_type', 'customer')
             ->where('id', '<', $message->id)
-            ->exists();
+            ->where('created_at', '>=', now()->startOfDay());
+
+        $isFirstMessage = $conversation->customer_id
+            ? ! $isFirstMessageQuery->whereHas('conversation', fn ($q) => $q->where('customer_id', $conversation->customer_id))->exists()
+            : ! $isFirstMessageQuery->where('conversation_id', $conversation->id)->exists();
         // ЭТАП 12.2 — a VIP customer's first message in a conversation gets bumped
         // to high priority and a heads-up to staff, same as the spec's own
         // example ("VIP-клиент написал... Приоритет: высокий"). Once per
@@ -561,6 +572,10 @@ class AiWorkflow
                 : '',
             'Knowledge base:'."\n".$knowledge['context'],
             $isFirstMessage ? "This is the customer's first message in this conversation — begin your reply with a brief natural greeting stating the company name (and phone number if useful), then answer their question." : '',
+            // Found live: the model re-greeted ("Здравствуйте! Мы — <company>...") on
+            // its first substantive answer even when isFirstMessage was already false.
+            // Explicit negative instruction, mirrors DifyClient::query()'s own copy.
+            ! $isFirstMessage ? 'You already greeted this customer earlier in this conversation. Do not greet them again or restate the company name as an opener — continue naturally and answer their question directly.' : '',
             // ЭТАП 7.5/7.6 — only needed once per conversation; recentMessages()
             // already covers continuity within this same conversation.
             $isFirstMessage ? $this->dify->customerMemory($conversation) : '',

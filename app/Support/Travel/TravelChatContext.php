@@ -55,11 +55,14 @@ class TravelChatContext
     /** Injected into DifyClient::businessProfile() alongside every other enabled module's own section. Deliberately never mentions a specific departure date/price/seat count itself -- those only ever come from openDeparturesForTour() below. */
     public function promptSection(Company $company): string
     {
-        $tours = $this->activeTours($company);
-
-        if ($tours->isEmpty()) {
+        // Found live (same bug as TableReservationChatContext): this only checked
+        // activeTours()->isEmpty(), never the tour_bookings module flag itself.
+        // isAvailableFor() already covers both checks.
+        if (! $this->isAvailableFor($company)) {
             return '';
         }
+
+        $tours = $this->activeTours($company);
 
         $lines = $tours->map(fn (Tour $t): string => sprintf('- %s (%s, %s смн)', $t->name, $t->destination, number_format((float) $t->price, 0, ',', ' ')));
 

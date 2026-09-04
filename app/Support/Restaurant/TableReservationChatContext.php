@@ -64,11 +64,16 @@ class TableReservationChatContext
     /** Injected into DifyClient::businessProfile() alongside BookingChatContext's own section -- deliberately never mentions a specific free time itself, only that booking is possible and the largest table's capacity, same "never let the model invent a slot" discipline as BookingChatContext::promptSection(). */
     public function promptSection(Company $company): string
     {
-        $tables = $this->activeTables($company);
-
-        if ($tables->isEmpty()) {
+        // Found live: this only checked activeTables()->isEmpty(), never the
+        // table_reservations module flag itself -- a company that disabled the
+        // module in Settings but still had table Resource rows left over kept
+        // getting offered table booking in chat anyway. isAvailableFor() already
+        // covers both checks.
+        if (! $this->isAvailableFor($company)) {
             return '';
         }
+
+        $tables = $this->activeTables($company);
 
         $maxCapacity = (int) $tables->max('capacity');
 

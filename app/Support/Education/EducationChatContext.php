@@ -58,11 +58,14 @@ class EducationChatContext
     /** Injected into DifyClient::businessProfile() alongside every other enabled module's own section. Deliberately never mentions a specific group/schedule/seat count itself -- those only ever come from openGroupsForCourse() below. */
     public function promptSection(Company $company): string
     {
-        $courses = $this->activeCourses($company);
-
-        if ($courses->isEmpty()) {
+        // Found live (same bug as TableReservationChatContext): this only checked
+        // activeCourses()->isEmpty(), never the course_scheduling module flag
+        // itself. isAvailableFor() already covers both checks.
+        if (! $this->isAvailableFor($company)) {
             return '';
         }
+
+        $courses = $this->activeCourses($company);
 
         $lines = $courses->map(fn (Course $c): string => sprintf('- %s (%s смн)', $c->name, number_format((float) $c->price, 0, ',', ' ')));
 
