@@ -6,20 +6,20 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class EmailVerificationMail extends Mailable
+class EmailConfirmationLinkMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public readonly string $code)
+    public function __construct(public readonly string $verifyUrl)
     {
     }
 
     public function build(): self
     {
-        return $this->subject('Код подтверждения WERO')
-            ->view('emails.verification')
+        return $this->subject('Подтвердите почту в WERO')
+            ->view('emails.confirmation-link')
             ->with([
-                'code' => $this->code,
+                'verifyUrl' => $this->verifyUrl,
                 'logoUrl' => rtrim((string) config('app.url'), '/').'/storage/logo/logo.png',
             ]);
     }

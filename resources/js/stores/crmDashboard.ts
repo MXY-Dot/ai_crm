@@ -386,7 +386,7 @@ export type CompanyProfile = {
 
 export type CompanyPayload = Partial<Omit<CompanyProfile, 'id' | 'logo_url'>>;
 
-export type ProfileUser = { id: number; name: string; email: string; role: string; phone: string | null; avatar_url: string | null; two_factor_enabled: boolean; email_verified_at: string | null };
+export type ProfileUser = { id: number; name: string; email: string; role: string; phone: string | null; avatar_url: string | null; two_factor_enabled: boolean; email_verified_at: string | null; email_link_confirmed_at: string | null };
 
 export type ProfilePayload = { name?: string; phone?: string | null };
 

@@ -11,7 +11,7 @@ class EmailVerificationCode extends Notification
 {
     use Queueable;
 
-    public function __construct(private readonly string $code, private readonly string $verifyUrl)
+    public function __construct(private readonly string $code)
     {
     }
 
@@ -22,7 +22,7 @@ class EmailVerificationCode extends Notification
 
     public function toMail(object $notifiable): Mailable
     {
-        return (new EmailVerificationMail($this->code, $this->verifyUrl))
+        return (new EmailVerificationMail($this->code))
             ->to($notifiable->routeNotificationFor('mail'));
     }
 }

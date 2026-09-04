@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light">
 <meta name="supported-color-schemes" content="light">
-<title>Код подтверждения WERO</title>
+<title>Подтверждение почты WERO</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f4f4f5; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5; padding:40px 16px;">
@@ -26,15 +26,15 @@
                 <tr>
                     <td style="padding:20px 40px 0 40px;" align="center">
                         <span style="display:inline-block; padding:6px 14px; border-radius:999px; background-color:#dcfce7; color:#15803d; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">
-                            Подтверждение почты
+                            Полный доступ
                         </span>
                     </td>
                 </tr>
 
                 <tr>
                     <td style="padding:18px 40px 0 40px;" align="center">
-                        <h1 style="margin:0; color:#18181b; font-size:24px; line-height:1.25; font-weight:700; letter-spacing:-0.01em;">
-                            Один шаг до старта
+                        <h1 style="margin:0; color:#18181b; font-size:24px; line-height:1.3; font-weight:700; letter-spacing:-0.01em;">
+                            Откройте доступ к CRM
                         </h1>
                     </td>
                 </tr>
@@ -42,7 +42,7 @@
                 <tr>
                     <td style="padding:10px 40px 0 40px;" align="center">
                         <p style="margin:0; color:#71717a; font-size:14px; line-height:1.6;">
-                            Введите этот код в WERO, чтобы подтвердить почту и продолжить регистрацию.
+                            Это последний шаг: подтвердите почту по ссылке ниже, чтобы открыть полный доступ к WERO — сейчас доступен только раздел профиля.
                         </p>
                     </td>
                 </tr>
@@ -51,22 +51,28 @@
                     <td style="padding:28px 40px 0 40px;" align="center">
                         <table role="presentation" cellpadding="0" cellspacing="0">
                             <tr>
-                                @foreach (str_split($code) as $digit)
-                                <td style="width:44px; height:56px; background-color:#f0fdf4; border:1px solid #22c55e; border-radius:12px; text-align:center; vertical-align:middle; font-family:'Courier New',Courier,monospace; font-size:26px; font-weight:700; color:#15803d;">
-                                    <div style="width:44px; height:56px; line-height:56px; text-align:center;">{{ $digit }}</div>
+                                <td style="border-radius:999px; background-color:#16a34a;">
+                                    <a href="{{ $verifyUrl }}" style="display:inline-block; padding:14px 36px; font-size:15px; font-weight:700; color:#ffffff; text-decoration:none; border-radius:999px;">
+                                        Подтвердить почту
+                                    </a>
                                 </td>
-                                @if (!$loop->last)
-                                <td style="width:8px; font-size:0; line-height:0;">&nbsp;</td>
-                                @endif
-                                @endforeach
                             </tr>
                         </table>
                     </td>
                 </tr>
 
                 <tr>
+                    <td style="padding:20px 40px 0 40px;" align="center">
+                        <p style="margin:0; color:#a1a1aa; font-size:12px; line-height:1.6;">
+                            Или скопируйте ссылку в браузер:<br>
+                            <a href="{{ $verifyUrl }}" style="color:#16a34a; word-break:break-all;">{{ $verifyUrl }}</a>
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
                     <td style="padding:12px 40px 0 40px;" align="center">
-                        <p style="margin:0; color:#a1a1aa; font-size:12px;">Код действует 15 минут</p>
+                        <p style="margin:0; color:#a1a1aa; font-size:12px;">Ссылка действует 30 минут</p>
                     </td>
                 </tr>
 
@@ -79,7 +85,7 @@
                 <tr>
                     <td style="padding:20px 40px 32px 40px;" align="center">
                         <p style="margin:0; color:#a1a1aa; font-size:12px; line-height:1.6;">
-                            Если вы не регистрировались в WERO — просто проигнорируйте это письмо.
+                            Если вы не запрашивали это письмо — просто проигнорируйте его, доступ останется ограничен разделом профиля.
                         </p>
                         <p style="margin:12px 0 0 0; color:#d4d4d8; font-size:11px;">
                             WERO &mdash; Omnichannel AI CRM

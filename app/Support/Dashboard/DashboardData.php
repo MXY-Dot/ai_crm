@@ -26,7 +26,7 @@ class DashboardData
     public function forUser(?User $user): array
     {
         $empty = [
-            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url', 'two_factor_enabled', 'email_verified_at']),
+            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url', 'two_factor_enabled', 'email_verified_at', 'email_link_confirmed_at']),
             'tenant' => null,
             'company' => null,
             'stats' => [],
@@ -59,7 +59,7 @@ class DashboardData
         $role = $user?->role;
 
         return [
-            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url', 'two_factor_enabled', 'email_verified_at']),
+            'user' => $user?->only(['id', 'name', 'email', 'role', 'phone', 'avatar_url', 'two_factor_enabled', 'email_verified_at', 'email_link_confirmed_at']),
             'tenant' => array_merge(
                 $tenant->only(['id', 'name', 'slug', 'status', 'trial_ends_at']),
                 ['settings' => Arr::except($tenant->settings ?? [], ['integrations'])],

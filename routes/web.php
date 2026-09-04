@@ -57,13 +57,16 @@ Route::middleware('guest')->group(function (): void {
 
 Route::post('/logout', [SessionController::class, 'destroy'])->middleware('auth')->name('logout');
 
-// Sits between register and onboarding: register() sends the first code and
-// redirects here, and EnsureEmailVerified sends any unverified user back to
-// this page whenever they try to reach anything past it.
+// Two sequential stages, not two alternatives -- see EnsureEmailVerified.
+// register() sends the first code and redirects here; the code only unlocks
+// /profile, where "Подтвердить почту" sends the link that unlocks the rest.
 Route::middleware('auth')->group(function (): void {
     Route::get('/verify-email', [EmailVerificationController::class, 'notice'])->name('verification.notice');
     Route::post('/verify-email/code', [EmailVerificationController::class, 'verify'])->name('verification.verify-code');
     Route::post('/verify-email/resend', [EmailVerificationController::class, 'resend'])->name('verification.resend');
+    Route::post('/verify-email/send-link', [EmailVerificationController::class, 'sendConfirmationLink'])
+        ->middleware('throttle:3,1')
+        ->name('verification.send-link');
 });
 Route::get('/verify-email/link/{id}/{hash}', [EmailVerificationController::class, 'verifyLink'])
     ->middleware(['auth', 'signed'])

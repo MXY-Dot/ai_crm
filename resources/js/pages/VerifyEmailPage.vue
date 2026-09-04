@@ -95,7 +95,7 @@ async function resend(): Promise<void> {
             >
                 {{ resendCooldown > 0 ? `Отправить код повторно (${resendCooldown}с)` : 'Отправить код повторно' }}
             </button>
-            <p class="mt-3 text-center text-xs ui-subtle">Письмо не пришло? Проверьте папку «Спам» — там же есть ссылка для подтверждения одним нажатием.</p>
+            <p class="mt-3 text-center text-xs ui-subtle">Письмо не пришло? Проверьте папку «Спам».</p>
         </Card>
     </main>
 </template>

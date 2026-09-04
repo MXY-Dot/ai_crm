@@ -122,17 +122,17 @@ async function disableTwoFactor(): Promise<void> {
 
 const maskedSecret = computed(() => secretKey.value.replace(/(.{4})/g, '$1 ').trim());
 
-const emailResendBusy = ref(false);
+const emailLinkBusy = ref(false);
 
-async function resendEmailVerification(): Promise<void> {
-    emailResendBusy.value = true;
+async function sendConfirmationLink(): Promise<void> {
+    emailLinkBusy.value = true;
     try {
-        await apiRequest('/verify-email/resend', { method: 'POST' });
-        toast.success('Код отправлен на почту');
+        await apiRequest('/verify-email/send-link', { method: 'POST' });
+        toast.success('Ссылка отправлена на почту');
     } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Не удалось отправить код');
+        toast.error(error instanceof Error ? error.message : 'Не удалось отправить ссылку');
     } finally {
-        emailResendBusy.value = false;
+        emailLinkBusy.value = false;
     }
 }
 
@@ -270,20 +270,20 @@ async function unlinkTelegram(): Promise<void> {
         </div>
     </Card>
 
-    <Card v-if="user" class="mt-6" title="Email" subtitle="Подтверждение почты защищает доступ к аккаунту">
+    <Card v-if="user" class="mt-6" title="Email" subtitle="Подтвердите почту по ссылке, чтобы открыть полный доступ к WERO">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <div class="grid size-10 shrink-0 place-items-center rounded-lg" :class="user.email_verified_at ? 'bg-primary/10' : 'bg-muted'">
-                    <MailCheck v-if="user.email_verified_at" class="h-5 w-5 text-primary" />
+                <div class="grid size-10 shrink-0 place-items-center rounded-lg" :class="user.email_link_confirmed_at ? 'bg-primary/10' : 'bg-muted'">
+                    <MailCheck v-if="user.email_link_confirmed_at" class="h-5 w-5 text-primary" />
                     <Mail v-else class="h-5 w-5 ui-subtle" />
                 </div>
                 <div>
-                    <p class="text-sm font-medium ui-text">{{ user.email_verified_at ? 'Почта подтверждена' : 'Почта не подтверждена' }}</p>
+                    <p class="text-sm font-medium ui-text">{{ user.email_link_confirmed_at ? 'Почта подтверждена' : 'Подтвердите почту по ссылке' }}</p>
                     <p class="text-xs ui-subtle">{{ user.email }}</p>
                 </div>
             </div>
-            <Button v-if="! user.email_verified_at" variant="primary" size="sm" :disabled="emailResendBusy" @click="resendEmailVerification">
-                <Send class="h-4 w-4" />Отправить код
+            <Button v-if="! user.email_link_confirmed_at" variant="primary" size="sm" :disabled="emailLinkBusy" @click="sendConfirmationLink">
+                <Send class="h-4 w-4" />Подтвердить почту
             </Button>
         </div>
     </Card>
