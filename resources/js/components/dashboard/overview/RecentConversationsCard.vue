@@ -4,6 +4,7 @@ import { Link } from '@inertiajs/vue3';
 import { Globe2, MessagesSquare } from '@lucide/vue';
 import { Badge } from '../../ui/badge';
 import { Avatar, AvatarFallback } from '../../ui/avatar';
+import DataTable from '../DataTable.vue';
 import type { Conversation } from '../../../stores/crmDashboard';
 import { useCrmDashboardStore } from '../../../stores/crmDashboard';
 import { titleCase } from '../../../lib/format';
@@ -26,49 +27,41 @@ function initials(name: string): string {
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-xl border lg:col-span-2 border-border bg-card">
-        <div class="flex items-center justify-between border-b p-5 border-border">
+    <DataTable class="lg:col-span-2" :row-count="recent.length" :column-count="4" empty-message="Пока нет диалогов" min-width="">
+        <template #toolbar>
             <h3 class="font-display text-base font-semibold ui-text">Последние диалоги</h3>
             <Link href="/inbox" class="text-sm font-medium text-primary hover:underline">Смотреть все</Link>
-        </div>
-        <table class="w-full text-left text-sm">
-            <thead>
-                <tr class="text-[11px] font-semibold uppercase tracking-wider ui-subtle">
-                    <th class="px-5 py-3 font-medium">Клиент</th>
-                    <th class="px-5 py-3 font-medium">Канал</th>
-                    <th class="px-5 py-3 font-medium">Тема</th>
-                    <th class="px-5 py-3 text-right font-medium">Статус</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr
-                    v-for="item in recent"
-                    :key="item.id"
-                    class="cursor-pointer border-t transition hover:bg-muted border-border"
+        </template>
 
-                    @click="store.openConversation(item.id)"
-                >
-                    <td class="px-5 py-3">
-                        <div class="flex items-center gap-3">
-                            <Avatar class="size-8"><AvatarFallback class="text-xs">{{ initials(item.customer?.name ?? '?') }}</AvatarFallback></Avatar>
-                            <span class="font-medium ui-text">{{ item.customer?.name ?? 'Без имени' }}</span>
-                        </div>
-                    </td>
-                    <td class="px-5 py-3 ui-subtle">
-                        <span class="inline-flex items-center gap-1">
-                            <component :is="channelIcons[item.channel?.provider ?? ''] ?? MessagesSquare" class="h-4 w-4" />
-                            {{ item.channel?.provider ? (sourceLabels[item.channel.provider] ?? item.channel.provider) : '—' }}
-                        </span>
-                    </td>
-                    <td class="max-w-[220px] truncate px-5 py-3 ui-subtle">{{ item.subject }}</td>
-                    <td class="px-5 py-3 text-right">
-                        <Badge :tone="conversationStatusTone[item.status] ?? 'neutral'">{{ conversationStatusLabels[item.status] ?? titleCase(item.status) }}</Badge>
-                    </td>
-                </tr>
-                <tr v-if="! recent.length">
-                    <td colspan="4" class="px-5 py-6 text-center text-sm ui-subtle">Пока нет диалогов</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+        <template #thead>
+            <th class="px-5 py-3">Клиент</th>
+            <th class="px-5 py-3">Канал</th>
+            <th class="px-5 py-3">Тема</th>
+            <th class="px-5 py-3 text-right">Статус</th>
+        </template>
+
+        <tr
+            v-for="item in recent"
+            :key="item.id"
+            class="cursor-pointer transition hover:bg-muted"
+            @click="store.openConversation(item.id)"
+        >
+            <td class="px-5 py-3">
+                <div class="flex items-center gap-3">
+                    <Avatar class="size-8"><AvatarFallback class="text-xs">{{ initials(item.customer?.name ?? '?') }}</AvatarFallback></Avatar>
+                    <span class="font-medium ui-text">{{ item.customer?.name ?? 'Без имени' }}</span>
+                </div>
+            </td>
+            <td class="px-5 py-3 ui-subtle">
+                <span class="inline-flex items-center gap-1">
+                    <component :is="channelIcons[item.channel?.provider ?? ''] ?? MessagesSquare" class="h-4 w-4" />
+                    {{ item.channel?.provider ? (sourceLabels[item.channel.provider] ?? item.channel.provider) : '—' }}
+                </span>
+            </td>
+            <td class="max-w-[220px] truncate px-5 py-3 ui-subtle">{{ item.subject }}</td>
+            <td class="px-5 py-3 text-right">
+                <Badge :tone="conversationStatusTone[item.status] ?? 'neutral'">{{ conversationStatusLabels[item.status] ?? titleCase(item.status) }}</Badge>
+            </td>
+        </tr>
+    </DataTable>
 </template>

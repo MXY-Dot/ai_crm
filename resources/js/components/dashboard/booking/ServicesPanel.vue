@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { Pencil, Plus, Scissors, Trash2 } from '@lucide/vue';
+import { Pencil, Plus, Trash2 } from '@lucide/vue';
 import { apiRequest } from '../../../lib/apiClient';
 import { useLocaleStore } from '../../../stores/locale';
+import DataTable from '../DataTable.vue';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { EmptyState } from '../../ui/empty-state';
 import { Money } from '../../ui/money';
-import { Skeleton } from '../../ui/skeleton';
 import { Switch } from '../../ui/switch';
 import ServiceFormDialog, { type ServiceRow } from './ServiceFormDialog.vue';
 
@@ -85,24 +84,35 @@ function prepaymentLabel(service: ServiceRow): string {
             <Button size="sm" @click="openCreate"><Plus class="h-4 w-4" />{{ locale.t('booking.addService') }}</Button>
         </template>
 
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-14 rounded-lg" />
-        </div>
-        <EmptyState v-else-if="! services.length" :icon="Scissors" :title="locale.t('booking.noServices')" />
-        <div v-else class="divide-y divide-border pb-2">
-            <div v-for="service in services" :key="service.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div class="min-w-0">
+        <DataTable
+            embedded
+            :loading="loading"
+            :row-count="services.length"
+            :column-count="3"
+            :empty-message="locale.t('booking.noServices')"
+            min-width="min-w-full"
+        >
+            <template #thead>
+                <th class="p-3">{{ locale.t('booking.tabServices') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.price') }}</th>
+                <th class="p-3 text-right">{{ locale.t('common.actions') }}</th>
+            </template>
+
+            <tr v-for="service in services" :key="service.id">
+                <td class="p-3">
                     <p class="text-sm font-medium ui-text">{{ service.name }}</p>
                     <p class="text-xs ui-subtle">{{ service.duration_minutes }} {{ locale.t('booking.minutesUnit') }} · {{ prepaymentLabel(service) }}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <Money :value="service.price" tone="lg" />
-                    <Switch :model-value="service.is_active" @update:model-value="toggleActive(service)" />
-                    <Button variant="ghost" size="icon" @click="openEdit(service)"><Pencil class="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" @click="remove(service)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
-                </div>
-            </div>
-        </div>
+                </td>
+                <td class="p-3 text-right"><Money :value="service.price" tone="lg" /></td>
+                <td class="p-3 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <Switch :model-value="service.is_active" @update:model-value="toggleActive(service)" />
+                        <Button variant="ghost" size="icon" @click="openEdit(service)"><Pencil class="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" @click="remove(service)"><Trash2 class="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                </td>
+            </tr>
+        </DataTable>
 
         <ServiceFormDialog v-model:open="dialogOpen" :service="editing" :company-id="companyId" :tenant-slug="tenantSlug" :resources="resources" @saved="load" />
     </Card>

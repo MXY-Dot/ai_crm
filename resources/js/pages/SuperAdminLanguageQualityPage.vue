@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner';
 import { BookOpen, CheckCircle2, Languages, PlayCircle, Plus, Save, Trash2, XCircle } from '@lucide/vue';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
+import DataTable from '@/components/dashboard/DataTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -247,41 +248,36 @@ function formatDate(value: string): string {
 
         <section class="mt-6 rounded-xl border border-border bg-card p-5">
             <h3 class="mb-1 font-display text-base font-semibold ui-text">Train-примеры (few-shot)</h3>
-            <p class="mb-3 text-sm ui-subtle">
+            <p class="text-sm ui-subtle">
                 {{ examplesApprovedCount }} из {{ examples.length }} одобрены — в промпт модели попадают только
                 примеры со статусом «Одобрен». Примеры заполняются самими компаниями на странице AI-агента.
             </p>
-            <div v-if="examples.length" class="max-h-96 overflow-y-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-border text-left text-xs uppercase tracking-wide ui-subtle">
-                            <th class="py-2 pr-3">Компания</th>
-                            <th class="py-2 pr-3">Сообщение клиента</th>
-                            <th class="py-2 pr-3">Хороший ответ</th>
-                            <th class="py-2 pr-3">Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                        <tr v-for="row in examples" :key="row.id">
-                            <td class="py-2 pr-3 ui-subtle">{{ row.company_name ?? row.tenant_name ?? '—' }}</td>
-                            <td class="max-w-56 truncate py-2 pr-3 ui-text">{{ row.customer_message }}</td>
-                            <td class="max-w-56 truncate py-2 pr-3 ui-text">{{ row.good_reply }}</td>
-                            <td class="py-2 pr-3">
-                                <Select :model-value="row.status" @update:model-value="(v) => setExampleStatus(row.id, String(v))">
-                                    <SelectTrigger class="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="approved">Одобрен</SelectItem>
-                                        <SelectItem value="pending">На проверке</SelectItem>
-                                        <SelectItem value="rejected">Отклонён</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <p v-else class="text-xs ui-subtle">Пока ни одна компания не добавила примеры диалогов.</p>
         </section>
+
+        <DataTable class="mt-3" :row-count="examples.length" :column-count="4" empty-message="Пока ни одна компания не добавила примеры диалогов.">
+            <template #thead>
+                <th class="p-4">Компания</th>
+                <th class="p-4">Сообщение клиента</th>
+                <th class="p-4">Хороший ответ</th>
+                <th class="p-4">Статус</th>
+            </template>
+
+            <tr v-for="row in examples" :key="row.id">
+                <td class="p-4 ui-subtle">{{ row.company_name ?? row.tenant_name ?? '—' }}</td>
+                <td class="max-w-56 truncate p-4 ui-text">{{ row.customer_message }}</td>
+                <td class="max-w-56 truncate p-4 ui-text">{{ row.good_reply }}</td>
+                <td class="p-4">
+                    <Select :model-value="row.status" @update:model-value="(v) => setExampleStatus(row.id, String(v))">
+                        <SelectTrigger class="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="approved">Одобрен</SelectItem>
+                            <SelectItem value="pending">На проверке</SelectItem>
+                            <SelectItem value="rejected">Отклонён</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </td>
+            </tr>
+        </DataTable>
 
         <section class="mt-6 rounded-xl border border-border bg-card p-5">
             <h3 class="mb-1 font-display text-base font-semibold ui-text">Eval-примеры</h3>
@@ -313,7 +309,7 @@ function formatDate(value: string): string {
         </section>
 
         <section class="mt-6 rounded-xl border border-border bg-card p-5">
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h3 class="font-display text-base font-semibold ui-text">Результаты тестирования</h3>
                     <p class="text-sm ui-subtle">Каждый eval-пример прогоняется через Groq и DeepSeek напрямую (тот же код, что и в реальных ответах).</p>
@@ -322,37 +318,31 @@ function formatDate(value: string): string {
                     <PlayCircle class="h-4 w-4" />{{ running ? 'Выполняется...' : `Запустить тест (${evalExamples.length} × 2)` }}
                 </Button>
             </div>
-
-            <div v-if="latestResults.length" class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-border text-left text-xs uppercase tracking-wide ui-subtle">
-                            <th class="py-2 pr-3">Модель</th>
-                            <th class="py-2 pr-3">Сообщение</th>
-                            <th class="py-2 pr-3">Ответ модели</th>
-                            <th class="py-2 pr-3">Ожидаемый ответ</th>
-                            <th class="py-2 pr-3">Статус</th>
-                            <th class="py-2 pr-3">Время</th>
-                            <th class="py-2 pr-3">Токены</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                        <tr v-for="r in latestResults" :key="r.id">
-                            <td class="py-2 pr-3 font-mono text-xs ui-text">{{ r.provider }}<br><span class="ui-subtle">{{ r.model }}</span></td>
-                            <td class="max-w-48 truncate py-2 pr-3 ui-text">{{ r.input_text }}</td>
-                            <td class="max-w-64 truncate py-2 pr-3 ui-text">{{ r.response_text ?? r.error_message }}</td>
-                            <td class="max-w-48 truncate py-2 pr-3 ui-subtle">{{ r.expected_reply ?? '—' }}</td>
-                            <td class="py-2 pr-3">
-                                <span v-if="r.success" class="inline-flex items-center gap-1 text-primary"><CheckCircle2 class="h-3.5 w-3.5" />Успешно</span>
-                                <span v-else class="inline-flex items-center gap-1 text-destructive"><XCircle class="h-3.5 w-3.5" />Ошибка</span>
-                            </td>
-                            <td class="py-2 pr-3 font-mono text-xs ui-subtle">{{ r.latency_ms ? `${r.latency_ms} мс` : '—' }}</td>
-                            <td class="py-2 pr-3 font-mono text-xs ui-subtle">{{ r.tokens_in ?? '—' }}/{{ r.tokens_out ?? '—' }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <p v-else class="text-xs ui-subtle">Тест ещё не запускался.</p>
         </section>
+
+        <DataTable class="mt-3" :row-count="latestResults.length" :column-count="7" empty-message="Тест ещё не запускался." min-width="min-w-[64rem]">
+            <template #thead>
+                <th class="p-4">Модель</th>
+                <th class="p-4">Сообщение</th>
+                <th class="p-4">Ответ модели</th>
+                <th class="p-4">Ожидаемый ответ</th>
+                <th class="p-4">Статус</th>
+                <th class="p-4">Время</th>
+                <th class="p-4">Токены</th>
+            </template>
+
+            <tr v-for="r in latestResults" :key="r.id">
+                <td class="p-4 font-mono text-xs ui-text">{{ r.provider }}<br><span class="ui-subtle">{{ r.model }}</span></td>
+                <td class="max-w-48 truncate p-4 ui-text">{{ r.input_text }}</td>
+                <td class="max-w-64 truncate p-4 ui-text">{{ r.response_text ?? r.error_message }}</td>
+                <td class="max-w-48 truncate p-4 ui-subtle">{{ r.expected_reply ?? '—' }}</td>
+                <td class="p-4">
+                    <span v-if="r.success" class="inline-flex items-center gap-1 text-primary"><CheckCircle2 class="h-3.5 w-3.5" />Успешно</span>
+                    <span v-else class="inline-flex items-center gap-1 text-destructive"><XCircle class="h-3.5 w-3.5" />Ошибка</span>
+                </td>
+                <td class="p-4 font-mono text-xs ui-subtle">{{ r.latency_ms ? `${r.latency_ms} мс` : '—' }}</td>
+                <td class="p-4 font-mono text-xs ui-subtle">{{ r.tokens_in ?? '—' }}/{{ r.tokens_out ?? '—' }}</td>
+            </tr>
+        </DataTable>
     </template>
 </template>

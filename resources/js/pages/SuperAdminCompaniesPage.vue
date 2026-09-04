@@ -2,10 +2,11 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { toast } from 'vue-sonner';
-import { Building2, ChevronLeft, ChevronRight, Download, MoreVertical, Plus, Trash2 } from '@lucide/vue';
+import { Building2, Download, MoreVertical, Plus, Trash2 } from '@lucide/vue';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import { planById, plans } from '@/lib/plans';
+import DataTable from '@/components/dashboard/DataTable.vue';
 import SearchInput from '@/components/dashboard/SearchInput.vue';
 import TableFiltersButton from '@/components/dashboard/TableFiltersButton.vue';
 import {
@@ -25,7 +26,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 
 defineOptions({ layout: SuperAdminLayout });
 
@@ -286,8 +286,17 @@ async function createCompany(): Promise<void> {
         </div>
     </div>
 
-    <div class="overflow-hidden rounded-xl border border-border bg-card">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4 border-border">
+    <DataTable
+        :loading="loading"
+        :row-count="rows.length"
+        :column-count="7"
+        empty-message="Компании не найдены"
+        :meta="meta"
+        item-label="компаний"
+        min-width="min-w-[64rem]"
+        @update:page="page = $event"
+    >
+        <template #toolbar>
             <div class="flex flex-wrap items-center gap-3">
                 <SearchInput v-model="search" placeholder="Поиск по компании или владельцу..." />
                 <TableFiltersButton :active-count="activeFilterCount" @reset="resetFilters">
@@ -326,100 +335,76 @@ async function createCompany(): Promise<void> {
                 </DropdownMenu>
                 <Button size="sm" variant="destructive" :disabled="busy" @click="batchSuspend">Приостановить</Button>
             </div>
-        </div>
+        </template>
 
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[64rem] text-left text-sm">
-                <thead class="border-b border-border">
-                    <tr class="text-xs font-semibold uppercase ui-subtle">
-                        <th class="w-10 p-4"><input type="checkbox" class="size-4 accent-primary" :checked="allSelected" @change="toggleAll(($event.target as HTMLInputElement).checked)"></th>
-                        <th class="p-4">Компания</th>
-                        <th class="p-4">Владелец</th>
-                        <th class="p-4">Тариф</th>
-                        <th class="p-4">Статус</th>
-                        <th class="p-4">Команда / Каналы</th>
-                        <th class="p-4 text-right">Действия</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-border">
-                    <template v-if="loading">
-                        <tr v-for="i in 5" :key="`skeleton-${i}`">
-                            <td class="p-4" colspan="7"><Skeleton class="h-10 w-full" /></td>
-                        </tr>
-                    </template>
-                    <tr v-else-if="! rows.length">
-                        <td class="p-8 text-center text-sm ui-subtle" colspan="7">Компании не найдены</td>
-                    </tr>
-                    <tr v-else v-for="row in rows" :key="row.id" class="group cursor-pointer transition hover:bg-muted" @click="openCompany(row.id)">
-                        <td class="p-4" @click.stop>
-                            <input type="checkbox" class="size-4 accent-primary" :checked="selectedIds.includes(row.id)" @change="toggleRow(row.id, ($event.target as HTMLInputElement).checked)">
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center gap-3">
-                                <div class="grid size-10 shrink-0 place-items-center rounded-lg bg-accent font-display text-base font-bold text-accent-foreground">{{ (row.company?.name ?? row.name)[0] }}</div>
-                                <div class="min-w-0">
-                                    <div class="truncate text-sm font-semibold ui-text group-hover:text-primary">{{ row.company?.name ?? row.name }}</div>
-                                    <div class="mt-0.5 text-xs ui-subtle">Регистрация: {{ formatDate(row.created_at) }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            <div v-if="row.owner" class="flex items-center gap-2">
-                                <Avatar class="size-6">
-                                    <AvatarImage v-if="row.owner.avatar_url" :src="row.owner.avatar_url" alt="" />
-                                    <AvatarFallback class="text-[10px] font-semibold bg-primary text-primary-foreground">{{ row.owner.name[0] }}</AvatarFallback>
-                                </Avatar>
-                                <span class="truncate text-sm ui-text">{{ row.owner.email }}</span>
-                            </div>
-                            <span v-else class="text-sm ui-subtle">Нет владельца</span>
-                        </td>
-                        <td class="p-4" @click.stop>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger as-child>
-                                    <button type="button" class="rounded-md border px-2 py-1 text-xs font-medium ui-text border-border hover:bg-muted">{{ planById(row.plan).name }}</button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                    <DropdownMenuItem v-for="plan in plans" :key="plan.id" @select="updatePlanFor(row.id, plan.id)">{{ plan.name }} — {{ plan.price }}</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </td>
-                        <td class="p-4">
-                            <Badge :tone="statusTone[row.status]">{{ statusLabels[row.status] }}</Badge>
-                        </td>
-                        <td class="p-4">
-                            <div class="font-mono text-xs ui-subtle">{{ row.users_count }} чел. <span class="mx-1">/</span> {{ row.channels_count }} канал.</div>
-                        </td>
-                        <td class="p-4 text-right" @click.stop>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger as-child>
-                                    <button type="button" class="rounded-lg p-1.5 text-on-surface-variant opacity-0 transition hover:bg-muted group-hover:opacity-100 ui-subtle">
-                                        <MoreVertical class="h-4 w-4" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem @select="openCompany(row.id)">Открыть карточку</DropdownMenuItem>
-                                    <DropdownMenuItem v-if="row.status !== 'active'" @select="updateStatus(row.id, 'active')">Активировать</DropdownMenuItem>
-                                    <DropdownMenuItem v-if="row.status !== 'paused'" @select="updateStatus(row.id, 'paused')">Приостановить</DropdownMenuItem>
-                                    <DropdownMenuItem v-if="row.status !== 'blocked'" variant="destructive" @select="updateStatus(row.id, 'blocked')">Заблокировать</DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem variant="destructive" @select="askDelete(row)"><Trash2 class="h-4 w-4" />Удалить компанию</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <template #thead>
+            <th class="w-10 p-4"><input type="checkbox" class="size-4 accent-primary" :checked="allSelected" @change="toggleAll(($event.target as HTMLInputElement).checked)"></th>
+            <th class="p-4">Компания</th>
+            <th class="p-4">Владелец</th>
+            <th class="p-4">Тариф</th>
+            <th class="p-4">Статус</th>
+            <th class="p-4">Команда / Каналы</th>
+            <th class="p-4 text-right">Действия</th>
+        </template>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t p-4 border-border">
-            <span class="text-sm ui-subtle">Показано {{ rows.length ? (meta.current_page - 1) * meta.per_page + 1 : 0 }}–{{ (meta.current_page - 1) * meta.per_page + rows.length }} из {{ meta.total }} компаний</span>
-            <div class="flex items-center gap-1">
-                <Button size="icon-sm" variant="outline" :disabled="meta.current_page <= 1" @click="page = meta.current_page - 1"><ChevronLeft class="h-4 w-4" /></Button>
-                <span class="px-2 font-mono text-sm ui-text">{{ meta.current_page }} / {{ meta.last_page }}</span>
-                <Button size="icon-sm" variant="outline" :disabled="meta.current_page >= meta.last_page" @click="page = meta.current_page + 1"><ChevronRight class="h-4 w-4" /></Button>
-            </div>
-        </div>
-    </div>
+        <tr v-for="row in rows" :key="row.id" class="group cursor-pointer transition hover:bg-muted" @click="openCompany(row.id)">
+            <td class="p-4" @click.stop>
+                <input type="checkbox" class="size-4 accent-primary" :checked="selectedIds.includes(row.id)" @change="toggleRow(row.id, ($event.target as HTMLInputElement).checked)">
+            </td>
+            <td class="p-4">
+                <div class="flex items-center gap-3">
+                    <div class="grid size-10 shrink-0 place-items-center rounded-lg bg-accent font-display text-base font-bold text-accent-foreground">{{ (row.company?.name ?? row.name)[0] }}</div>
+                    <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold ui-text group-hover:text-primary">{{ row.company?.name ?? row.name }}</div>
+                        <div class="mt-0.5 text-xs ui-subtle">Регистрация: {{ formatDate(row.created_at) }}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="p-4">
+                <div v-if="row.owner" class="flex items-center gap-2">
+                    <Avatar class="size-6">
+                        <AvatarImage v-if="row.owner.avatar_url" :src="row.owner.avatar_url" alt="" />
+                        <AvatarFallback class="text-[10px] font-semibold bg-primary text-primary-foreground">{{ row.owner.name[0] }}</AvatarFallback>
+                    </Avatar>
+                    <span class="truncate text-sm ui-text">{{ row.owner.email }}</span>
+                </div>
+                <span v-else class="text-sm ui-subtle">Нет владельца</span>
+            </td>
+            <td class="p-4" @click.stop>
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <button type="button" class="rounded-md border px-2 py-1 text-xs font-medium ui-text border-border hover:bg-muted">{{ planById(row.plan).name }}</button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                        <DropdownMenuItem v-for="plan in plans" :key="plan.id" @select="updatePlanFor(row.id, plan.id)">{{ plan.name }} — {{ plan.price }}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </td>
+            <td class="p-4">
+                <Badge :tone="statusTone[row.status]">{{ statusLabels[row.status] }}</Badge>
+            </td>
+            <td class="p-4">
+                <div class="font-mono text-xs ui-subtle">{{ row.users_count }} чел. <span class="mx-1">/</span> {{ row.channels_count }} канал.</div>
+            </td>
+            <td class="p-4 text-right" @click.stop>
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <button type="button" class="rounded-lg p-1.5 text-on-surface-variant opacity-0 transition hover:bg-muted group-hover:opacity-100 ui-subtle">
+                            <MoreVertical class="h-4 w-4" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem @select="openCompany(row.id)">Открыть карточку</DropdownMenuItem>
+                        <DropdownMenuItem v-if="row.status !== 'active'" @select="updateStatus(row.id, 'active')">Активировать</DropdownMenuItem>
+                        <DropdownMenuItem v-if="row.status !== 'paused'" @select="updateStatus(row.id, 'paused')">Приостановить</DropdownMenuItem>
+                        <DropdownMenuItem v-if="row.status !== 'blocked'" variant="destructive" @select="updateStatus(row.id, 'blocked')">Заблокировать</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" @select="askDelete(row)"><Trash2 class="h-4 w-4" />Удалить компанию</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </td>
+        </tr>
+    </DataTable>
 
     <Dialog v-model:open="addOpen">
         <DialogContent class="sm:max-w-md">

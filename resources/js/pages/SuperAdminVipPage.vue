@@ -5,6 +5,7 @@ import { Crown, RefreshCw, Save, Star } from '@lucide/vue';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import KpiCard from '@/components/dashboard/KpiCard.vue';
+import DataTable from '@/components/dashboard/DataTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -186,43 +187,41 @@ onMounted(() => {
                     </form>
                 </div>
 
-                <div class="overflow-x-auto rounded-xl border border-border">
-                    <table class="w-full text-sm">
-                        <thead class="bg-muted/40 text-xs uppercase ui-subtle">
-                            <tr>
-                                <th class="px-4 py-2 text-left">Клиент</th>
-                                <th class="px-4 py-2 text-left">Покупок</th>
-                                <th class="px-4 py-2 text-left">Выручка</th>
-                                <th class="px-4 py-2 text-left">Средний чек</th>
-                                <th class="px-4 py-2 text-left">Последняя покупка</th>
-                                <th class="px-4 py-2 text-left">Статус</th>
-                                <th class="px-4 py-2 text-left">Ответственный</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="customer in customers" :key="customer.id" class="border-t border-border">
-                                <td class="px-4 py-2">
-                                    <div class="font-medium ui-text">{{ customer.name }}</div>
-                                    <div class="text-xs ui-subtle">{{ customer.phone ?? customer.email ?? '—' }}</div>
-                                </td>
-                                <td class="px-4 py-2 ui-subtle">{{ customer.purchases_count }}</td>
-                                <td class="px-4 py-2 ui-subtle">{{ formatMoney(customer.total_revenue) }} TJS</td>
-                                <td class="px-4 py-2 ui-subtle">{{ formatMoney(customer.average_check) }} TJS</td>
-                                <td class="px-4 py-2 ui-subtle">{{ formatDate(customer.last_purchase_at) }}</td>
-                                <td class="px-4 py-2">
-                                    <div class="flex items-center gap-2">
-                                        <Badge :variant="statusBadgeVariant[customer.vip_status]">{{ statusLabels[customer.vip_status] }}</Badge>
-                                        <span class="ui-subtle">{{ customer.vip_score }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-2 ui-subtle">{{ customer.responsible_manager ?? '—' }}</td>
-                            </tr>
-                            <tr v-if="! customers.length">
-                                <td colspan="7" class="px-4 py-6 text-center ui-subtle">Клиентов пока нет</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    :loading="loading"
+                    :row-count="customers.length"
+                    :column-count="7"
+                    empty-message="Клиентов пока нет"
+                    min-width=""
+                >
+                    <template #thead>
+                        <th class="px-4 py-2 text-left">Клиент</th>
+                        <th class="px-4 py-2 text-left">Покупок</th>
+                        <th class="px-4 py-2 text-left">Выручка</th>
+                        <th class="px-4 py-2 text-left">Средний чек</th>
+                        <th class="px-4 py-2 text-left">Последняя покупка</th>
+                        <th class="px-4 py-2 text-left">Статус</th>
+                        <th class="px-4 py-2 text-left">Ответственный</th>
+                    </template>
+
+                    <tr v-for="customer in customers" :key="customer.id">
+                        <td class="px-4 py-2">
+                            <div class="font-medium ui-text">{{ customer.name }}</div>
+                            <div class="text-xs ui-subtle">{{ customer.phone ?? customer.email ?? '—' }}</div>
+                        </td>
+                        <td class="px-4 py-2 ui-subtle">{{ customer.purchases_count }}</td>
+                        <td class="px-4 py-2 ui-subtle">{{ formatMoney(customer.total_revenue) }} TJS</td>
+                        <td class="px-4 py-2 ui-subtle">{{ formatMoney(customer.average_check) }} TJS</td>
+                        <td class="px-4 py-2 ui-subtle">{{ formatDate(customer.last_purchase_at) }}</td>
+                        <td class="px-4 py-2">
+                            <div class="flex items-center gap-2">
+                                <Badge :variant="statusBadgeVariant[customer.vip_status]">{{ statusLabels[customer.vip_status] }}</Badge>
+                                <span class="ui-subtle">{{ customer.vip_score }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-2 ui-subtle">{{ customer.responsible_manager ?? '—' }}</td>
+                    </tr>
+                </DataTable>
             </template>
         </template>
         <p v-else class="rounded-xl border border-dashed border-border p-8 text-center text-sm ui-subtle">Выберите компанию, чтобы увидеть её VIP-клиентов</p>

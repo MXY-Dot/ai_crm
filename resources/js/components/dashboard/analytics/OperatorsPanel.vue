@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { Card } from '../../ui/card';
-import { Skeleton } from '../../ui/skeleton';
+import DataTable from '../DataTable.vue';
 import { useLocaleStore } from '../../../stores/locale';
 
 export type OperatorRow = {
@@ -17,32 +16,35 @@ const locale = useLocaleStore();
 </script>
 
 <template>
-    <Card :title="locale.t('analytics.operatorsPanel.title')" :subtitle="locale.t('analytics.operatorsPanel.subtitle')">
-        <div v-if="loading" class="space-y-2 pb-4">
-            <Skeleton v-for="i in 3" :key="i" class="h-10 rounded-lg" />
-        </div>
-        <p v-else-if="! data || ! data.length" class="pb-4 text-sm ui-subtle">{{ locale.t('analytics.operatorsPanel.empty') }}</p>
-        <div v-else class="overflow-x-auto pb-2">
-            <table class="w-full text-left text-sm">
-                <thead>
-                    <tr class="border-b border-border text-xs ui-subtle">
-                        <th class="py-2 pr-4 font-medium">{{ locale.t('analytics.operatorsPanel.name') }}</th>
-                        <th class="py-2 pr-4 font-medium">{{ locale.t('analytics.operatorsPanel.conversations') }}</th>
-                        <th class="py-2 pr-4 font-medium">{{ locale.t('analytics.operatorsPanel.closed') }}</th>
-                        <th class="py-2 pr-4 font-medium">{{ locale.t('analytics.operatorsPanel.avgQuality') }}</th>
-                        <th class="py-2 font-medium">{{ locale.t('analytics.operatorsPanel.unhappyClients') }}</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-border">
-                    <tr v-for="row in data" :key="row.user_id">
-                        <td class="py-2 pr-4 ui-text">{{ row.name }}</td>
-                        <td class="py-2 pr-4 ui-subtle">{{ row.conversations }}</td>
-                        <td class="py-2 pr-4 ui-subtle">{{ row.closed }}</td>
-                        <td class="py-2 pr-4 ui-subtle">{{ row.avg_quality_score ?? '—' }}</td>
-                        <td class="py-2 ui-subtle">{{ row.unhappy_count }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </Card>
+    <DataTable
+        :loading="loading"
+        :row-count="data?.length ?? 0"
+        :column-count="5"
+        :empty-message="locale.t('analytics.operatorsPanel.empty')"
+        :skeleton-rows="3"
+        min-width=""
+    >
+        <template #toolbar>
+            <div>
+                <h3 class="font-display text-base font-semibold ui-text">{{ locale.t('analytics.operatorsPanel.title') }}</h3>
+                <p class="mt-1 text-sm ui-subtle">{{ locale.t('analytics.operatorsPanel.subtitle') }}</p>
+            </div>
+        </template>
+
+        <template #thead>
+            <th class="py-2 pr-4">{{ locale.t('analytics.operatorsPanel.name') }}</th>
+            <th class="py-2 pr-4">{{ locale.t('analytics.operatorsPanel.conversations') }}</th>
+            <th class="py-2 pr-4">{{ locale.t('analytics.operatorsPanel.closed') }}</th>
+            <th class="py-2 pr-4">{{ locale.t('analytics.operatorsPanel.avgQuality') }}</th>
+            <th class="py-2">{{ locale.t('analytics.operatorsPanel.unhappyClients') }}</th>
+        </template>
+
+        <tr v-for="row in data ?? []" :key="row.user_id">
+            <td class="py-2 pr-4 ui-text">{{ row.name }}</td>
+            <td class="py-2 pr-4 ui-subtle">{{ row.conversations }}</td>
+            <td class="py-2 pr-4 ui-subtle">{{ row.closed }}</td>
+            <td class="py-2 pr-4 ui-subtle">{{ row.avg_quality_score ?? '—' }}</td>
+            <td class="py-2 ui-subtle">{{ row.unhappy_count }}</td>
+        </tr>
+    </DataTable>
 </template>

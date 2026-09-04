@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 type Meta = { current_page: number; last_page: number; per_page: number; total: number };
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
     loading?: boolean;
     rowCount?: number;
     columnCount: number;
@@ -14,6 +14,8 @@ withDefaults(defineProps<{
     meta?: Meta | null;
     itemLabel?: string;
     minWidth?: string;
+    /** For a table that already lives inside a `<Card>` (e.g. a settings panel) -- drops the redundant outer border/background so it doesn't nest a card inside a card. */
+    embedded?: boolean;
 }>(), {
     loading: false,
     rowCount: 0,
@@ -22,13 +24,14 @@ withDefaults(defineProps<{
     meta: null,
     itemLabel: 'записей',
     minWidth: 'min-w-[64rem]',
+    embedded: false,
 });
 
 const emit = defineEmits<{ (e: 'update:page', value: number): void }>();
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-xl border border-border bg-card">
+    <div :class="props.embedded ? '' : 'overflow-hidden rounded-xl border border-border bg-card'">
         <div v-if="$slots.toolbar" class="flex flex-wrap items-center justify-between gap-3 border-b p-4 border-border">
             <slot name="toolbar" />
         </div>
