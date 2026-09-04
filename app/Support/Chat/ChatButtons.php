@@ -35,6 +35,30 @@ class ChatButtons
     }
 
     /**
+     * When real tap buttons are attached, the enumerated "1) ... 2) ... 3) ..."
+     * list and the "напишите номер..." instruction in the assistant's own
+     * text become pure duplication -- the buttons themselves already show
+     * each option, and there's nothing left to "write a number" for. Strips
+     * both mechanically rather than each of the 5 *OfferButtons builders
+     * (or their owning *ChatAssistant) maintaining a second text variant:
+     * every module's own offer text follows the identical
+     * "{intro}:\n{numbered list}\n{напишите номер instruction}" shape (see
+     * e.g. AiChatBookingAssistant::offerNewBookingSlots()), so a numbered-
+     * line filter plus one fixed instruction phrase covers all 5 uniformly.
+     */
+    public static function shortenForButtons(string $text): string
+    {
+        $kept = collect(explode("\n", $text))
+            ->reject(fn (string $line): bool => (bool) preg_match('/^\d+\)\s/', trim($line)))
+            ->reject(fn (string $line): bool => str_contains($line, 'Напишите номер'))
+            ->map(fn (string $line): string => rtrim($line))
+            ->filter(fn (string $line): bool => $line !== '')
+            ->implode("\n");
+
+        return trim($kept).' Выберите вариант ниже 👇';
+    }
+
+    /**
      * Telegram inline keyboard -- one button per row, callback_data = the
      * button id verbatim (a tiny digit or 'assistant', always well under
      * Telegram's 64-byte callback_data cap). Combines `title`+`description`

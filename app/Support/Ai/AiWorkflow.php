@@ -1201,14 +1201,15 @@ class AiWorkflow
 
         $isTelegram = $provider === 'telegram';
         $chatId = str_replace('telegram-', '', (string) $conversation->external_id);
-        $bubbles = $this->splitIntoBubbles($draft->body);
-        // Real tap buttons (a numbered offer -- see e.g. BookingOfferButtons)
-        // ride on the draft's own meta and attach only to the LAST bubble sent
-        // (where "напишите номер варианта" actually appears), never every
-        // bubble — see sendRemainingBubbles()'s own last-index check below.
-        // Chatwoot has no equivalent button API here, so $isTelegram is the
-        // only branch that ever actually uses $buttons.
-        $buttons = is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
+        // Chatwoot has no equivalent button API here, so buttons only apply on
+        // the Telegram branch — a chatwoot-routed customer still needs the full
+        // enumerated text since it's the only way they ever see the options.
+        $buttons = $isTelegram && is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
+        // When buttons ARE attached, the enumerated "1)...2)...3)..." list and
+        // "напишите номер" instruction in the body become pure duplication —
+        // the buttons already show every option — so this collapses to one
+        // short bubble instead of running the normal paragraph/sentence split.
+        $bubbles = $buttons ? [ChatButtons::shortenForButtons($draft->body)] : $this->splitIntoBubbles($draft->body);
 
         $send = function (string $text, ?array $buttons = null) use ($tenant, $conversation, $isTelegram, $chatId): ?array {
             try {
@@ -1253,11 +1254,12 @@ class AiWorkflow
     private function autoReplyMeta(Tenant $tenant, Conversation $conversation, Message $draft, string $provider): void
     {
         $recipient = str_replace($provider.'-', '', (string) $conversation->external_id);
-        $bubbles = $this->splitIntoBubbles($draft->body);
-        // Same button-on-last-bubble reasoning as autoReply()'s own copy of this
-        // line -- only 'whatsapp' actually sends anything for $buttons below,
+        // Only 'whatsapp' actually sends anything for $buttons below —
         // Instagram/Facebook have no equivalent button API wired up here.
-        $buttons = is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
+        $buttons = $provider === 'whatsapp' && is_array($draft->meta['buttons'] ?? null) ? $draft->meta['buttons'] : null;
+        // Same "buttons already show every option, don't also repeat them as
+        // text" reasoning as autoReply()'s own copy of this line.
+        $bubbles = $buttons ? [ChatButtons::shortenForButtons($draft->body)] : $this->splitIntoBubbles($draft->body);
 
         $send = function (string $text, ?array $buttons = null) use ($tenant, $recipient, $provider): array {
             try {
