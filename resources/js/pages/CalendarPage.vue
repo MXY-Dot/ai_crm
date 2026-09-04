@@ -22,6 +22,7 @@ import CalendarDayGrid from '../components/dashboard/calendar/CalendarDayGrid.vu
 import CalendarMonthView from '../components/dashboard/calendar/CalendarMonthView.vue';
 import CalendarWeekView from '../components/dashboard/calendar/CalendarWeekView.vue';
 import CalendarHistoryList from '../components/dashboard/calendar/CalendarHistoryList.vue';
+import ModuleHelpDialog from '../components/dashboard/help/ModuleHelpDialog.vue';
 import CourseGroupDetailDialog from '../components/dashboard/education/CourseGroupDetailDialog.vue';
 import CourseGroupFormDialog from '../components/dashboard/education/CourseGroupFormDialog.vue';
 import NewRepairOrderDialog from '../components/dashboard/autoservice/NewRepairOrderDialog.vue';
@@ -241,9 +242,12 @@ function openCreateFromSlot(payload: { resourceId: number | string; iso: string 
 
 <template>
     <section class="space-y-6">
-        <div>
-            <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('calendar.title') }}</h2>
-            <p class="mt-1 text-sm ui-subtle">{{ locale.t('calendar.subtitle') }}</p>
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('calendar.title') }}</h2>
+                <p class="mt-1 text-sm ui-subtle">{{ locale.t('calendar.subtitle') }}</p>
+            </div>
+            <ModuleHelpDialog module-key="calendar" />
         </div>
 
         <Skeleton v-if="modulesLoading" class="h-10 w-full rounded-xl" />

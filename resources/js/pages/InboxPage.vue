@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { MessageSquare, Users } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import InboxWorkspace from '@/components/dashboard/InboxWorkspace.vue';
+import ModuleHelpDialog from '@/components/dashboard/help/ModuleHelpDialog.vue';
 import TeamChatWorkspace from '@/components/dashboard/TeamChatWorkspace.vue';
 import { Badge } from '@/components/ui/badge';
 import { useLocaleStore } from '@/stores/locale';
@@ -22,24 +23,27 @@ onBeforeUnmount(() => team.dispose());
 </script>
 
 <template>
-    <div class="mb-3 flex w-fit items-center gap-1 rounded-lg border border-border p-0.5">
-        <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
-            :class="mode === 'customers' ? 'bg-secondary text-secondary-foreground' : 'ui-subtle hover:bg-muted'"
-            @click="mode = 'customers'"
-        >
-            <MessageSquare class="h-4 w-4" />{{ locale.t('inbox.customersTab') }}
-        </button>
-        <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
-            :class="mode === 'team' ? 'bg-secondary text-secondary-foreground' : 'ui-subtle hover:bg-muted'"
-            @click="mode = 'team'"
-        >
-            <Users class="h-4 w-4" />{{ locale.t('inbox.teamTab') }}
-            <Badge v-if="team.totalUnread" tone="green">{{ team.totalUnread }}</Badge>
-        </button>
+    <div class="mb-3 flex items-center justify-between gap-3">
+        <div class="flex w-fit items-center gap-1 rounded-lg border border-border p-0.5">
+            <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
+                :class="mode === 'customers' ? 'bg-secondary text-secondary-foreground' : 'ui-subtle hover:bg-muted'"
+                @click="mode = 'customers'"
+            >
+                <MessageSquare class="h-4 w-4" />{{ locale.t('inbox.customersTab') }}
+            </button>
+            <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
+                :class="mode === 'team' ? 'bg-secondary text-secondary-foreground' : 'ui-subtle hover:bg-muted'"
+                @click="mode = 'team'"
+            >
+                <Users class="h-4 w-4" />{{ locale.t('inbox.teamTab') }}
+                <Badge v-if="team.totalUnread" tone="green">{{ team.totalUnread }}</Badge>
+            </button>
+        </div>
+        <ModuleHelpDialog v-if="mode === 'customers'" module-key="inbox" />
     </div>
 
     <InboxWorkspace v-if="mode === 'customers'" />

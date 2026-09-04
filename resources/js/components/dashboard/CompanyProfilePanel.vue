@@ -15,6 +15,7 @@ import { COMMON_TIMEZONES } from '../../lib/timezones';
 import { INDUSTRY_VALUES } from '../../lib/industries';
 import { CURRENCIES, CURRENCY_CODES } from '../../lib/currencies';
 import CompanyLogoField from './CompanyLogoField.vue';
+import ModuleHelpDialog from './help/ModuleHelpDialog.vue';
 
 const store = useCrmDashboardStore();
 const locale = useLocaleStore();
@@ -88,6 +89,9 @@ async function save(): Promise<void> {
 
 <template>
     <Card :title="locale.t('company.title')" :subtitle="locale.t('company.subtitle')">
+        <template #actions>
+            <ModuleHelpDialog module-key="company" />
+        </template>
         <form class="grid gap-5" @submit.prevent="save">
             <CompanyLogoField v-if="company" :company-id="company.id" :logo-url="company.logo_url ?? null" />
 

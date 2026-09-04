@@ -11,6 +11,7 @@ import { Input } from '../components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import CrmQuickForms from '../components/dashboard/CrmQuickForms.vue';
+import ModuleHelpDialog from '../components/dashboard/help/ModuleHelpDialog.vue';
 import LeadPipeline from '../components/dashboard/LeadPipeline.vue';
 import LeadListTable from '../components/dashboard/leads/LeadListTable.vue';
 
@@ -66,6 +67,7 @@ defineOptions({ layout: AppLayout });
                     <Input v-model="query" class="h-9 pl-9 lg:pl-10" :placeholder="locale.t('leads.searchPlaceholder')" />
                 </div>
                 <Button data-tour="leads-create" size="sm" variant="primary" @click="showLeadForm = true"><Plus class="h-4 w-4" />{{ locale.t('leads.createLead') }}</Button>
+                <ModuleHelpDialog module-key="leads" />
             </div>
         </div>
         <Dialog v-model:open="showLeadForm">
