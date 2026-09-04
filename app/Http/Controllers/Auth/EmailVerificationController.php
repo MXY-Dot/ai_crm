@@ -42,6 +42,15 @@ class EmailVerificationController extends Controller
             return redirect($this->nextPath($user));
         }
 
+        // Self-registration sends the first code from SessionController::signup()
+        // directly; an admin-invited team member (TenantUserController::store())
+        // never goes through that -- lazily send it here instead, the first time
+        // an unverified user actually lands on this page, so both paths converge
+        // on the same code-entry screen either way.
+        if (! $user->email_verification_code || ($user->email_verification_code_expires_at && $user->email_verification_code_expires_at->isPast())) {
+            self::sendCode($user);
+        }
+
         return Inertia::render('VerifyEmailPage', ['email' => $user->email]);
     }
 
@@ -136,6 +145,15 @@ class EmailVerificationController extends Controller
 
     private function nextPath(User $user): string
     {
+        // An admin-invited team member joins an EXISTING, already-configured
+        // company -- the business-type onboarding wizard is for the owner who
+        // just registered a brand new one, meaningless here. Route them to
+        // their own first-run step (name/password) instead; WelcomeSetupController
+        // flips status back to 'active' once they finish (or skip) it.
+        if ($user->status === 'invited') {
+            return '/welcome-setup';
+        }
+
         // Reading works everywhere as soon as the code is done (see
         // EnsureEmailVerified) -- no need to detour through /profile first,
         // the link-confirm banner there is one click away from any page.

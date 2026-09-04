@@ -33,6 +33,7 @@ class EnsureEmailVerified
         'api/profile/*',
         'api/notification-settings/*',
         'api/onboarding/*',
+        'api/welcome-setup/*',
     ];
 
     public function handle(Request $request, Closure $next): Response

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TeamInviteMail;
+use App\Models\Company;
 use App\Models\Employee;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
@@ -10,6 +12,9 @@ use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class TenantUserController extends Controller
@@ -42,6 +47,11 @@ class TenantUserController extends Controller
 
         $employeeId = $this->resolveEmployeeId($context, $data['employee_id'] ?? null);
 
+        // A password field is still accepted (e.g. bulk-importing existing
+        // staff with a known password), but it's never emailed either way --
+        // the invite always goes out as a one-click link, never a secret in
+        // an inbox. Nobody logging in via that link ever needs to know this
+        // value; a random one is exactly as good as a chosen one.
         $user = User::query()->create([
             'tenant_id' => $context->id(),
             'employee_id' => $employeeId,
@@ -50,12 +60,43 @@ class TenantUserController extends Controller
             'phone' => $data['phone'] ?? null,
             'role' => $data['role'],
             'status' => $data['status'] ?? 'invited',
-            'password' => Hash::make($data['password'] ?? str()->password(16)),
+            'password' => Hash::make($data['password'] ?? Str::random(32)),
         ]);
+
+        $this->sendInvite($user, $request->user());
 
         $audit->record('tenant_user.created', $user, $this->auditUser($user), [], $request);
 
         return response()->json($this->resource($user), 201);
+    }
+
+    /**
+     * Reads as a personal invite from the actual owner/manager who clicked
+     * "Пригласить", not a faceless system email -- see TeamInviteMail's
+     * docblock. Best-effort: a bounced/misconfigured mail send here must
+     * never fail the whole "add team member" action, the user row exists
+     * either way.
+     */
+    private function sendInvite(User $user, ?User $inviter): void
+    {
+        $company = $user->tenant_id ? Company::withoutGlobalScopes()->where('tenant_id', $user->tenant_id)->first() : null;
+
+        $acceptUrl = URL::temporarySignedRoute(
+            'team-invite.accept',
+            now()->addDays(7),
+            ['id' => $user->id, 'hash' => sha1($user->email)]
+        );
+
+        try {
+            Mail::to($user->email)->send(new TeamInviteMail(
+                inviteeName: $user->name,
+                companyName: $company?->name,
+                inviterName: $inviter?->name,
+                acceptUrl: $acceptUrl,
+            ));
+        } catch (\Throwable $error) {
+            report($error);
+        }
     }
 
     public function update(Request $request, TenantContext $context, string $id, AuditLogger $audit): JsonResponse

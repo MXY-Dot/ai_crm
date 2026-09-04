@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
+use App\Http\Controllers\Auth\WelcomeSetupController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Middleware\EnsureEmailVerified;
 use App\Http\Middleware\EnsurePageAccess;
@@ -85,6 +86,19 @@ Route::get('/onboarding', function (Request $request) {
         'modules' => ModuleRegistry::labels(),
     ]);
 })->middleware(['auth', EnsureEmailVerified::class])->name('onboarding');
+
+// First-run step for an admin-invited team member (TenantUserController::store()
+// -> TeamInviteMail). The normal path in is the signed accept-link below
+// (unauthenticated, logs them straight in); EmailVerificationController::nextPath()
+// also lands a freshly code-verified 'invited' user here as a fallback, for the
+// rarer case of a custom password set at invite time and used via plain /login.
+Route::get('/team-invite/accept/{id}/{hash}', [WelcomeSetupController::class, 'acceptInvite'])
+    ->middleware('signed')
+    ->name('team-invite.accept');
+
+Route::get('/welcome-setup', [WelcomeSetupController::class, 'show'])
+    ->middleware(['auth', EnsureEmailVerified::class])
+    ->name('welcome-setup');
 
 $dashboardPage = static fn (
     Request $request,

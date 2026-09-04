@@ -63,6 +63,7 @@ use App\Http\Controllers\Api\SuperAdminInsightsController;
 use App\Http\Controllers\Api\SuperAdminLanguageQualityController;
 use App\Http\Controllers\Api\SuperAdminBusinessModulesController;
 use App\Http\Controllers\Api\OnboardingController;
+use App\Http\Controllers\Auth\WelcomeSetupController;
 use App\Http\Controllers\Api\CompanyModuleController;
 use App\Http\Controllers\Api\PaymentGatewayWebhookController;
 use App\Http\Controllers\Api\SuperAdminOverviewController;
@@ -175,6 +176,8 @@ Route::middleware(['web', 'auth:web', EnsureEmailVerified::class, TrackLastSeen:
         Route::post('complete', [OnboardingController::class, 'complete']);
         Route::post('integration-request', [OnboardingController::class, 'storeIntegrationRequest']);
     });
+
+    Route::post('welcome-setup/complete', [WelcomeSetupController::class, 'complete']);
 
     Route::middleware(EnsureSuperAdmin::class)->prefix('admin')->group(function (): void {
         Route::get('overview', [SuperAdminOverviewController::class, 'index']);

@@ -9,6 +9,7 @@ import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useCrmDashboardStore } from '../../stores/crmDashboard';
 import { useLocaleStore } from '../../stores/locale';
 
@@ -75,15 +76,23 @@ function typeChannelValue(bucket: Bucket, channel: 'email' | 'telegram_bot'): bo
 
 const telegramConnected = computed(() => channels.value.some((channel) => channel.provider.toLowerCase().includes('telegram') && channel.status === 'connected'));
 
-/** What "По умолчанию" actually resolves to for each channel right now — shown inline on the button itself so it's never a mystery value, see setTypeChannel/typeChannelValue above for how null falls back to these. */
+/** What "По умолчанию" actually resolves to for each channel right now — surfaced via tooltip on that button, see setTypeChannel/typeChannelValue above for how null falls back to these. */
 const effectiveDefault = computed(() => ({
     email: notifications.value.email,
     telegram_bot: telegramConnected.value && notifications.value.telegram_bot,
 }));
 
-function inheritLabel(channel: 'email' | 'telegram_bot'): string {
-    const on = effectiveDefault.value[channel];
-    return `${locale.t('company.notifyTypeInherit')} (${on ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff')})`;
+const CHANNEL_LABEL: Record<'email' | 'telegram_bot', string> = { email: 'Email-уведомления', telegram_bot: 'Telegram-бот' };
+
+function optionTooltip(channel: 'email' | 'telegram_bot', opt: boolean | null): string {
+    if (opt === null) {
+        const on = effectiveDefault.value[channel] ? 'Вкл' : 'Выкл';
+        return `Следует общему тумблеру «${CHANNEL_LABEL[channel]}» выше (сейчас: ${on})`;
+    }
+    const action = channel === 'email' ? 'присылать email' : 'присылать в Telegram';
+    return opt
+        ? `Всегда ${action} для этой категории, игнорируя общий тумблер`
+        : `Никогда не ${action} для этой категории, игнорируя общий тумблер`;
 }
 
 const testEmailBusy = ref(false);
@@ -227,32 +236,40 @@ async function setTypeChannel(bucket: Bucket, channel: 'email' | 'telegram_bot',
                             <tr v-for="bucket in BUCKETS" :key="bucket" class="border-b border-border last:border-0">
                                 <td class="px-3 py-2 ui-text">{{ BUCKET_LABELS[bucket] }}</td>
                                 <td class="px-3 py-2">
-                                    <div class="flex justify-center gap-1">
-                                        <button
-                                            v-for="opt in [null, true, false]"
-                                            :key="String(opt)"
-                                            type="button"
-                                            class="rounded px-2 py-0.5 text-xs"
-                                            :class="typeChannelValue(bucket, 'email') === opt ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
-                                            :disabled="busy"
-                                            :title="opt === null ? 'Эта категория следует общему тумблеру «Email-уведомления» выше' : (opt ? 'Всегда присылать email для этой категории, игнорируя общий тумблер' : 'Никогда не присылать email для этой категории, игнорируя общий тумблер')"
-                                            @click="setTypeChannel(bucket, 'email', opt)"
-                                        >{{ opt === null ? inheritLabel('email') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
-                                    </div>
+                                    <TooltipProvider :delay-duration="200">
+                                        <div class="flex justify-center gap-1">
+                                            <Tooltip v-for="opt in [null, true, false]" :key="String(opt)">
+                                                <TooltipTrigger as-child>
+                                                    <button
+                                                        type="button"
+                                                        class="rounded px-2 py-0.5 text-xs"
+                                                        :class="typeChannelValue(bucket, 'email') === opt ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
+                                                        :disabled="busy"
+                                                        @click="setTypeChannel(bucket, 'email', opt)"
+                                                    >{{ opt === null ? locale.t('company.notifyTypeInherit') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>{{ optionTooltip('email', opt) }}</TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </TooltipProvider>
                                 </td>
                                 <td class="px-3 py-2">
-                                    <div class="flex justify-center gap-1">
-                                        <button
-                                            v-for="opt in [null, true, false]"
-                                            :key="String(opt)"
-                                            type="button"
-                                            class="rounded px-2 py-0.5 text-xs"
-                                            :class="typeChannelValue(bucket, 'telegram_bot') === opt ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
-                                            :disabled="busy"
-                                            :title="opt === null ? 'Эта категория следует общему тумблеру «Telegram-бот» выше' : (opt ? 'Всегда присылать в Telegram для этой категории, игнорируя общий тумблер' : 'Никогда не присылать в Telegram для этой категории, игнорируя общий тумблер')"
-                                            @click="setTypeChannel(bucket, 'telegram_bot', opt)"
-                                        >{{ opt === null ? inheritLabel('telegram_bot') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
-                                    </div>
+                                    <TooltipProvider :delay-duration="200">
+                                        <div class="flex justify-center gap-1">
+                                            <Tooltip v-for="opt in [null, true, false]" :key="String(opt)">
+                                                <TooltipTrigger as-child>
+                                                    <button
+                                                        type="button"
+                                                        class="rounded px-2 py-0.5 text-xs"
+                                                        :class="typeChannelValue(bucket, 'telegram_bot') === opt ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
+                                                        :disabled="busy"
+                                                        @click="setTypeChannel(bucket, 'telegram_bot', opt)"
+                                                    >{{ opt === null ? locale.t('company.notifyTypeInherit') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>{{ optionTooltip('telegram_bot', opt) }}</TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </TooltipProvider>
                                 </td>
                             </tr>
                         </tbody>
