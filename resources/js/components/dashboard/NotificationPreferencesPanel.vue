@@ -75,6 +75,17 @@ function typeChannelValue(bucket: Bucket, channel: 'email' | 'telegram_bot'): bo
 
 const telegramConnected = computed(() => channels.value.some((channel) => channel.provider.toLowerCase().includes('telegram') && channel.status === 'connected'));
 
+/** What "По умолчанию" actually resolves to for each channel right now — shown inline on the button itself so it's never a mystery value, see setTypeChannel/typeChannelValue above for how null falls back to these. */
+const effectiveDefault = computed(() => ({
+    email: notifications.value.email,
+    telegram_bot: telegramConnected.value && notifications.value.telegram_bot,
+}));
+
+function inheritLabel(channel: 'email' | 'telegram_bot'): string {
+    const on = effectiveDefault.value[channel];
+    return `${locale.t('company.notifyTypeInherit')} (${on ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff')})`;
+}
+
 const testEmailBusy = ref(false);
 const testTelegramBusy = ref(false);
 
@@ -224,8 +235,9 @@ async function setTypeChannel(bucket: Bucket, channel: 'email' | 'telegram_bot',
                                             class="rounded px-2 py-0.5 text-xs"
                                             :class="typeChannelValue(bucket, 'email') === opt ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
                                             :disabled="busy"
+                                            :title="opt === null ? 'Эта категория следует общему тумблеру «Email-уведомления» выше' : (opt ? 'Всегда присылать email для этой категории, игнорируя общий тумблер' : 'Никогда не присылать email для этой категории, игнорируя общий тумблер')"
                                             @click="setTypeChannel(bucket, 'email', opt)"
-                                        >{{ opt === null ? locale.t('company.notifyTypeInherit') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
+                                        >{{ opt === null ? inheritLabel('email') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
                                     </div>
                                 </td>
                                 <td class="px-3 py-2">
@@ -237,8 +249,9 @@ async function setTypeChannel(bucket: Bucket, channel: 'email' | 'telegram_bot',
                                             class="rounded px-2 py-0.5 text-xs"
                                             :class="typeChannelValue(bucket, 'telegram_bot') === opt ? 'bg-primary text-primary-foreground' : 'ui-subtle hover:bg-muted'"
                                             :disabled="busy"
+                                            :title="opt === null ? 'Эта категория следует общему тумблеру «Telegram-бот» выше' : (opt ? 'Всегда присылать в Telegram для этой категории, игнорируя общий тумблер' : 'Никогда не присылать в Telegram для этой категории, игнорируя общий тумблер')"
                                             @click="setTypeChannel(bucket, 'telegram_bot', opt)"
-                                        >{{ opt === null ? locale.t('company.notifyTypeInherit') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
+                                        >{{ opt === null ? inheritLabel('telegram_bot') : opt ? locale.t('company.notifyTypeOn') : locale.t('company.notifyTypeOff') }}</button>
                                     </div>
                                 </td>
                             </tr>
