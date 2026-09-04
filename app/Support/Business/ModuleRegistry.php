@@ -8,12 +8,14 @@ namespace App\Support\Business;
  * сообщений, клиенты, лиды, AI-ассистент, роли, ...), since those already
  * exist as baseline WERO features for every tenant and aren't meaningfully
  * something a company would "disable". A CompanyModule row toggling one of
- * these on is a real, persisted preference -- but most of these modules
- * don't have real feature code behind them yet (only the booking/calendar
- * pieces for beauty salons are planned as the very next build per ТЗ
- * раздел 25 "Первый этап"); toggling e.g. table_reservations today just
- * records intent, it doesn't turn on a table-reservation UI that doesn't
- * exist. That gap is intentional and should stay visible, not hidden.
+ * these on is a real, persisted preference, and as of the module-gating
+ * work in v1.175.0 it's also enforced, not just recorded: EnsurePageAccess
+ * 404s a module's own settings page when its CompanyModule is off, and
+ * AppSidebar hides the corresponding nav item -- every key below now has
+ * real feature code behind it (Commerce/Booking/Restaurant/Hotel/Travel/
+ * Logistics/Education/Auto Service/ERP integration all shipped), so
+ * there's no gap left between "toggled on" and "actually usable" the way
+ * there used to be when only booking_calendar existed.
  */
 class ModuleRegistry
 {
