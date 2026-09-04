@@ -16,6 +16,7 @@ export type CalendarEvent = {
     status: string;
     title: string;
     subtitle: string;
+    created_at: string;
 };
 
 export const MODULE_ICONS: Record<string, unknown> = {
@@ -117,6 +118,66 @@ const STRIKETHROUGH_STATUSES = new Set(['cancelled', 'no_show', 'returned']);
 
 export function hasStrikethrough(status: string): boolean {
     return STRIKETHROUGH_STATUSES.has(status);
+}
+
+// Explicit RU text per status, same flat cross-module map as STATUS_COLORS/
+// STATUS_DOTS above and the same reasoning (a handful of names collide
+// across modules and mean the same thing everywhere) -- so a colored dot
+// alone is never the only way to tell what an event's status is.
+export const STATUS_LABELS: Record<string, string> = {
+    temp_hold: 'Временная бронь',
+    pending: 'Ожидает подтверждения',
+    awaiting_payment: 'Ожидает оплаты',
+    diagnosing: 'Диагностика',
+    awaiting_approval: 'Ожидает согласования',
+    awaiting_parts: 'Ожидает запчасти',
+    payment_review: 'Оплата на проверке',
+    confirmed: 'Подтверждена',
+    active: 'Идёт',
+    recruiting: 'Набор',
+    open: 'Открыт',
+    received: 'Принято',
+    client_arrived: 'Клиент пришёл',
+    checked_in: 'Заселён',
+    seated: 'Гости за столиком',
+    out_for_delivery: 'На доставке',
+    in_progress: 'В работе',
+    in_transit: 'В пути',
+    departed: 'В пути',
+    ready_for_pickup: 'Готов к выдаче',
+    completed: 'Завершена',
+    checked_out: 'Выселен',
+    delivered: 'Доставлено',
+    rescheduled: 'Перенесена',
+    closed: 'Закрыт',
+    cancelled: 'Отменена',
+    no_show: 'Не пришли',
+    returned: 'Возврат',
+};
+
+export function statusLabel(status: string): string {
+    return STATUS_LABELS[status] ?? status;
+}
+
+// Statuses that mean "resolved, nothing left to do" -- the complement of
+// this set (still "open" past its own end time) is what isOverdue() below
+// flags. Deliberately includes no_show/cancelled/returned themselves: once
+// staff actually SET one of those, the event is handled and stops being
+// "overdue" -- the whole point is catching the ones nobody touched yet.
+const TERMINAL_STATUSES = new Set([
+    'completed', 'checked_out', 'delivered', 'rescheduled', 'closed', 'cancelled', 'no_show', 'returned',
+]);
+
+/** Client never showed / date passed and nobody ever updated the status -- exactly the case the calendar should surface instead of letting it silently fall behind. */
+export function isOverdue(event: CalendarEvent, now: Date = new Date()): boolean {
+    return ! TERMINAL_STATUSES.has(event.status) && new Date(event.ends_at) < now;
+}
+
+const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Created within the last 24h -- a fresh booking staff hasn't necessarily noticed yet. */
+export function isNew(event: CalendarEvent, now: Date = new Date()): boolean {
+    return now.getTime() - new Date(event.created_at).getTime() < NEW_WINDOW_MS;
 }
 
 // Rotating per-COLUMN accent for CalendarDayGrid's resource headers (one

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { toast } from 'vue-sonner';
-import { CalendarClock, ChevronLeft, ChevronRight, Plus } from '@lucide/vue';
+import { AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, History, Plus, Sparkles } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { apiRequest } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import CalendarDayAgenda from '../components/dashboard/calendar/CalendarDayAgend
 import CalendarDayGrid from '../components/dashboard/calendar/CalendarDayGrid.vue';
 import CalendarMonthView from '../components/dashboard/calendar/CalendarMonthView.vue';
 import CalendarWeekView from '../components/dashboard/calendar/CalendarWeekView.vue';
+import CalendarHistoryList from '../components/dashboard/calendar/CalendarHistoryList.vue';
 import CourseGroupDetailDialog from '../components/dashboard/education/CourseGroupDetailDialog.vue';
 import CourseGroupFormDialog from '../components/dashboard/education/CourseGroupFormDialog.vue';
 import NewRepairOrderDialog from '../components/dashboard/autoservice/NewRepairOrderDialog.vue';
@@ -29,7 +30,7 @@ import NewShipmentDialog from '../components/dashboard/logistics/NewShipmentDial
 import ShipmentDetailDialog from '../components/dashboard/logistics/ShipmentDetailDialog.vue';
 import TourDepartureDetailDialog from '../components/dashboard/travel/TourDepartureDetailDialog.vue';
 import TourDepartureFormDialog from '../components/dashboard/travel/TourDepartureFormDialog.vue';
-import { HOUR_GRID_MODULES, MODULE_ACCENTS, MODULE_ICONS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../lib/calendar';
+import { HOUR_GRID_MODULES, isNew, isOverdue, MODULE_ACCENTS, MODULE_ICONS, statusLabel, toLocalDateString, type CalendarEvent, type CalendarResource } from '../lib/calendar';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
 
@@ -71,6 +72,13 @@ const eventsLoading = ref(true);
 const initialLoad = ref(true);
 const createOpen = ref(false);
 
+// История/"needs attention" filters -- see CalendarHistoryList.vue's own
+// docblock for why history gets a dedicated wider fetch window instead of
+// reusing whichever day/week/month range happens to be selected.
+const historyMode = ref(false);
+const statusFilter = ref('all');
+const onlyOverdue = ref(false);
+
 const weekStart = computed(() => {
     const d = new Date(date.value + 'T00:00:00');
     const weekday = (d.getDay() + 6) % 7;
@@ -80,7 +88,16 @@ const weekStart = computed(() => {
 const monthKey = computed(() => date.value.slice(0, 7));
 const useDayGrid = computed(() => activeModule.value !== null && HOUR_GRID_MODULES.has(activeModule.value) && resources.value.length > 0);
 
+const HISTORY_WINDOW_DAYS = 60;
+
 function fetchRange(): { from: string; to: string } {
+    if (historyMode.value) {
+        const end = new Date(date.value + 'T00:00:00');
+        end.setDate(end.getDate() + 1);
+        const start = new Date(date.value + 'T00:00:00');
+        start.setDate(start.getDate() - HISTORY_WINDOW_DAYS);
+        return { from: toLocalDateString(start) + 'T00:00:00', to: toLocalDateString(end) + 'T00:00:00' };
+    }
     if (viewMode.value === 'week') {
         const end = new Date(weekStart.value + 'T00:00:00');
         end.setDate(end.getDate() + 7);
@@ -152,11 +169,24 @@ onMounted(async () => {
     await loadEvents();
 });
 
-watch([activeModule, date, viewMode, branchFilter], loadEvents);
+watch([activeModule, date, viewMode, branchFilter, historyMode], loadEvents);
+// Switching module resets the status filter -- a status picked for one
+// module's vocabulary (e.g. "seated") is meaningless once the events
+// underneath are a different module's (e.g. "in_transit").
+watch(activeModule, () => { statusFilter.value = 'all'; });
+
+const availableStatuses = computed(() => Array.from(new Set(events.value.map((e) => e.status))).sort());
+const filteredEvents = computed(() => events.value.filter((e) => (statusFilter.value === 'all' || e.status === statusFilter.value) && (! onlyOverdue.value || isOverdue(e))));
+const newCount = computed(() => filteredEvents.value.filter((e) => isNew(e)).length);
+const overdueCount = computed(() => filteredEvents.value.filter((e) => isOverdue(e)).length);
+// Newest-missed-first -- a stale record from last week is more urgent to
+// notice than one that fell through the cracks months ago.
+const historyEvents = computed(() => filteredEvents.value.filter((e) => new Date(e.ends_at) < new Date()).sort((a, b) => b.starts_at.localeCompare(a.starts_at)));
 
 function selectDay(iso: string): void {
     date.value = iso;
     viewMode.value = 'day';
+    historyMode.value = false;
 }
 
 function shiftDate(direction: number): void {
@@ -258,35 +288,55 @@ function openCreateFromSlot(payload: { resourceId: number | string; iso: string 
                     <Plus class="h-4 w-4" />{{ locale.t('calendar.newRecord') }}
                 </Button>
                 <div class="ml-auto flex items-center gap-1 rounded-lg border border-border p-0.5">
-                    <Button :variant="viewMode === 'day' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'day'">{{ locale.t('booking.viewDay') }}</Button>
-                    <Button :variant="viewMode === 'week' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'week'">{{ locale.t('booking.viewWeek') }}</Button>
-                    <Button :variant="viewMode === 'month' ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'month'">{{ locale.t('booking.viewMonth') }}</Button>
+                    <Button :variant="viewMode === 'day' && ! historyMode ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'day'; historyMode = false">{{ locale.t('booking.viewDay') }}</Button>
+                    <Button :variant="viewMode === 'week' && ! historyMode ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'week'; historyMode = false">{{ locale.t('booking.viewWeek') }}</Button>
+                    <Button :variant="viewMode === 'month' && ! historyMode ? 'secondary' : 'ghost'" size="sm" @click="viewMode = 'month'; historyMode = false">{{ locale.t('booking.viewMonth') }}</Button>
+                    <Button :variant="historyMode ? 'secondary' : 'ghost'" size="sm" @click="historyMode = ! historyMode"><History class="h-4 w-4" />История</Button>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <Select v-if="availableStatuses.length > 1" v-model="statusFilter">
+                    <SelectTrigger class="w-56"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Все статусы</SelectItem>
+                        <SelectItem v-for="s in availableStatuses" :key="s" :value="s">{{ statusLabel(s) }}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Button :variant="onlyOverdue ? 'secondary' : 'outline'" size="sm" @click="onlyOverdue = ! onlyOverdue">
+                    <AlertTriangle class="h-4 w-4" />Только просроченные
+                </Button>
+                <div class="ml-auto flex flex-wrap items-center gap-3 text-xs font-medium ui-subtle">
+                    <span>Всего: {{ filteredEvents.length }}</span>
+                    <span v-if="newCount" class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><Sparkles class="h-3.5 w-3.5" />Новых: {{ newCount }}</span>
+                    <span v-if="overdueCount" class="flex items-center gap-1 text-destructive"><AlertTriangle class="h-3.5 w-3.5" />Просрочено: {{ overdueCount }}</span>
                 </div>
             </div>
 
             <Skeleton v-if="eventsLoading && initialLoad" class="h-96 rounded-xl" />
             <Transition v-else name="calendar-fade" mode="out-in">
-                <div :key="viewMode" class="transition-opacity duration-200" :class="{ 'opacity-50': eventsLoading }">
-                    <template v-if="viewMode === 'day'">
+                <div :key="historyMode ? 'history' : viewMode" class="transition-opacity duration-200" :class="{ 'opacity-50': eventsLoading }">
+                    <CalendarHistoryList v-if="historyMode" :events="historyEvents" :resources="resources" @open="openDetail" />
+                    <template v-else-if="viewMode === 'day'">
                         <CalendarDayGrid
                             v-if="useDayGrid"
                             :date="date"
                             :resources="resources"
-                            :events="events"
+                            :events="filteredEvents"
                             @open="openDetail"
                             @create="openCreateFromSlot"
                         />
-                        <CalendarDayAgenda v-else :date="date" :events="events" :resources="resources" @open="openDetail" />
+                        <CalendarDayAgenda v-else :date="date" :events="filteredEvents" :resources="resources" @open="openDetail" />
                     </template>
                     <CalendarWeekView
                         v-else-if="viewMode === 'week'"
                         :week-start="weekStart"
-                        :events="events"
+                        :events="filteredEvents"
                         :resources="resources"
                         @select-day="selectDay"
                         @open="openDetail"
                     />
-                    <CalendarMonthView v-else :month="monthKey" :events="events" @select-day="selectDay" />
+                    <CalendarMonthView v-else :month="monthKey" :events="filteredEvents" @select-day="selectDay" />
                 </div>
             </Transition>
         </template>

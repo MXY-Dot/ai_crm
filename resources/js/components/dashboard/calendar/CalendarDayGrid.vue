@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { eventOnDate, hasStrikethrough, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { eventOnDate, hasStrikethrough, isNew, isOverdue, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 import { useLocaleStore } from '../../../stores/locale';
 
 const locale = useLocaleStore();
@@ -122,12 +122,13 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     v-for="event in visibleEvents"
                     :key="event.id"
                     type="button"
-                    :title="`${event.title} · ${event.subtitle}`"
+                    :title="`${event.title} · ${event.subtitle}${isOverdue(event) ? ' · Просрочено, статус не обновлён' : ''}`"
                     class="relative z-[6] m-0.5 flex flex-col justify-center gap-px overflow-hidden rounded-lg border px-2 py-1 text-left leading-tight shadow-sm transition-all hover:z-[7] hover:shadow-md hover:brightness-105"
-                    :class="STATUS_COLORS[event.status] ?? 'bg-muted'"
+                    :class="[STATUS_COLORS[event.status] ?? 'bg-muted', isOverdue(event) ? 'ring-2 ring-destructive' : '']"
                     :style="{ gridRow: `${eventStartRow(event)} / ${eventEndRow(event)}`, gridColumn: resourceColumn(event.resource_id) }"
                     @click.stop="emit('open', event)"
                 >
+                    <span v-if="isNew(event)" class="absolute right-1 top-1 size-1.5 shrink-0 rounded-full bg-emerald-500" title="Новая запись" />
                     <span class="flex items-center gap-1.5">
                         <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
                         <span class="truncate text-[11px] font-semibold" :class="hasStrikethrough(event.status) ? 'line-through' : ''">{{ event.title }}</span>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { eventOnDate, STATUS_DOTS, toLocalDateString, type CalendarEvent } from '../../../lib/calendar';
+import { eventOnDate, isOverdue, STATUS_DOTS, toLocalDateString, type CalendarEvent } from '../../../lib/calendar';
 
 const props = defineProps<{ month: string; events: CalendarEvent[] }>();
 const emit = defineEmits<{ 'select-day': [date: string] }>();
@@ -47,6 +47,10 @@ function isToday(date: string): boolean {
 function dayNumber(date: string): number {
     return new Date(date + 'T00:00:00').getDate();
 }
+
+function overdueCount(date: string): number {
+    return dayEvents(date).filter((e) => isOverdue(e)).length;
+}
 </script>
 
 <template>
@@ -68,13 +72,24 @@ function dayNumber(date: string): number {
                         :class="cell.inMonth ? '' : 'opacity-35'"
                         @click="emit('select-day', cell.date)"
                     >
-                        <span
-                            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
-                            :class="isToday(cell.date) ? 'bg-primary text-primary-foreground' : 'ui-text'"
-                        >{{ dayNumber(cell.date) }}</span>
-                        <span class="flex flex-wrap gap-0.5">
-                            <span v-for="e in dayEvents(cell.date).slice(0, 8)" :key="e.id" class="size-1.5 rounded-full" :class="STATUS_DOTS[e.status] ?? 'bg-muted-foreground'" />
+                        <span class="flex items-center justify-between gap-1">
+                            <span
+                                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+                                :class="isToday(cell.date) ? 'bg-primary text-primary-foreground' : 'ui-text'"
+                            >{{ dayNumber(cell.date) }}</span>
+                            <span
+                                v-if="overdueCount(cell.date)"
+                                class="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground"
+                                title="Просроченные записи без обновлённого статуса"
+                            >{{ overdueCount(cell.date) }}</span>
                         </span>
+                        <span class="flex flex-wrap gap-0.5">
+                            <span
+                                v-for="e in dayEvents(cell.date).slice(0, 8)"
+                                :key="e.id"
+                                class="size-1.5 rounded-full"
+                                :class="[STATUS_DOTS[e.status] ?? 'bg-muted-foreground', isOverdue(e) ? 'ring-1 ring-destructive ring-offset-1' : '']"
+                            /></span>
                         <span v-if="dayEvents(cell.date).length" class="mt-auto text-[10px] font-medium ui-subtle">{{ dayEvents(cell.date).length }}</span>
                     </button>
                 </template>

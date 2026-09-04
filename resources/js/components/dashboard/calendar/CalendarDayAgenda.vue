@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { eventOnDate, hasStrikethrough, STATUS_DOTS, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { eventOnDate, hasStrikethrough, isNew, isOverdue, STATUS_COLORS, STATUS_DOTS, statusLabel, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 import { useLocaleStore } from '../../../stores/locale';
 
 // Used for Day view on modules with no real hour-of-day grid to render
@@ -36,14 +36,22 @@ function range(startsAt: string, endsAt: string): string {
                 :key="event.id"
                 type="button"
                 class="flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
+                :class="isOverdue(event) ? 'bg-destructive/5' : ''"
                 @click="emit('open', event)"
             >
                 <span class="h-2 w-2 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
                 <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-semibold ui-text" :class="hasStrikethrough(event.status) ? 'line-through opacity-60' : ''">{{ event.title }}</span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="truncate text-sm font-semibold ui-text" :class="hasStrikethrough(event.status) ? 'line-through opacity-60' : ''">{{ event.title }}</span>
+                        <span v-if="isNew(event)" class="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">Новое</span>
+                        <span v-if="isOverdue(event)" class="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">Просрочено</span>
+                    </span>
                     <span class="block truncate text-xs ui-subtle">{{ event.subtitle }}<template v-if="resourceName(event.resource_id)"> · {{ resourceName(event.resource_id) }}</template></span>
                 </span>
-                <span class="shrink-0 text-xs font-medium tabular-nums ui-subtle">{{ range(event.starts_at, event.ends_at) }}</span>
+                <span class="flex shrink-0 flex-col items-end gap-1">
+                    <span class="rounded-full px-2 py-0.5 text-[10.5px] font-medium whitespace-nowrap" :class="STATUS_COLORS[event.status] ?? 'bg-muted text-muted-foreground'">{{ statusLabel(event.status) }}</span>
+                    <span class="text-xs font-medium tabular-nums ui-subtle">{{ range(event.starts_at, event.ends_at) }}</span>
+                </span>
             </button>
             <p v-if="! dayEvents.length" class="px-4 py-8 text-center text-sm ui-subtle">{{ locale.t('calendar.noEvents') }}</p>
         </div>

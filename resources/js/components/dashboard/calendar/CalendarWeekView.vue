@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { eventOnDate, hasStrikethrough, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { eventOnDate, hasStrikethrough, isNew, isOverdue, STATUS_COLORS, STATUS_DOTS, statusLabel, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 import { useLocaleStore } from '../../../stores/locale';
 
 const props = defineProps<{ weekStart: string; events: CalendarEvent[]; resources: CalendarResource[] }>();
@@ -65,14 +65,19 @@ function isToday(date: string): boolean {
                     v-for="event in dayEvents(date)"
                     :key="event.id"
                     type="button"
-                    class="flex items-start gap-1.5 rounded-lg border border-border/60 bg-background/60 px-1.5 py-1 text-left text-[11px] leading-tight transition-colors hover:border-border hover:bg-accent/50"
-                    :class="hasStrikethrough(event.status) ? 'opacity-60' : ''"
+                    class="flex items-start gap-1.5 rounded-lg border px-1.5 py-1 text-left text-[11px] leading-tight transition-colors hover:border-border hover:bg-accent/50"
+                    :class="[hasStrikethrough(event.status) ? 'opacity-60' : '', isOverdue(event) ? 'border-destructive/40 bg-destructive/5' : 'border-border/60 bg-background/60']"
                     @click="emit('open', event)"
                 >
                     <span class="mt-1 size-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
-                    <span class="min-w-0">
+                    <span class="min-w-0 flex-1">
                         <span class="block truncate font-medium ui-text" :class="hasStrikethrough(event.status) ? 'line-through' : ''">{{ time(event.starts_at) }} · {{ event.title }}</span>
                         <span class="block truncate ui-subtle">{{ event.subtitle }}<template v-if="resourceName(event.resource_id)"> · {{ resourceName(event.resource_id) }}</template></span>
+                        <span class="mt-0.5 flex flex-wrap items-center gap-1">
+                            <span class="rounded-full px-1.5 py-0.5 text-[9.5px] font-medium" :class="STATUS_COLORS[event.status] ?? 'bg-muted text-muted-foreground'">{{ statusLabel(event.status) }}</span>
+                            <span v-if="isNew(event)" class="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9.5px] font-semibold text-emerald-700 dark:text-emerald-400">Новое</span>
+                            <span v-if="isOverdue(event)" class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-destructive">Просрочено</span>
+                        </span>
                     </span>
                 </button>
                 <p v-if="! dayEvents(date).length" class="text-[11px] ui-subtle">{{ locale.t('calendar.noEvents') }}</p>

@@ -141,6 +141,7 @@ class CalendarController extends Controller
             'status' => $b->status,
             'title' => $b->customer?->name ?? '—',
             'subtitle' => $b->service?->name ?? '',
+            'created_at' => $b->created_at->toIso8601String(),
         ])->values();
 
         return ['resources' => $resources, 'events' => $events];
@@ -175,6 +176,7 @@ class CalendarController extends Controller
             'status' => $r->status,
             'title' => $r->customer?->name ?? '—',
             'subtitle' => 'Гостей: '.$r->party_size,
+            'created_at' => $r->created_at->toIso8601String(),
         ])->values();
 
         return ['resources' => $resources, 'events' => $events];
@@ -209,6 +211,7 @@ class CalendarController extends Controller
             'status' => $r->status,
             'title' => $r->customer?->name ?? '—',
             'subtitle' => $r->nights().' ноч., гостей: '.$r->guests_count,
+            'created_at' => $r->created_at->toIso8601String(),
         ])->values();
 
         return ['resources' => $resources, 'events' => $events];
@@ -270,6 +273,7 @@ class CalendarController extends Controller
                         'status' => $group->status,
                         'title' => $group->course?->name ?? $group->name,
                         'subtitle' => $group->employee?->name ?? '',
+                        'created_at' => $group->created_at->toIso8601String(),
                     ]);
                 }
             }
@@ -307,6 +311,7 @@ class CalendarController extends Controller
             'status' => $d->status,
             'title' => $d->tour?->name ?? '—',
             'subtitle' => 'Мест: '.$d->bookings_count.'/'.$d->capacity,
+            'created_at' => $d->created_at->toIso8601String(),
         ])->values();
 
         return ['resources' => $resources, 'events' => $events];
@@ -342,6 +347,7 @@ class CalendarController extends Controller
                 'status' => $o->status,
                 'title' => $vehicleLabel,
                 'subtitle' => $o->customer?->name ?? '',
+                'created_at' => $o->created_at->toIso8601String(),
             ];
         })->values();
 
@@ -376,6 +382,7 @@ class CalendarController extends Controller
                 'status' => $s->status,
                 'title' => $s->tracking_number,
                 'subtitle' => $s->recipient_name ?? '',
+                'created_at' => $s->created_at->toIso8601String(),
             ];
         })->values();
 
