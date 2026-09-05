@@ -82,7 +82,11 @@ class RoomReservationChatAssistant
                 'error' => $error->getMessage(),
             ]);
 
-            return $decision;
+            // See AiChatBookingAssistant::maybeHandle()'s own docblock (found
+            // live via a Groq 429 mid-extraction) for why "the original
+            // reply" is unsafe here when a real offer was pending -- it can
+            // fabricate a confirmation with no reservation ever created.
+            return $this->reofferForPendingFlow($this->lastAiMeta($conversation), $decision) ?? $decision;
         }
     }
 

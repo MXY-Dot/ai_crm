@@ -72,7 +72,11 @@ class RepairOrderChatAssistant
                 'error' => $error->getMessage(),
             ]);
 
-            return $decision;
+            // See AiChatBookingAssistant::maybeHandle()'s own docblock (found
+            // live via a Groq 429 mid-extraction) for why "the original
+            // reply" is unsafe here when a real disambiguation was pending --
+            // it can fabricate a confirmation with no order ever created.
+            return $this->reofferForPendingFlow($this->lastAiMeta($conversation), $decision) ?? $decision;
         }
     }
 

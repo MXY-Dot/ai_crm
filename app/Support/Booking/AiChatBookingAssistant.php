@@ -101,7 +101,18 @@ class AiChatBookingAssistant
                 'error' => $error->getMessage(),
             ]);
 
-            return $decision;
+            // Found live (a Groq 429 mid-extraction): when a real offer was
+            // pending and the LLM extractor call itself is what just failed,
+            // "the original reply" is the general engine's OWN free-text
+            // answer -- which has no idea a booking-specific claim it makes
+            // (a confirmed time, a cancelled booking) isn't real. It
+            // fabricated a full, plausible-sounding "Отлично, записываю
+            // вас..." confirmation with no Booking ever created. Never let
+            // that stand in for a real one -- re-showing the SAME real offer
+            // is the only safe degradation. reofferForPendingFlow() itself
+            // returns null when there's nothing pending, in which case the
+            // original reply really is safe to keep.
+            return $this->reofferForPendingFlow($this->lastAiMeta($conversation), $decision) ?? $decision;
         }
     }
 
