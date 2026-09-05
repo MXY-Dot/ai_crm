@@ -241,10 +241,10 @@ class TableReservationChatAssistant
 
         $from = $intent['preferred_date'] ? $this->parsePreferredDate($intent['preferred_date']) : Carbon::now();
 
-        return $this->offerNewReservationSlots($tenant, $company, $conversation->customer_id, $intent['party_size'], $from, $decision);
+        return $this->offerNewReservationSlots($tenant, $company, $conversation->customer_id, $conversation->channel_id, $intent['party_size'], $from, $decision);
     }
 
-    private function offerNewReservationSlots(Tenant $tenant, Company $company, int $customerId, int $partySize, Carbon $from, AiDecision $decision): AiDecision
+    private function offerNewReservationSlots(Tenant $tenant, Company $company, int $customerId, ?int $channelId, int $partySize, Carbon $from, AiDecision $decision): AiDecision
     {
         $slots = $this->context->nextAvailableSlots($company, $partySize, $from->copy()->startOfDay());
 
@@ -269,6 +269,7 @@ class TableReservationChatAssistant
             'tenant_id' => $tenant->id,
             'company_id' => $company->id,
             'customer_id' => $customerId,
+            'channel_id' => $channelId,
             'party_size' => $partySize,
             'raw_buttons' => $rawButtons,
             'buttons' => ChatButtons::forOffer($rawButtons),
@@ -341,6 +342,7 @@ class TableReservationChatAssistant
                 'tenant_id' => $lastMeta['tenant_id'],
                 'company_id' => $lastMeta['company_id'],
                 'customer_id' => $lastMeta['customer_id'],
+                'channel_id' => $lastMeta['channel_id'] ?? null,
                 'resource_id' => $slot['resource_id'],
                 'party_size' => $lastMeta['party_size'],
                 'starts_at' => $slot['starts_at'],
@@ -357,6 +359,7 @@ class TableReservationChatAssistant
                 Tenant::query()->findOrFail($lastMeta['tenant_id']),
                 $company,
                 $lastMeta['customer_id'],
+                $lastMeta['channel_id'] ?? null,
                 $lastMeta['party_size'],
                 Carbon::parse($slot['starts_at'])->startOfDay(),
                 $decision,

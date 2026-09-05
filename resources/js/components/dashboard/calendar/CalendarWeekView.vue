@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { eventOnDate, hasStrikethrough, isNew, isOverdue, STATUS_COLORS, STATUS_DOTS, statusLabel, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { Monitor } from '@lucide/vue';
+import { CHANNEL_ICONS, CHANNEL_LABELS, eventOnDate, hasStrikethrough, isNew, isOverdue, STATUS_COLORS, STATUS_DOTS, statusLabel, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 import { useLocaleStore } from '../../../stores/locale';
 
 const props = defineProps<{ weekStart: string; events: CalendarEvent[]; resources: CalendarResource[] }>();
@@ -67,9 +68,11 @@ function isToday(date: string): boolean {
                     type="button"
                     class="flex items-start gap-1.5 rounded-lg border px-1.5 py-1 text-left text-[11px] leading-tight transition-colors hover:border-border hover:bg-accent/50"
                     :class="[hasStrikethrough(event.status) ? 'opacity-60' : '', isOverdue(event) ? 'border-destructive/40 bg-destructive/5' : 'border-border/60 bg-background/60']"
+                    :title="event.channel ? (CHANNEL_LABELS[event.channel] ?? event.channel) : undefined"
                     @click="emit('open', event)"
                 >
                     <span class="mt-1 size-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
+                    <component :is="CHANNEL_ICONS[event.channel] ?? Monitor" v-if="event.channel" class="mt-0.5 h-3 w-3 shrink-0 opacity-70" />
                     <span class="min-w-0 flex-1">
                         <span class="block truncate font-medium ui-text" :class="hasStrikethrough(event.status) ? 'line-through' : ''">{{ time(event.starts_at) }} · {{ event.title }}</span>
                         <span class="block truncate ui-subtle">{{ event.subtitle }}<template v-if="resourceName(event.resource_id)"> · {{ resourceName(event.resource_id) }}</template></span>

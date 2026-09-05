@@ -1,4 +1,8 @@
-import { CalendarClock, GraduationCap, Hotel, Plane, Truck, Utensils, Wrench } from '@lucide/vue';
+import { CalendarClock, GraduationCap, Hotel, Monitor, Plane, Truck, Utensils, Wrench } from '@lucide/vue';
+import TelegramIcon from '../components/icons/TelegramIcon.vue';
+import WhatsappIcon from '../components/icons/WhatsappIcon.vue';
+import InstagramIcon from '../components/icons/InstagramIcon.vue';
+import FacebookIcon from '../components/icons/FacebookIcon.vue';
 
 // Shared normalized shape returned by GET /api/calendar/events — see
 // CalendarController's own docblock for why every module (a real time slot,
@@ -17,6 +21,8 @@ export type CalendarEvent = {
     title: string;
     subtitle: string;
     created_at: string;
+    /** Which chat channel this record came from ('telegram'/'whatsapp'/'instagram'/'facebook'), or 'manual' for a pre-existing row or one created directly in the CRM. Only booking-shaped modules (booking_calendar/table_reservations/room_booking/vehicle_service) send a real value; others omit the field. */
+    channel?: string;
 };
 
 export const MODULE_ICONS: Record<string, unknown> = {
@@ -27,6 +33,26 @@ export const MODULE_ICONS: Record<string, unknown> = {
     tour_bookings: Plane,
     vehicle_service: Wrench,
     shipment_tracking: Truck,
+};
+
+// Which platform a booking-shaped record came from — same icon components and
+// idea as RecentConversationsCard's own channelIcons map, extended with
+// instagram/facebook and a 'manual' fallback for a pre-existing row or one
+// created directly in the CRM rather than through a chat channel.
+export const CHANNEL_ICONS: Record<string, unknown> = {
+    telegram: TelegramIcon,
+    whatsapp: WhatsappIcon,
+    instagram: InstagramIcon,
+    facebook: FacebookIcon,
+    manual: Monitor,
+};
+
+export const CHANNEL_LABELS: Record<string, string> = {
+    telegram: 'Telegram',
+    whatsapp: 'WhatsApp',
+    instagram: 'Instagram',
+    facebook: 'Facebook',
+    manual: 'Создано в CRM',
 };
 
 export const MODULE_ACCENTS: Record<string, string> = {

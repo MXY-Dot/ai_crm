@@ -60,6 +60,7 @@ class TableReservationService
                 'company_id' => $data['company_id'],
                 'branch_id' => $data['branch_id'] ?? $table->branch_id,
                 'customer_id' => $data['customer_id'],
+                'channel_id' => $data['channel_id'] ?? null,
                 'resource_id' => $table->id,
                 'party_size' => $data['party_size'],
                 'starts_at' => $startsAt,

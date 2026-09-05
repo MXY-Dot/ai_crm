@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * linkage pattern as the restaurant module's предзаказ
  * (Order::table_reservation_id) -- zero new payment code needed.
  */
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'vehicle_id', 'employee_id', 'status', 'problem_description', 'diagnosis_notes', 'estimated_total', 'promised_at', 'completed_at', 'notes', 'cancelled_reason', 'created_by_user_id'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'channel_id', 'vehicle_id', 'employee_id', 'status', 'problem_description', 'diagnosis_notes', 'estimated_total', 'promised_at', 'completed_at', 'notes', 'cancelled_reason', 'created_by_user_id'])]
 class RepairOrder extends Model
 {
     use BelongsToTenant;
@@ -67,6 +67,11 @@ class RepairOrder extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(Channel::class);
     }
 
     public function vehicle(): BelongsTo

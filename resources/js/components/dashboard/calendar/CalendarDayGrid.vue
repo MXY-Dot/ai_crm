@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { eventOnDate, hasStrikethrough, isNew, isOverdue, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { Monitor } from '@lucide/vue';
+import { CHANNEL_ICONS, CHANNEL_LABELS, eventOnDate, hasStrikethrough, isNew, isOverdue, resourceAccent, STATUS_COLORS, STATUS_DOTS, toLocalDateString, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 import { useLocaleStore } from '../../../stores/locale';
 
 const locale = useLocaleStore();
@@ -224,7 +225,7 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     v-for="event in visibleEvents"
                     :key="event.id"
                     type="button"
-                    :title="`${event.title} · ${event.subtitle}${isOverdue(event) ? ' · Просрочено, статус не обновлён' : ''}`"
+                    :title="`${event.title} · ${event.subtitle}${event.channel ? ' · ' + (CHANNEL_LABELS[event.channel] ?? event.channel) : ''}${isOverdue(event) ? ' · Просрочено, статус не обновлён' : ''}`"
                     class="relative z-[6] mt-0.5 mb-0.5 flex flex-col justify-center gap-px overflow-hidden rounded-lg border px-2 py-1 text-left leading-tight shadow-sm transition-all hover:z-[7] hover:shadow-md hover:brightness-105"
                     :class="[STATUS_COLORS[event.status] ?? 'bg-muted', isOverdue(event) ? 'ring-2 ring-destructive' : '', hasStrikethrough(event.status) ? 'opacity-70' : '']"
                     :style="eventStyle(event)"
@@ -233,6 +234,7 @@ const nowLineTop = computed(() => HEADER_HEIGHT + (minutesIntoDay.value / SLOT_M
                     <span v-if="isNew(event)" class="absolute right-1 top-1 size-1.5 shrink-0 rounded-full bg-emerald-500" title="Новая запись" />
                     <span class="flex items-center gap-1.5">
                         <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
+                        <component :is="CHANNEL_ICONS[event.channel] ?? Monitor" v-if="event.channel" class="h-3 w-3 shrink-0 opacity-70" />
                         <span class="truncate text-[11px] font-semibold" :class="hasStrikethrough(event.status) ? 'line-through' : ''">{{ event.title }}</span>
                     </span>
                     <span class="truncate pl-3 text-[10.5px] opacity-80">{{ event.subtitle }}</span>

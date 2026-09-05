@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { eventOnDate, hasStrikethrough, isNew, isOverdue, STATUS_COLORS, STATUS_DOTS, statusLabel, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
+import { Monitor } from '@lucide/vue';
+import { CHANNEL_ICONS, CHANNEL_LABELS, eventOnDate, hasStrikethrough, isNew, isOverdue, STATUS_COLORS, STATUS_DOTS, statusLabel, type CalendarEvent, type CalendarResource } from '../../../lib/calendar';
 import { useLocaleStore } from '../../../stores/locale';
 
 // Used for Day view on modules with no real hour-of-day grid to render
@@ -37,11 +38,13 @@ function range(startsAt: string, endsAt: string): string {
                 type="button"
                 class="flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
                 :class="isOverdue(event) ? 'bg-destructive/5' : ''"
+                :title="event.channel ? (CHANNEL_LABELS[event.channel] ?? event.channel) : undefined"
                 @click="emit('open', event)"
             >
                 <span class="h-2 w-2 shrink-0 rounded-full" :class="STATUS_DOTS[event.status] ?? 'bg-muted-foreground'" />
                 <span class="min-w-0 flex-1">
                     <span class="flex items-center gap-1.5">
+                        <component :is="CHANNEL_ICONS[event.channel] ?? Monitor" v-if="event.channel" class="h-3.5 w-3.5 shrink-0 opacity-70" />
                         <span class="truncate text-sm font-semibold ui-text" :class="hasStrikethrough(event.status) ? 'line-through opacity-60' : ''">{{ event.title }}</span>
                         <span v-if="isNew(event)" class="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">Новое</span>
                         <span v-if="isOverdue(event)" class="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">Просрочено</span>

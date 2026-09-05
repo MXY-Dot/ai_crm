@@ -354,6 +354,7 @@ class RepairOrderChatAssistant
                 'tenant_id' => $tenant->id,
                 'company_id' => $company->id,
                 'customer_id' => $conversation->customer_id,
+                'channel_id' => $conversation->channel_id,
                 'vehicle_id' => $vehicle->id,
                 'problem_description' => $problemDescription,
                 'notes' => 'Создано через AI-чат',

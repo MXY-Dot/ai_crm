@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'service_id', 'employee_id', 'resource_id', 'starts_at', 'ends_at', 'status', 'price', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'channel_id', 'service_id', 'employee_id', 'resource_id', 'starts_at', 'ends_at', 'status', 'price', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
 class Booking extends Model
 {
     use BelongsToTenant;
@@ -69,6 +69,12 @@ class Booking extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    /** Which chat channel (telegram/whatsapp/instagram/facebook) this booking was created through -- null for pre-existing rows or ones created manually in the CRM. */
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(Channel::class);
     }
 
     public function service(): BelongsTo

@@ -307,10 +307,10 @@ class RoomReservationChatAssistant
             return $this->withReply($decision, 'room_invalid_dates', 'Дата выезда должна быть позже даты заезда. Уточните, пожалуйста, даты ещё раз.');
         }
 
-        return $this->offerNewReservationRooms($tenant, $company, $conversation->customer_id, $intent['guests_count'], $checkIn, $checkOut, $decision);
+        return $this->offerNewReservationRooms($tenant, $company, $conversation->customer_id, $conversation->channel_id, $intent['guests_count'], $checkIn, $checkOut, $decision);
     }
 
-    private function offerNewReservationRooms(Tenant $tenant, Company $company, int $customerId, int $guests, Carbon $checkIn, Carbon $checkOut, AiDecision $decision): AiDecision
+    private function offerNewReservationRooms(Tenant $tenant, Company $company, int $customerId, ?int $channelId, int $guests, Carbon $checkIn, Carbon $checkOut, AiDecision $decision): AiDecision
     {
         $rooms = $this->context->availableRooms($company, $checkIn, $checkOut, $guests);
 
@@ -335,6 +335,7 @@ class RoomReservationChatAssistant
             'tenant_id' => $tenant->id,
             'company_id' => $company->id,
             'customer_id' => $customerId,
+            'channel_id' => $channelId,
             'guests_count' => $guests,
             'raw_buttons' => $rawButtons,
             'buttons' => ChatButtons::forOffer($rawButtons),
@@ -374,6 +375,7 @@ class RoomReservationChatAssistant
                 'tenant_id' => $lastMeta['tenant_id'],
                 'company_id' => $lastMeta['company_id'],
                 'customer_id' => $lastMeta['customer_id'],
+                'channel_id' => $lastMeta['channel_id'] ?? null,
                 'resource_id' => $room['resource_id'],
                 'guests_count' => $lastMeta['guests_count'],
                 'starts_at' => $room['starts_at'],
@@ -391,6 +393,7 @@ class RoomReservationChatAssistant
                 Tenant::query()->findOrFail($lastMeta['tenant_id']),
                 $company,
                 $lastMeta['customer_id'],
+                $lastMeta['channel_id'] ?? null,
                 $lastMeta['guests_count'],
                 Carbon::parse($room['starts_at']),
                 Carbon::parse($room['ends_at']),

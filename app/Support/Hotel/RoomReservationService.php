@@ -82,6 +82,7 @@ class RoomReservationService
                 'company_id' => $data['company_id'],
                 'branch_id' => $data['branch_id'] ?? $room->branch_id,
                 'customer_id' => $data['customer_id'],
+                'channel_id' => $data['channel_id'] ?? null,
                 'resource_id' => $room->id,
                 'guests_count' => $data['guests_count'],
                 'starts_at' => $checkIn,

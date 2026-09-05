@@ -67,6 +67,7 @@ class BookingService
                 'company_id' => $data['company_id'],
                 'branch_id' => $employee->branch_id,
                 'customer_id' => $data['customer_id'],
+                'channel_id' => $data['channel_id'] ?? null,
                 'service_id' => $service->id,
                 'employee_id' => $employee->id,
                 'resource_id' => $service->required_resource_id,

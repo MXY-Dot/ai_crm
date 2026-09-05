@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * creation time (rate changes later must not silently reprice an
  * existing stay), total_amount = price_per_night * nights.
  */
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'resource_id', 'guests_count', 'starts_at', 'ends_at', 'status', 'price_per_night', 'total_amount', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'channel_id', 'resource_id', 'guests_count', 'starts_at', 'ends_at', 'status', 'price_per_night', 'total_amount', 'prepayment_amount', 'prepayment_status', 'hold_expires_at', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
 class RoomReservation extends Model
 {
     use BelongsToTenant;
@@ -75,6 +75,11 @@ class RoomReservation extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(Channel::class);
     }
 
     public function resource(): BelongsTo

@@ -45,6 +45,7 @@ class RepairOrderService
                 'company_id' => $data['company_id'],
                 'branch_id' => $data['branch_id'] ?? null,
                 'customer_id' => $data['customer_id'],
+                'channel_id' => $data['channel_id'] ?? null,
                 'vehicle_id' => $vehicle->id,
                 'employee_id' => $data['employee_id'] ?? null,
                 'status' => RepairOrder::STATUS_RECEIVED,

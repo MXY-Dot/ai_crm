@@ -115,7 +115,7 @@ class CalendarController extends Controller
         $employeeFilter = $user->role === User::ROLE_SPECIALIST ? $user->employee_id : null;
 
         $bookings = Booking::query()
-            ->with(['customer:id,name', 'service:id,name'])
+            ->with(['customer:id,name', 'service:id,name', 'channel:id,provider'])
             ->when($employeeFilter, fn ($q) => $q->where('employee_id', $employeeFilter))
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($user->role === User::ROLE_SPECIALIST && ! $employeeFilter, fn ($q) => $q->whereRaw('1 = 0'))
@@ -141,6 +141,7 @@ class CalendarController extends Controller
             'status' => $b->status,
             'title' => $b->customer?->name ?? '—',
             'subtitle' => $b->service?->name ?? '',
+            'channel' => $b->channel?->provider ?? 'manual',
             'created_at' => $b->created_at->toIso8601String(),
         ])->values();
 
@@ -152,7 +153,7 @@ class CalendarController extends Controller
         Gate::authorize('viewAny', TableReservation::class);
 
         $reservations = TableReservation::query()
-            ->with(['customer:id,name', 'resource:id,name'])
+            ->with(['customer:id,name', 'resource:id,name', 'channel:id,provider'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('starts_at', '<', $to)
             ->where('ends_at', '>', $from)
@@ -176,6 +177,7 @@ class CalendarController extends Controller
             'status' => $r->status,
             'title' => $r->customer?->name ?? '—',
             'subtitle' => 'Гостей: '.$r->party_size,
+            'channel' => $r->channel?->provider ?? 'manual',
             'created_at' => $r->created_at->toIso8601String(),
         ])->values();
 
@@ -187,7 +189,7 @@ class CalendarController extends Controller
         Gate::authorize('viewAny', RoomReservation::class);
 
         $reservations = RoomReservation::query()
-            ->with(['customer:id,name', 'resource:id,name'])
+            ->with(['customer:id,name', 'resource:id,name', 'channel:id,provider'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->where('starts_at', '<', $to)
             ->where('ends_at', '>', $from)
@@ -211,6 +213,7 @@ class CalendarController extends Controller
             'status' => $r->status,
             'title' => $r->customer?->name ?? '—',
             'subtitle' => $r->nights().' ноч., гостей: '.$r->guests_count,
+            'channel' => $r->channel?->provider ?? 'manual',
             'created_at' => $r->created_at->toIso8601String(),
         ])->values();
 
@@ -323,7 +326,7 @@ class CalendarController extends Controller
         Gate::authorize('viewAny', RepairOrder::class);
 
         $orders = RepairOrder::query()
-            ->with(['customer:id,name', 'vehicle:id,make,model,plate_number'])
+            ->with(['customer:id,name', 'vehicle:id,make,model,plate_number', 'channel:id,provider'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->whereIn('status', RepairOrder::ACTIVE_STATUSES)
             ->get()
@@ -347,6 +350,7 @@ class CalendarController extends Controller
                 'status' => $o->status,
                 'title' => $vehicleLabel,
                 'subtitle' => $o->customer?->name ?? '',
+                'channel' => $o->channel?->provider ?? 'manual',
                 'created_at' => $o->created_at->toIso8601String(),
             ];
         })->values();

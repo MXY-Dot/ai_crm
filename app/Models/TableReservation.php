@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * through an Order (see Order::table_reservation_id) reusing the commerce
  * module's already-built payment system rather than a second one here.
  */
-#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'resource_id', 'party_size', 'starts_at', 'ends_at', 'status', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
+#[Fillable(['tenant_id', 'company_id', 'branch_id', 'customer_id', 'channel_id', 'resource_id', 'party_size', 'starts_at', 'ends_at', 'status', 'notes', 'cancelled_reason', 'created_by_user_id', 'reschedule_count', 'reminders_sent'])]
 class TableReservation extends Model
 {
     use BelongsToTenant;
@@ -58,6 +58,11 @@ class TableReservation extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(Channel::class);
     }
 
     public function resource(): BelongsTo
