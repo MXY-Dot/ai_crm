@@ -77,24 +77,22 @@ type SubColumn = { col: number; cols: number };
 /**
  * Two events for the SAME master overlapping in time used to just land in
  * the same grid cell and visually stack directly on top of each other --
- * found live via a real screenshot, unreadable ("orgy of colors"). Standard
- * greedy interval-partitioning (same idea Google Calendar's day view uses):
- * events are swept in start-time order, each placed in the first column
- * whose last event has already ended, a new column opened otherwise; once a
- * contiguous overlapping cluster closes, every event in it gets the
- * cluster's own final column count so they split that width evenly.
- * Cancelled/no-show/returned events (hasStrikethrough()) are excluded from
- * this entirely -- they're historical noise, not a real scheduling
- * conflict, so they'd only force needless extra columns onto a slot that in
- * practice has just one real booking; see eventStyle()'s own handling of
- * them as a slim, fixed sliver instead.
+ * found live via a real screenshot, unreadable ("orgy of colors") and, even
+ * after an earlier fix excluded cancelled/no-show events from this and drew
+ * them as a fixed corner sliver instead, still overlapping an active event
+ * behind it and blocking clicks ("нажать одно появляется другое" -- found
+ * live a second time). EVERY event now participates here, full stop, no
+ * status exceptions -- the only way to guarantee nothing ever visually
+ * blocks anything else. Standard greedy interval-partitioning (same idea
+ * Google Calendar's day view uses): events are swept in start-time order,
+ * each placed in the first column whose last event has already ended, a new
+ * column opened otherwise; once a contiguous overlapping cluster closes,
+ * every event in it gets the cluster's own final column count so they split
+ * that width evenly.
  */
 function computeSubColumns(events: CalendarEvent[]): Map<string, SubColumn> {
     const layout = new Map<string, SubColumn>();
-    const live = events
-        .filter((e) => ! hasStrikethrough(e.status))
-        .slice()
-        .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    const sorted = events.slice().sort((a, b) => a.starts_at.localeCompare(b.starts_at));
 
     let cluster: CalendarEvent[] = [];
     let clusterEnd: number | null = null;
@@ -126,7 +124,7 @@ function computeSubColumns(events: CalendarEvent[]): Map<string, SubColumn> {
         clusterEnd = null;
     };
 
-    for (const event of live) {
+    for (const event of sorted) {
         const start = new Date(event.starts_at).getTime();
 
         if (clusterEnd !== null && start >= clusterEnd) {
@@ -165,11 +163,6 @@ const subColumns = computed(() => {
 
 function eventStyle(event: CalendarEvent): Record<string, string> {
     const base = { gridRow: `${eventStartRow(event)} / ${eventEndRow(event)}`, gridColumn: String(resourceColumn(event.resource_id)) };
-
-    if (hasStrikethrough(event.status)) {
-        return { ...base, width: '30%', marginLeft: '0%', zIndex: '4' };
-    }
-
     const info = subColumns.value.get(event.id);
 
     if (! info || info.cols <= 1) {
