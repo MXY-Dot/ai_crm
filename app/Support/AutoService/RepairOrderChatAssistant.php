@@ -9,6 +9,7 @@ use App\Models\RepairOrder;
 use App\Models\Tenant;
 use App\Models\Vehicle;
 use App\Support\Ai\AiDecision;
+use App\Support\Chat\ChatButtons;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -310,11 +311,14 @@ class RepairOrderChatAssistant
 
         $lines = collect($offered)->map(fn (array $v, int $i): string => ($i + 1).') '.$v['make'].' '.$v['model'].' — '.$v['plate_number']);
         $text = 'У вас несколько автомобилей в системе, уточните, пожалуйста, о какой машине речь:'."\n".$lines->implode("\n");
+        $rawButtons = RepairOrderDisambiguationButtons::forVehicles($offered);
 
         return $this->withReply($decision, 'repair_disambiguate', $text, meta: [
             'flow' => 'repair_disambiguate_vehicle',
             'offered_vehicles' => $offered,
             'problem_description' => $problemDescription,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
         ]);
     }
 
@@ -328,8 +332,15 @@ class RepairOrderChatAssistant
 
         $lines = collect($offered)->map(fn (array $o, int $i): string => ($i + 1).') '.$o['label']);
         $text = $intro."\n".$lines->implode("\n");
+        $rawButtons = RepairOrderDisambiguationButtons::forOrders($offered);
 
-        return $this->withReply($decision, 'repair_disambiguate', $text, meta: ['flow' => 'repair_disambiguate_order', 'disambiguate_for' => $for, 'offered_orders' => $offered]);
+        return $this->withReply($decision, 'repair_disambiguate', $text, meta: [
+            'flow' => 'repair_disambiguate_order',
+            'disambiguate_for' => $for,
+            'offered_orders' => $offered,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     private function attemptCreate(Tenant $tenant, Company $company, Conversation $conversation, Vehicle $vehicle, string $problemDescription, AiDecision $decision): AiDecision

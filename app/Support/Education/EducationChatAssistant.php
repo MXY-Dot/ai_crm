@@ -176,7 +176,14 @@ class EducationChatAssistant
         $lines = collect($offered)->map(fn (array $e, int $i): string => ($i + 1).') '.$e['label']);
         $text = 'Уточните, пожалуйста, какую запись отменить:'."\n".$lines->implode("\n");
 
-        return $this->withReply($decision, 'education_disambiguate', $text, meta: ['flow' => 'education_disambiguate_enrollment', 'offered_enrollments' => $offered]);
+        $rawButtons = EducationOfferButtons::forExistingEnrollments($offered);
+
+        return $this->withReply($decision, 'education_disambiguate', $text, meta: [
+            'flow' => 'education_disambiguate_enrollment',
+            'offered_enrollments' => $offered,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     /** @param Collection<int, Course> $courses */

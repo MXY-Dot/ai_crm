@@ -17,4 +17,21 @@ class EducationOfferButtons
             'description' => $g['employee_name'],
         ])->values()->all();
     }
+
+    /**
+     * Same button treatment for EducationChatAssistant::startCancel()'s own
+     * "which of your existing enrollments do you mean" prompt -- a single
+     * pre-formatted label (course + teacher), not split fields, so title
+     * alone (truncated) is all there is to show.
+     *
+     * @param array<int, array{label:string}> $enrollments
+     * @return array<int, array{id:string, title:string}>
+     */
+    public static function forExistingEnrollments(array $enrollments): array
+    {
+        return collect($enrollments)->map(fn (array $e, int $i): array => [
+            'id' => (string) ($i + 1),
+            'title' => mb_strimwidth($e['label'], 0, 24, '…'),
+        ])->values()->all();
+    }
 }

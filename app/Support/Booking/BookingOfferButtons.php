@@ -33,4 +33,23 @@ class BookingOfferButtons
             'description' => $slot['employee_name'],
         ])->values()->all();
     }
+
+    /**
+     * Same button treatment for AiChatBookingAssistant::offerBookingsForDisambiguation()'s
+     * own "which of your existing bookings do you mean" prompt (cancel/reschedule/
+     * restore/explain-cancellation all share this one method) -- a different item
+     * shape from a freshly offered slot (this is the CUSTOMER's own booking, already
+     * has a service name attached), so its own small formatter.
+     *
+     * @param array<int, array{service_name:string, employee_name:string, starts_at:string}> $bookings
+     * @return array<int, array{id:string, title:string, description?:string}>
+     */
+    public static function forExistingBookings(array $bookings): array
+    {
+        return collect($bookings)->map(fn (array $booking, int $i): array => [
+            'id' => (string) ($i + 1),
+            'title' => Carbon::parse($booking['starts_at'])->format('d.m H:i'),
+            'description' => $booking['service_name'].' — '.$booking['employee_name'],
+        ])->values()->all();
+    }
 }

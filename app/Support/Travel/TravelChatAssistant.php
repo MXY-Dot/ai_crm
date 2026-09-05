@@ -177,7 +177,14 @@ class TravelChatAssistant
         $lines = collect($offered)->map(fn (array $b, int $i): string => ($i + 1).') '.$b['label']);
         $text = 'Уточните, пожалуйста, какую заявку отменить:'."\n".$lines->implode("\n");
 
-        return $this->withReply($decision, 'travel_disambiguate', $text, meta: ['flow' => 'travel_disambiguate_booking', 'offered_bookings' => $offered]);
+        $rawButtons = TravelOfferButtons::forExistingBookings($offered);
+
+        return $this->withReply($decision, 'travel_disambiguate', $text, meta: [
+            'flow' => 'travel_disambiguate_booking',
+            'offered_bookings' => $offered,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     /** @param Collection<int, Tour> $tours */

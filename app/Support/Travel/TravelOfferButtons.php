@@ -19,4 +19,20 @@ class TravelOfferButtons
             'description' => Currency::format($d['price'], $currencyCode).($d['seats_remaining'] !== null ? ', мест: '.$d['seats_remaining'] : ''),
         ])->values()->all();
     }
+
+    /**
+     * Same button treatment for TravelChatAssistant::startCancel()'s own
+     * "which of your existing bookings do you mean" prompt -- a single
+     * pre-formatted label (tour + date + pax), not split fields.
+     *
+     * @param array<int, array{label:string}> $bookings
+     * @return array<int, array{id:string, title:string}>
+     */
+    public static function forExistingBookings(array $bookings): array
+    {
+        return collect($bookings)->map(fn (array $b, int $i): array => [
+            'id' => (string) ($i + 1),
+            'title' => mb_strimwidth($b['label'], 0, 24, '…'),
+        ])->values()->all();
+    }
 }

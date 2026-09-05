@@ -486,8 +486,14 @@ class AiChatBookingAssistant
         $lines = collect($offered)->map(fn (array $booking, int $i): string => ($i + 1).') '.$booking['service_name'].' — '.$this->formatWhen($booking['starts_at']).' — '.$booking['employee_name']);
 
         $text = $intro."\n".$lines->implode("\n");
+        $rawButtons = BookingOfferButtons::forExistingBookings($offered);
 
-        return $this->withReply($decision, 'booking_disambiguate', $text, meta: ['flow' => $flow, 'offered_bookings' => $offered]);
+        return $this->withReply($decision, 'booking_disambiguate', $text, meta: [
+            'flow' => $flow,
+            'offered_bookings' => $offered,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     /** @param array{employee_id:int, employee_name:string, service_id:int, service_name:string, starts_at:string, ends_at:string} $slot */

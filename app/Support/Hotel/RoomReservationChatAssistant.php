@@ -351,8 +351,15 @@ class RoomReservationChatAssistant
         $lines = collect($offered)->map(fn (array $r, int $i): string => ($i + 1).') '.$r['resource_name'].' — '.$this->formatDateRange($r['starts_at'], $r['ends_at']).', гостей: '.$r['guests_count']);
 
         $text = $intro."\n".$lines->implode("\n");
+        $rawButtons = RoomReservationOfferButtons::forExistingReservations($offered);
 
-        return $this->withReply($decision, 'room_disambiguate', $text, meta: ['flow' => 'disambiguate_room', 'disambiguate_for' => $for, 'offered_reservations' => $offered]);
+        return $this->withReply($decision, 'room_disambiguate', $text, meta: [
+            'flow' => 'disambiguate_room',
+            'disambiguate_for' => $for,
+            'offered_reservations' => $offered,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     /** @param array{resource_id:int, resource_name:string, capacity:int|null, price_per_night:float, starts_at:string, ends_at:string, nights:int, total_amount:float} $room */

@@ -318,8 +318,15 @@ class TableReservationChatAssistant
         $lines = collect($offered)->map(fn (array $r, int $i): string => ($i + 1).') '.$r['resource_name'].' — '.$this->formatWhen($r['starts_at']).', гостей: '.$r['party_size']);
 
         $text = $intro."\n".$lines->implode("\n");
+        $rawButtons = TableReservationOfferButtons::forExistingReservations($offered);
 
-        return $this->withReply($decision, 'table_disambiguate', $text, meta: ['flow' => 'disambiguate', 'disambiguate_for' => $for, 'offered_reservations' => $offered]);
+        return $this->withReply($decision, 'table_disambiguate', $text, meta: [
+            'flow' => 'disambiguate',
+            'disambiguate_for' => $for,
+            'offered_reservations' => $offered,
+            'raw_buttons' => $rawButtons,
+            'buttons' => ChatButtons::forOffer($rawButtons),
+        ]);
     }
 
     /** @param array{resource_id:int, resource_name:string, capacity:int, starts_at:string, ends_at:string} $slot */
