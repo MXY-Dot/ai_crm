@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import CoursesPanel from '../components/dashboard/education/CoursesPanel.vue';
 import CourseGroupsPanel from '../components/dashboard/education/CourseGroupsPanel.vue';
+import ModuleHelpDialog from '../components/dashboard/help/ModuleHelpDialog.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
 
@@ -24,9 +25,12 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 <template>
     <section class="space-y-6">
-        <div>
-            <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('education.settingsTitle') }}</h2>
-            <p class="mt-1 text-sm ui-subtle">{{ locale.t('education.settingsSubtitle') }}</p>
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('education.settingsTitle') }}</h2>
+                <p class="mt-1 text-sm ui-subtle">{{ locale.t('education.settingsSubtitle') }}</p>
+            </div>
+            <ModuleHelpDialog module-key="courseScheduling" />
         </div>
 
         <Tabs v-if="ready" v-model="activeTab">

@@ -5,6 +5,7 @@ import { CalendarClock, Utensils, UtensilsCrossed } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import ModuleHelpDialog from '../components/dashboard/help/ModuleHelpDialog.vue';
 import ProductsPanel from '../components/dashboard/commerce/ProductsPanel.vue';
 import ResourcesPanel from '../components/dashboard/booking/ResourcesPanel.vue';
 import TableReservationsPanel from '../components/dashboard/booking/TableReservationsPanel.vue';
@@ -25,9 +26,12 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 <template>
     <section class="space-y-6">
-        <div>
-            <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('restaurant.settingsTitle') }}</h2>
-            <p class="mt-1 text-sm ui-subtle">{{ locale.t('restaurant.settingsSubtitle') }}</p>
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('restaurant.settingsTitle') }}</h2>
+                <p class="mt-1 text-sm ui-subtle">{{ locale.t('restaurant.settingsSubtitle') }}</p>
+            </div>
+            <ModuleHelpDialog module-key="tableReservations" />
         </div>
 
         <Tabs v-if="ready" v-model="activeTab">

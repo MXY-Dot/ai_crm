@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import BranchesPanel from '../components/dashboard/booking/BranchesPanel.vue';
 import CancellationPolicyPanel from '../components/dashboard/booking/CancellationPolicyPanel.vue';
 import EmployeesPanel from '../components/dashboard/booking/EmployeesPanel.vue';
+import ModuleHelpDialog from '../components/dashboard/help/ModuleHelpDialog.vue';
 import PaymentGatewaySettingsPanel from '../components/dashboard/booking/PaymentGatewaySettingsPanel.vue';
 import ResourcesPanel from '../components/dashboard/booking/ResourcesPanel.vue';
 import SalonReportsPanel from '../components/dashboard/booking/SalonReportsPanel.vue';
@@ -31,9 +32,12 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 <template>
     <section class="space-y-6">
-        <div>
-            <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('booking.settingsTitle') }}</h2>
-            <p class="mt-1 text-sm ui-subtle">{{ locale.t('booking.settingsSubtitle') }}</p>
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('booking.settingsTitle') }}</h2>
+                <p class="mt-1 text-sm ui-subtle">{{ locale.t('booking.settingsSubtitle') }}</p>
+            </div>
+            <ModuleHelpDialog module-key="booking" />
         </div>
 
         <Tabs v-if="ready" v-model="activeTab">

@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import AppLayout from '@/layouts/AppLayout.vue';
+import ModuleHelpDialog from '../components/dashboard/help/ModuleHelpDialog.vue';
 import ShipmentsPanel from '../components/dashboard/logistics/ShipmentsPanel.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
 import { useLocaleStore } from '../stores/locale';
@@ -19,9 +20,12 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 <template>
     <section class="space-y-6">
-        <div>
-            <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('logistics.settingsTitle') }}</h2>
-            <p class="mt-1 text-sm ui-subtle">{{ locale.t('logistics.settingsSubtitle') }}</p>
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('logistics.settingsTitle') }}</h2>
+                <p class="mt-1 text-sm ui-subtle">{{ locale.t('logistics.settingsSubtitle') }}</p>
+            </div>
+            <ModuleHelpDialog module-key="shipmentTracking" />
         </div>
 
         <ShipmentsPanel v-if="ready" :company-id="companyId as number" :tenant-slug="tenantSlug" />

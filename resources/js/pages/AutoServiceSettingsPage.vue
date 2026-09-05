@@ -5,6 +5,7 @@ import { Car, ClipboardList } from '@lucide/vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import ModuleHelpDialog from '../components/dashboard/help/ModuleHelpDialog.vue';
 import VehiclesPanel from '../components/dashboard/autoservice/VehiclesPanel.vue';
 import RepairOrdersPanel from '../components/dashboard/autoservice/RepairOrdersPanel.vue';
 import { useCrmDashboardStore } from '../stores/crmDashboard';
@@ -24,9 +25,12 @@ const tenantSlug = computed(() => tenant.value?.slug ?? '');
 
 <template>
     <section class="space-y-6">
-        <div>
-            <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('autoService.settingsTitle') }}</h2>
-            <p class="mt-1 text-sm ui-subtle">{{ locale.t('autoService.settingsSubtitle') }}</p>
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="font-display text-2xl font-bold ui-text">{{ locale.t('autoService.settingsTitle') }}</h2>
+                <p class="mt-1 text-sm ui-subtle">{{ locale.t('autoService.settingsSubtitle') }}</p>
+            </div>
+            <ModuleHelpDialog module-key="vehicleService" />
         </div>
 
         <Tabs v-if="ready" v-model="activeTab">
